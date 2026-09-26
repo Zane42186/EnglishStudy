@@ -1,0 +1,5 @@
+# WorkBuddy 工作区（构建缓存、技能、会话记忆）
+.workbuddy/
+
+# 打包产物
+*.zip
