@@ -1,0 +1,113 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>第 2 课</title><style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px; background: #f7f7f5; color: #2c2c2a;
+  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 15px; line-height: 1.7; }
+.wrap { max-width: 900px; margin: 0 auto; }
+h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+h2 { font-size: 16px; font-weight: 600; margin: 24px 0 8px; }
+h3 { font-size: 15px; font-weight: 600; margin: 0; }
+h4 { font-size: 13px; font-weight: 600; color: #6b6b66; margin: 14px 0 4px; }
+.sub { color: #6b6b66; font-size: 13px; margin: 0 0 16px; }
+.stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.stat { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 14px; min-width: 110px; }
+.stat b { display: block; font-size: 18px; font-weight: 600; }
+.stat span { color: #6b6b66; font-size: 12px; }
+nav { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+nav button { background: #fff; border: 1px solid #d9d8d2; border-radius: 8px; padding: 6px 14px;
+  font-size: 14px; cursor: pointer; color: #2c2c2a; }
+nav button.on { background: #2c2c2a; color: #fff; border-color: #2c2c2a; }
+#q { width: 100%; padding: 8px 12px; border: 1px solid #d9d8d2; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
+.card { background: #fff; border: 1px solid #e3e2dc; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+.card .meta { color: #6b6b66; font-size: 12px; margin: 4px 0 8px; }
+.sum { color: #3d3d38; margin: 4px 0 8px; font-size: 14px; }
+a.btn { display: inline-block; background: #eef4fb; border: 1px solid #c9dcef; color: #185fa5;
+  border-radius: 8px; padding: 4px 12px; font-size: 13px; text-decoration: none; }
+a.btn:hover { background: #e0ecfa; }
+a.plain { color: #185fa5; }
+details summary { cursor: pointer; color: #185fa5; font-size: 14px; }
+details { margin-top: 8px; }
+table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 14px; }
+th, td { border: 1px solid #e3e2dc; padding: 6px 8px; text-align: left; }
+th { background: #f1efe8; font-weight: 600; }
+blockquote { margin: 0; padding-left: 10px; border-left: 3px solid #d9d8d2; color: #4a4a45; }
+.en { margin: 0 0 2px; }
+.zh { margin: 0 0 12px; color: #4a4a45; }
+.zh[hidden] { display: none; }
+button.zhbtn { background: #eef4fb; border: 1px solid #c9dcef; border-radius: 6px; padding: 2px 10px;
+  font-size: 12px; cursor: pointer; color: #185fa5; margin-bottom: 8px; }
+.words { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.wcard { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+.wcard .w { font-weight: 600; }
+.wcard .p { color: #6b6b66; font-size: 12px; }
+.wcard .c, .wcard .e { display: none; font-size: 13px; margin-top: 4px; }
+.wcard.show .c, .wcard.show .e { display: block; }
+.wcard .e { color: #4a4a45; }
+.hide { display: none; }
+footer { color: #88877f; font-size: 12px; margin: 24px 0; }
+</style></head><body><div class="wrap"><h1>第 2 课</h1>
+<p class="sub">学会 be 动词 am / is / are，能说清楚「是谁、是什么样」</p>
+<p><a class="plain" href="../index.html">← 返回看板</a></p>
+<h4>复习</h4>
+<ol><li>第 1 课主谓宾语序（翻译：Tom 踢足球）：作答 Tom play soccer。语法错误——主语 Tom 是第三人称单数，动词要加 -s。正确句：Tom plays soccer.（soccer 是美式说法，等于 football，可以不改）</li><li>错词 watch / see（翻译：我们看电影）：正确。We watch a movie. 用 a movie 也对，可数名词不再裸用。</li><li>错词 ask（改错 I need to ask for my teacher）：正确。I need to ask my teacher for help.</li><li>错词 TV 大小写（改错 I watch Tv every day）：正确。I watch TV every day.</li></ol>
+<h4>今日语法</h4>
+<p>表示「是 / 在 / 状态」要用 <strong>be 动词</strong>，它跟着主语变：</p>
+<ul><li><strong>I → am</strong>：I am a student.（我是学生。）</li><li><strong>he / she / it / 单个人名 → is</strong>：He is my teacher. ／ Tom is tall.</li><li><strong>you / we / they / 复数 → are</strong>：You are my friend. ／ We are busy.</li></ul>
+<p>口诀：<strong>I 用 am，you 用 are，is 跟着他她它，复数全部都用 are。</strong></p>
+<p>两个马上要用到的变化：</p>
+<ul><li>否定：在 am / is / are 后面加 <strong>not</strong> → I am not busy. ／ He is not tall.（is not 常写成 isn't）</li><li>提问：把 am / is / are <strong>提到主语前面</strong> → Are you busy? ／ Is he your teacher?</li></ul>
+<p>注意：主语必须是人称代词或名词，不能省——「是老师」不能说 Is teacher，要说 <strong>He is a teacher.</strong></p>
+<h4>词汇</h4>
+<table><thead><tr><th>单词</th><th>音标</th><th>中文</th><th>例句</th></tr></thead><tbody><tr><td>student</td><td>/ˈstuːdnt/</td><td>学生</td><td>I am a student.</td></tr><tr><td>teacher</td><td>/ˈtiːtʃər/</td><td>老师</td><td>She is my teacher.</td></tr><tr><td>friend</td><td>/frend/</td><td>朋友</td><td>He is my friend.</td></tr><tr><td>busy</td><td>/ˈbɪzi/</td><td>忙的</td><td>I am busy today.</td></tr><tr><td>tired</td><td>/ˈtaɪərd/</td><td>累的</td><td>We are tired.</td></tr><tr><td>happy</td><td>/ˈhæpi/</td><td>开心的</td><td>They are happy.</td></tr><tr><td>tall</td><td>/tɔːl/</td><td>高的</td><td>Tom is tall.</td></tr></tbody></table>
+<h4>例句</h4>
+<ol><li>I am a student.</li><li>He is my teacher.</li><li>They are friends.</li><li>I am busy.</li><li>She is happy.</li></ol>
+<h4>作业</h4>
+<ol><li>选词填空：They ___ friends.（am / is / are）</li></ol>
+<details><summary>看答案</summary>are</details>
+
+2. 翻译：他很忙。
+<details><summary>看答案</summary>He is busy.</details>
+
+3. 改错：I is a student.
+<details><summary>看答案</summary>I am a student.</details>
+
+4. 开放题：写 4—5 句介绍你自己和你的一个朋友，至少用到 am / is / are 各一次，尽量用上 student / teacher / friend / busy / tired / happy / tall。不要用翻译软件。
+
+<h4>我的作答</h4>
+<ol><li>are</li><li>He is busy</li><li>I'm a student</li><li>My name is zane.I am a student now,liked my English teacher Amy.She is a kind teacher.But she always is busy.</li></ol>
+<h4>批改</h4>
+<ol><li>正确。They 是复数，用 are。完整写法：They are friends.</li><li>正确。他很忙 = He is busy. 句尾补句号。</li><li>正确。I'm 是 I am 的缩写，口语和书面都能用。</li><li>四处错误。</li></ol>
+<ul><li>拼写：zane 是人名，首字母要大写 → Zane。</li><li>标点：My name is zane.I am 缺空格，句号后必须空一格。（这是第二次犯，之前是 work.So）</li><li>语法：now,liked my English teacher Amy 有两个问题——① 逗号不能连接两个完整句子，要用句号断开，或者加 and；② liked 是过去式，「现在喜欢」要用动词原形 like。正确句：I am a student now, and I like my English teacher, Amy.（Amy 前后加逗号，表示「也就是 Amy」）</li><li>语法（词序）：she always is busy → 频度副词 always 要放在 be 动词后面：But she is always busy.</li><li>任务完成度：am / is 都用了，are 没用到，也没介绍朋友。补一句就齐了：We are good friends.</li></ul>
+<p>完整改后版：My name is Zane. I am a student now, and I like my English teacher, Amy. She is a kind teacher, but she is always busy.</p>
+<h4>难度反馈</h4>
+<p>太简单</p>
+<blockquote>备注：用户原话「相对简单」。连续第二次反馈偏向简单，但本轮作业仍有 4 处错误，其中「句号后缺空格」是重复犯的第 2 次——准确度不达标，暂缓升级，第 3 课继续 Level 1，并把书写规范（句首大写 / 句号后空格 / 人名大写 / 逗号不能连接两个句子）作为每课开场固定检查项。</blockquote></div><script>
+var tabs = document.querySelectorAll('nav button');
+tabs.forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    tabs.forEach(function (b) { b.classList.remove('on'); });
+    btn.classList.add('on');
+    document.querySelectorAll('main section').forEach(function (s) { s.classList.add('hide'); });
+    document.getElementById('tab-' + btn.dataset.tab).classList.remove('hide');
+  });
+});
+document.querySelectorAll('.zhbtn').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var zh = b.nextElementSibling;
+    if (zh.hasAttribute('hidden')) { zh.removeAttribute('hidden'); b.textContent = '收起中文'; }
+    else { zh.setAttribute('hidden', ''); b.textContent = '看中文'; }
+  });
+});
+document.querySelectorAll('.wcard').forEach(function (c) {
+  c.addEventListener('click', function () { c.classList.toggle('show'); });
+});
+var q = document.getElementById('q');
+if (q) {
+  q.addEventListener('input', function () {
+    var v = q.value.trim().toLowerCase();
+    document.querySelectorAll('.lesson').forEach(function (card) {
+      card.classList.toggle('hide', v !== '' && card.dataset.text.indexOf(v) === -1);
+    });
+  });
+}
+</script></body></html>

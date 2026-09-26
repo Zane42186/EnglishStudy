@@ -1,8 +1,4 @@
-<!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>英语复习看板</title>
-<style>
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>英语复习看板</title><style>
 :root { color-scheme: light; }
 * { box-sizing: border-box; }
 body { margin: 0; padding: 24px; background: #f7f7f5; color: #2c2c2a;
@@ -11,6 +7,7 @@ body { margin: 0; padding: 24px; background: #f7f7f5; color: #2c2c2a;
 h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
 h2 { font-size: 16px; font-weight: 600; margin: 24px 0 8px; }
 h3 { font-size: 15px; font-weight: 600; margin: 0; }
+h4 { font-size: 13px; font-weight: 600; color: #6b6b66; margin: 14px 0 4px; }
 .sub { color: #6b6b66; font-size: 13px; margin: 0 0 16px; }
 .stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
 .stat { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 14px; min-width: 110px; }
@@ -23,10 +20,13 @@ nav button.on { background: #2c2c2a; color: #fff; border-color: #2c2c2a; }
 #q { width: 100%; padding: 8px 12px; border: 1px solid #d9d8d2; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
 .card { background: #fff; border: 1px solid #e3e2dc; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
 .card .meta { color: #6b6b66; font-size: 12px; margin: 4px 0 8px; }
-.sum { color: #4a4a45; margin: 4px 0 0; font-size: 14px; }
+.sum { color: #3d3d38; margin: 4px 0 8px; font-size: 14px; }
+a.btn { display: inline-block; background: #eef4fb; border: 1px solid #c9dcef; color: #185fa5;
+  border-radius: 8px; padding: 4px 12px; font-size: 13px; text-decoration: none; }
+a.btn:hover { background: #e0ecfa; }
+a.plain { color: #185fa5; }
 details summary { cursor: pointer; color: #185fa5; font-size: 14px; }
 details { margin-top: 8px; }
-h4 { font-size: 13px; font-weight: 600; color: #6b6b66; margin: 14px 0 4px; }
 table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 14px; }
 th, td { border: 1px solid #e3e2dc; padding: 6px 8px; text-align: left; }
 th { background: #f1efe8; font-weight: 600; }
@@ -45,15 +45,14 @@ button.zhbtn { background: #eef4fb; border: 1px solid #c9dcef; border-radius: 6p
 .wcard .e { color: #4a4a45; }
 .hide { display: none; }
 footer { color: #88877f; font-size: 12px; margin: 24px 0; }
-</style></head><body><div class="wrap">
-<h1>英语复习看板</h1>
-<p class="sub">由 build_board.py 从 notes 目录自动生成，共 1 课。手工修改会被下次重建覆盖。</p>
+</style></head><body><div class="wrap"><h1>英语复习看板</h1>
+<p class="sub">由 build_board.py 自动生成，共 2 课。这里只放总结，全文在各课详情页。</p>
 <div class="stats">
-<div class="stat"><b>1</b><span>已上课数</span></div>
-<div class="stat"><b>Level 1（暂不升级：第 1 课仍有 3 处错误，准确度优先）</b><span>当前级别</span></div>
-<div class="stat"><b>8</b><span>累计生词</span></div>
-<div class="stat"><b>1</b><span>阅读篇数</span></div>
-<div class="stat"><b>3</b><span>未过关错词</span></div>
+<div class="stat"><b>2</b><span>已上课数</span></div>
+<div class="stat"><b>Level 1（第二次「偏简单」反馈，但作业准确度仍不达标，按准确度优先冻结升级：连续错误集中在书写规范与基础句法）</b><span>当前级别</span></div>
+<div class="stat"><b>15</b><span>累计生词</span></div>
+<div class="stat"><b>2</b><span>阅读篇数</span></div>
+<div class="stat"><b>7</b><span>未过关错词</span></div>
 </div>
 <nav><button class="on" data-tab="lessons">课程</button>
 <button data-tab="reading">阅读</button>
@@ -61,51 +60,26 @@ footer { color: #88877f; font-size: 12px; margin: 24px 0; }
 <button data-tab="wrong">错词本</button></nav>
 <main>
 <section id="tab-lessons">
-<input id="q" placeholder="搜索课程内容，输入关键词即时过滤">
-<article class="card lesson" data-text="学会「主语 + 谓语 + 宾语」的语序，能写出 i like music 这类最简单的句子  首次上课，无复习内容。   英语最基本的句子顺序是：**主语 + 谓语 + 宾语**。  - 主语：做这件事的人或物（i / you / we / they / tom） - 谓语：这个动作本身，一定是动词（like / study / work / need） - 宾语：动作落在谁身上、落在什么东西上（music / english / help）  中文说「我 喜欢 音乐」，英文顺序完全一样：i like music.  顺序不能改。写成 like i music 或 i music like 都是错的。  如果这个动作后面没有对象，也可以不要宾语，比如 i work.（我上班 / 我干活。）  预告：当主语是 he / she / tom 这种「他 / 她 / 某个人」时，动词要加一个小尾巴 -s（she studies english），第 4 课专门练这一点。   | 单词 | 音标 | 中文 | 例句 | |---|---|---|---| | like | /laɪk/ | 喜欢 | i like music. | | study | /ˈstʌdi/ | 学习 | i study english. | | work | /wɜːrk/ | 工作；干活 | i work in a small company. | | need | /niːd/ | 需要 | we need help. | | play | /pleɪ/ | 玩；踢（球） | they play football. | | watch | /wɑːtʃ/ | 看（电视、电影） | we watch movies. | | english | /ˈɪŋɡlɪʃ/ | 英语 | she studies english. | | music | /ˈmjuːzɪk/ | 音乐 | i like music. |   1. i like music. 2. she studies english. 3. tom plays football. 4. they watch movies. 5. we need help.   级别：level 1 来源：自编 标题：my day  i like music. i study english every day. &gt; 我喜欢音乐。我每天学英语。  i work in a small company. i play games after work. &gt; 我在一家小公司上班。下班后我打游戏。  i need help with my english. &gt; 我的英语需要有人帮我。  生词注释：every day 每天 / company 公司 / after work 下班后 / play games 打游戏 / with 在……方面  理解题： 1. what does the writer study every day? &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;english.&lt;/details&gt;  2. what does the writer do after work? &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;he plays games.&lt;/details&gt;   1. 把下面的词排成一句话：need / help / we &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;we need help.&lt;/details&gt;  2. 翻译：我们看电影。 &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;we watch movies.&lt;/details&gt;  3. 找出宾语：they play football. —— 宾语是哪个词？ &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;football&lt;/details&gt;  4. 开放题：用 like / study / work / need 四个词各造一个句子，不要照抄例句，最好连成 5 句左右、介绍你自己的一天。不要用翻译软件。   1. we need help 2. we see movie 3. football是宾语 4. i like studying english after work.so i need to ask for my teacher mr.aimi  补充练习（第 2 题同类型）：翻译「我看电视。」作答：i watch tv   1. 正确。need / help / we 排成 we need help，主语 we + 谓语 need + 宾语 help，语序对。句子开头首字母大写、句末加句号写成 we need help. 更规范。 2. 两处错误。用词：中文的「看」在电视、电影这类「看节目」的场景里要用 watch，不是 see。语法：movie 是可数名词，单数不能单独使用，要写成 a movie 或复数 movies。正确句：we watch movies.（或 we watch a movie.） 3. 正确。they play football 里 football 是动作 play 的对象，是宾语。 4. 三处错误。用词：ask for 是「要某个东西 / 要求见某人」，「向老师请教」要说 ask my teacher（要加"干什么"时说 ask my teacher for help）。标点：work.so 缺空格，句号后要空一格再写下一个词；mr.aimi 同样缺空格，写成 mr. amy。另外 work 只出现在 after work 这个搭配里，没有单独用动词 work 造句子，下次补上。正确句：i like studying english after work, so i need to ask my teacher, mr. amy, for help. 简单版：i like studying english after work, so i need to ask my teacher.  补充练习批改：拼写错误。tv 是缩写词，两个字母都要大写。正确句：i watch tv.   太简单  &gt; 备注：用户原话「感觉挺简单 但是还是有出现错误」——本次仍有 3 处错误（see/watch、ask for、tv 大小写），准确度未达标，暂不升级，第 2 课继续 level 1。">
+<input id="q" placeholder="搜索课程总结，输入关键词即时过滤">
+<article class="card lesson" data-text="学会 be 动词 am / is / are，能说清楚「是谁、是什么样」  1. 第 1 课主谓宾语序（翻译：tom 踢足球）：作答 tom play soccer。语法错误——主语 tom 是第三人称单数，动词要加 -s。正确句：tom plays soccer.（soccer 是美式说法，等于 football，可以不改） 2. 错词 watch / see（翻译：我们看电影）：正确。we watch a movie. 用 a movie 也对，可数名词不再裸用。 3. 错词 ask（改错 i need to ask for my teacher）：正确。i need to ask my teacher for help. 4. 错词 tv 大小写（改错 i watch tv every day）：正确。i watch tv every day.   表示「是 / 在 / 状态」要用 **be 动词**，它跟着主语变：  - **i → am**：i am a student.（我是学生。） - **he / she / it / 单个人名 → is**：he is my teacher. ／ tom is tall. - **you / we / they / 复数 → are**：you are my friend. ／ we are busy.  口诀：**i 用 am，you 用 are，is 跟着他她它，复数全部都用 are。**  两个马上要用到的变化：  - 否定：在 am / is / are 后面加 **not** → i am not busy. ／ he is not tall.（is not 常写成 isn't） - 提问：把 am / is / are **提到主语前面** → are you busy? ／ is he your teacher?  注意：主语必须是人称代词或名词，不能省——「是老师」不能说 is teacher，要说 **he is a teacher.**   | 单词 | 音标 | 中文 | 例句 | |---|---|---|---| | student | /ˈstuːdnt/ | 学生 | i am a student. | | teacher | /ˈtiːtʃər/ | 老师 | she is my teacher. | | friend | /frend/ | 朋友 | he is my friend. | | busy | /ˈbɪzi/ | 忙的 | i am busy today. | | tired | /ˈtaɪərd/ | 累的 | we are tired. | | happy | /ˈhæpi/ | 开心的 | they are happy. | | tall | /tɔːl/ | 高的 | tom is tall. |   1. i am a student. 2. he is my teacher. 3. they are friends. 4. i am busy. 5. she is happy.   1. 选词填空：they ___ friends.（am / is / are） &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;are&lt;/details&gt;  2. 翻译：他很忙。 &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;he is busy.&lt;/details&gt;  3. 改错：i is a student. &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;i am a student.&lt;/details&gt;  4. 开放题：写 4—5 句介绍你自己和你的一个朋友，至少用到 am / is / are 各一次，尽量用上 student / teacher / friend / busy / tired / happy / tall。不要用翻译软件。   1. are 2. he is busy 3. i'm a student 4. my name is zane.i am a student now,liked my english teacher amy.she is a kind teacher.but she always is busy.   1. 正确。they 是复数，用 are。完整写法：they are friends. 2. 正确。他很忙 = he is busy. 句尾补句号。 3. 正确。i'm 是 i am 的缩写，口语和书面都能用。 4. 四处错误。    - 拼写：zane 是人名，首字母要大写 → zane。    - 标点：my name is zane.i am 缺空格，句号后必须空一格。（这是第二次犯，之前是 work.so）    - 语法：now,liked my english teacher amy 有两个问题——① 逗号不能连接两个完整句子，要用句号断开，或者加 and；② liked 是过去式，「现在喜欢」要用动词原形 like。正确句：i am a student now, and i like my english teacher, amy.（amy 前后加逗号，表示「也就是 amy」）    - 语法（词序）：she always is busy → 频度副词 always 要放在 be 动词后面：but she is always busy.    - 任务完成度：am / is 都用了，are 没用到，也没介绍朋友。补一句就齐了：we are good friends.     完整改后版：my name is zane. i am a student now, and i like my english teacher, amy. she is a kind teacher, but she is always busy.   太简单  &gt; 备注：用户原话「相对简单」。连续第二次反馈偏向简单，但本轮作业仍有 4 处错误，其中「句号后缺空格」是重复犯的第 2 次——准确度不达标，暂缓升级，第 3 课继续 level 1，并把书写规范（句首大写 / 句号后空格 / 人名大写 / 逗号不能连接两个句子）作为每课开场固定检查项。">
+<h3>第 2 课</h3>
+<p class="sum">学会 be 动词 am / is / are，能说清楚「是谁、是什么样」</p>
+<p class="meta">生词 7 个 ｜ 作业 7 项</p>
+<a class="btn" href="lessons/lesson-2.html">查看全文</a>
+</article>
+<article class="card lesson" data-text="学会「主语 + 谓语 + 宾语」的语序，能写出 i like music 这类最简单的句子  首次上课，无复习内容。   英语最基本的句子顺序是：**主语 + 谓语 + 宾语**。  - 主语：做这件事的人或物（i / you / we / they / tom） - 谓语：这个动作本身，一定是动词（like / study / work / need） - 宾语：动作落在谁身上、落在什么东西上（music / english / help）  中文说「我 喜欢 音乐」，英文顺序完全一样：i like music.  顺序不能改。写成 like i music 或 i music like 都是错的。  如果这个动作后面没有对象，也可以不要宾语，比如 i work.（我上班 / 我干活。）  预告：当主语是 he / she / tom 这种「他 / 她 / 某个人」时，动词要加一个小尾巴 -s（she studies english），第 4 课专门练这一点。   | 单词 | 音标 | 中文 | 例句 | |---|---|---|---| | like | /laɪk/ | 喜欢 | i like music. | | study | /ˈstʌdi/ | 学习 | i study english. | | work | /wɜːrk/ | 工作；干活 | i work in a small company. | | need | /niːd/ | 需要 | we need help. | | play | /pleɪ/ | 玩；踢（球） | they play football. | | watch | /wɑːtʃ/ | 看（电视、电影） | we watch movies. | | english | /ˈɪŋɡlɪʃ/ | 英语 | she studies english. | | music | /ˈmjuːzɪk/ | 音乐 | i like music. |   1. i like music. 2. she studies english. 3. tom plays football. 4. they watch movies. 5. we need help.   1. 把下面的词排成一句话：need / help / we &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;we need help.&lt;/details&gt;  2. 翻译：我们看电影。 &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;we watch movies.&lt;/details&gt;  3. 找出宾语：they play football. —— 宾语是哪个词？ &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;football&lt;/details&gt;  4. 开放题：用 like / study / work / need 四个词各造一个句子，不要照抄例句，最好连成 5 句左右、介绍你自己的一天。不要用翻译软件。   1. we need help 2. we see movie 3. football是宾语 4. i like studying english after work.so i need to ask for my teacher mr.aimi  补充练习（第 2 题同类型）：翻译「我看电视。」作答：i watch tv   1. 正确。need / help / we 排成 we need help，主语 we + 谓语 need + 宾语 help，语序对。句子开头首字母大写、句末加句号写成 we need help. 更规范。 2. 两处错误。用词：中文的「看」在电视、电影这类「看节目」的场景里要用 watch，不是 see。语法：movie 是可数名词，单数不能单独使用，要写成 a movie 或复数 movies。正确句：we watch movies.（或 we watch a movie.） 3. 正确。they play football 里 football 是动作 play 的对象，是宾语。 4. 三处错误。用词：ask for 是「要某个东西 / 要求见某人」，「向老师请教」要说 ask my teacher（要加"干什么"时说 ask my teacher for help）。标点：work.so 缺空格，句号后要空一格再写下一个词；mr.aimi 同样缺空格，写成 mr. amy。另外 work 只出现在 after work 这个搭配里，没有单独用动词 work 造句子，下次补上。正确句：i like studying english after work, so i need to ask my teacher, mr. amy, for help. 简单版：i like studying english after work, so i need to ask my teacher.  补充练习批改：拼写错误。tv 是缩写词，两个字母都要大写。正确句：i watch tv.   太简单  &gt; 备注：用户原话「感觉挺简单 但是还是有出现错误」——本次仍有 3 处错误（see/watch、ask for、tv 大小写），准确度未达标，暂不升级，第 2 课继续 level 1。  --- ">
 <h3>第 1 课 · 2026-09-26</h3>
 <p class="sum">学会「主语 + 谓语 + 宾语」的语序，能写出 I like music 这类最简单的句子</p>
-<details><summary>展开本课内容</summary>
-<h4>复习</h4>
-<p>首次上课，无复习内容。</p>
-<h4>今日语法</h4>
-<p>英语最基本的句子顺序是：<strong>主语 + 谓语 + 宾语</strong>。</p>
-<ul><li>主语：做这件事的人或物（I / you / we / they / Tom）</li><li>谓语：这个动作本身，一定是动词（like / study / work / need）</li><li>宾语：动作落在谁身上、落在什么东西上（music / English / help）</li></ul>
-<p>中文说「我 喜欢 音乐」，英文顺序完全一样：I like music.</p>
-<p>顺序不能改。写成 Like I music 或 I music like 都是错的。</p>
-<p>如果这个动作后面没有对象，也可以不要宾语，比如 I work.（我上班 / 我干活。）</p>
-<p>预告：当主语是 he / she / Tom 这种「他 / 她 / 某个人」时，动词要加一个小尾巴 -s（She studies English），第 4 课专门练这一点。</p>
-<h4>例句</h4>
-<ol><li>I like music.</li><li>She studies English.</li><li>Tom plays football.</li><li>They watch movies.</li><li>We need help.</li></ol>
-<h4>作业</h4>
-<ol><li>把下面的词排成一句话：need / help / we</li></ol>
-<details><summary>看答案</summary>We need help.</details>
-
-2. 翻译：我们看电影。
-<details><summary>看答案</summary>We watch movies.</details>
-
-3. 找出宾语：They play football. —— 宾语是哪个词？
-<details><summary>看答案</summary>football</details>
-
-4. 开放题：用 like / study / work / need 四个词各造一个句子，不要照抄例句，最好连成 5 句左右、介绍你自己的一天。不要用翻译软件。
-
-<h4>我的作答</h4>
-<ol><li>We need help</li><li>We see movie</li><li>football是宾语</li><li>I like studying English after work.So I need to ask for my teacher Mr.Aimi</li></ol>
-<p>补充练习（第 2 题同类型）：翻译「我看电视。」作答：I watch Tv</p>
-<h4>批改</h4>
-<ol><li>正确。need / help / we 排成 We need help，主语 we + 谓语 need + 宾语 help，语序对。句子开头首字母大写、句末加句号写成 We need help. 更规范。</li><li>两处错误。用词：中文的「看」在电视、电影这类「看节目」的场景里要用 watch，不是 see。语法：movie 是可数名词，单数不能单独使用，要写成 a movie 或复数 movies。正确句：We watch movies.（或 We watch a movie.）</li><li>正确。They play football 里 football 是动作 play 的对象，是宾语。</li><li>三处错误。用词：ask for 是「要某个东西 / 要求见某人」，「向老师请教」要说 ask my teacher（要加"干什么"时说 ask my teacher for help）。标点：work.So 缺空格，句号后要空一格再写下一个词；Mr.Aimi 同样缺空格，写成 Mr. Amy。另外 work 只出现在 after work 这个搭配里，没有单独用动词 work 造句子，下次补上。正确句：I like studying English after work, so I need to ask my teacher, Mr. Amy, for help. 简单版：I like studying English after work, so I need to ask my teacher.</li></ol>
-<p>补充练习批改：拼写错误。TV 是缩写词，两个字母都要大写。正确句：I watch TV.</p>
-<h4>难度反馈</h4>
-<p>太简单</p>
-<blockquote>备注：用户原话「感觉挺简单 但是还是有出现错误」——本次仍有 3 处错误（see/watch、ask for、TV 大小写），准确度未达标，暂不升级，第 2 课继续 Level 1。</blockquote>
-<h4>词汇</h4>
-<table><thead><tr><th>单词</th><th>音标</th><th>中文</th><th>例句</th></tr></thead><tbody><tr><td>like</td><td>/laɪk/</td><td>喜欢</td><td>I like music.</td></tr><tr><td>study</td><td>/ˈstʌdi/</td><td>学习</td><td>I study English.</td></tr><tr><td>work</td><td>/wɜːrk/</td><td>工作；干活</td><td>I work in a small company.</td></tr><tr><td>need</td><td>/niːd/</td><td>需要</td><td>We need help.</td></tr><tr><td>play</td><td>/pleɪ/</td><td>玩；踢（球）</td><td>They play football.</td></tr><tr><td>watch</td><td>/wɑːtʃ/</td><td>看（电视、电影）</td><td>We watch movies.</td></tr><tr><td>English</td><td>/ˈɪŋɡlɪʃ/</td><td>英语</td><td>She studies English.</td></tr><tr><td>music</td><td>/ˈmjuːzɪk/</td><td>音乐</td><td>I like music.</td></tr></tbody></table>
-</details></article>
+<p class="meta">生词 8 个 ｜ 作业 7 项</p>
+<a class="btn" href="lessons/lesson-1.html">查看全文</a>
+</article>
 </section>
 <section id="tab-reading" class="hide">
-<h2>今日阅读</h2>
+<h2>阅读</h2>
 <article class="card">
-<h3>第 1 课 · My Day</h3>
+<h3>2026-09-26（2 篇）</h3>
+<p class="meta">read\2026-09-26-read.md</p>
+<h4>第 1 篇 · My Day</h4>
 <p class="meta">级别：Level 1 ｜ 来源：自编</p>
 <p class="en">I like music. I study English every day.</p>
 <button class="zhbtn">看中文</button>
@@ -116,17 +90,43 @@ footer { color: #88877f; font-size: 12px; margin: 24px 0; }
 <p class="en">I need help with my English.</p>
 <button class="zhbtn">看中文</button>
 <p class="zh" hidden>我的英语需要有人帮我。</p>
-<h4>生词注释</h4><p>every day 每天 / company 公司 / after work 下班后 / play games 打游戏 / with 在……方面</p>
+<h4>生词注释</h4>
+<p>every day 每天 / company 公司 / after work 下班后 / play games 打游戏 / with 在……方面</p>
 <h4>理解题</h4>
 <ol><li>What does the writer study every day?</li></ol>
 <details><summary>看答案</summary>English.</details>
 2. What does the writer do after work?
 <details><summary>看答案</summary>He plays games.</details>
+<h4>第 2 篇 · My Teacher and I</h4>
+<p class="meta">级别：Level 1 ｜ 来源：自编</p>
+<p class="en">I am a student. I study English every day.</p>
+<button class="zhbtn">看中文</button>
+<p class="zh" hidden>我是学生。我每天学英语。</p>
+<p class="en">My teacher is Amy. She is kind and patient.</p>
+<button class="zhbtn">看中文</button>
+<p class="zh" hidden>我的老师是 Amy。她又和蔼又有耐心。</p>
+<p class="en">We are busy after work. I am tired, but I am happy.</p>
+<button class="zhbtn">看中文</button>
+<p class="zh" hidden>我们下班后很忙。我很累，但我很开心。</p>
+<h4>生词注释</h4>
+<p>kind 和蔼的 / patient 有耐心的 / but 但是 / every day 每天 / after work 下班后</p>
+<h4>理解题</h4>
+<ol><li>What is Amy like?</li></ol>
+<details><summary>看答案</summary>She is kind and patient.</details>
+2. Is the writer happy?
+<details><summary>看答案</summary>Yes, he is tired but happy.</details>
 </article>
 </section>
 <section id="tab-words" class="hide">
 <h2>词汇卡（点击翻中文）</h2>
 <div class="words">
+<div class="wcard"><div class="w">tall</div><div class="p">/tɔːl/</div><div class="c">高的</div><div class="e">Tom is tall.</div></div>
+<div class="wcard"><div class="w">happy</div><div class="p">/ˈhæpi/</div><div class="c">开心的</div><div class="e">They are happy.</div></div>
+<div class="wcard"><div class="w">tired</div><div class="p">/ˈtaɪərd/</div><div class="c">累的</div><div class="e">We are tired.</div></div>
+<div class="wcard"><div class="w">busy</div><div class="p">/ˈbɪzi/</div><div class="c">忙的</div><div class="e">I am busy today.</div></div>
+<div class="wcard"><div class="w">friend</div><div class="p">/frend/</div><div class="c">朋友</div><div class="e">He is my friend.</div></div>
+<div class="wcard"><div class="w">teacher</div><div class="p">/ˈtiːtʃər/</div><div class="c">老师</div><div class="e">She is my teacher.</div></div>
+<div class="wcard"><div class="w">student</div><div class="p">/ˈstuːdnt/</div><div class="c">学生</div><div class="e">I am a student.</div></div>
 <div class="wcard"><div class="w">music</div><div class="p">/ˈmjuːzɪk/</div><div class="c">音乐</div><div class="e">I like music.</div></div>
 <div class="wcard"><div class="w">English</div><div class="p">/ˈɪŋɡlɪʃ/</div><div class="c">英语</div><div class="e">She studies English.</div></div>
 <div class="wcard"><div class="w">watch</div><div class="p">/wɑːtʃ/</div><div class="c">看（电视、电影）</div><div class="e">We watch movies.</div></div>
@@ -139,14 +139,17 @@ footer { color: #88877f; font-size: 12px; margin: 24px 0; }
 <section id="tab-wrong" class="hide">
 <h2>错词本</h2>
 <table><thead><tr><th>课号</th><th>错误点</th><th>正确形式</th><th>错因</th><th>连续答对</th><th>状态</th></tr></thead><tbody>
-<tr><td>1</td><td>We see movie</td><td>We watch movies</td><td>「看电视/电影」用 watch 不用 see；movie 是可数名词，单数不能裸用</td><td>0</td><td>未过关</td></tr>
-<tr><td>1</td><td>ask for my teacher</td><td>ask my teacher for help</td><td>ask for 表示「要某物」，向人请教要说 ask sb (for help)</td><td>0</td><td>未过关</td></tr>
-<tr><td>1</td><td>Tv</td><td>TV</td><td>缩写词两个字母都要大写</td><td>0</td><td>未过关</td></tr>
+<tr><td>1</td><td>We see movie</td><td>We watch movies</td><td>「看电视/电影」用 watch 不用 see；movie 是可数名词，单数不能裸用</td><td>1</td><td>未过关</td></tr>
+<tr><td>1</td><td>ask for my teacher</td><td>ask my teacher for help</td><td>ask for 表示「要某物」，向人请教要说 ask sb (for help)</td><td>1</td><td>未过关</td></tr>
+<tr><td>1</td><td>Tv</td><td>TV</td><td>缩写词两个字母都要大写</td><td>1</td><td>未过关</td></tr>
+<tr><td>2</td><td>Tom play soccer</td><td>Tom plays soccer</td><td>主语是第三人称单数时一般现在时动词要加 -s</td><td>0</td><td>未过关</td></tr>
+<tr><td>2</td><td>now,liked my teacher</td><td>and I like my teacher</td><td>逗号不能连接两个完整句子；「现在喜欢」用原形 like 不用 liked</td><td>0</td><td>未过关</td></tr>
+<tr><td>2</td><td>she always is busy</td><td>she is always busy</td><td>频度副词要放在 be 动词之后</td><td>0</td><td>未过关</td></tr>
+<tr><td>2</td><td>zane（人名小写）</td><td>Zane</td><td>人名、地名首字母一律大写</td><td>0</td><td>未过关</td></tr>
 </tbody></table>
 </section>
 </main>
-<footer>提示：复习时先自己作答，再点开答案。</footer>
-<script>
+<footer>提示：先看总结回想，再点「查看全文」核对。</footer></div><script>
 var tabs = document.querySelectorAll('nav button');
 tabs.forEach(function (btn) {
   btn.addEventListener('click', function () {
@@ -175,5 +178,4 @@ if (q) {
     });
   });
 }
-</script>
-</div></body></html>
+</script></body></html>
