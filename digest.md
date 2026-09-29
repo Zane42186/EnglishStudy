@@ -46,21 +46,20 @@
 ## 错词本待复习项（出复习题时取用）
 
 - 第 2 课 ｜ Tom play soccer → Tom plays soccer ｜ 错因：主语是第三人称单数时一般现在时动词要加 -s ｜ 连续答对 1
-- 第 2 课 ｜ now,liked my teacher（第 3 次犯后重练，第 6 课答对） → and I like my teacher ／ 用句号断开 ｜ 错因：逗号不能连接两个完整句子；要用句号或加 and ｜ 连续答对 1
-- 第 2 课 ｜ she always is busy（第 2 次错：She always is bush） → she is always busy ｜ 错因：频度副词要放在 be 动词之后；busy 别拼成 bush（灌木） ｜ 连续答对 1
+- 第 2 课 ｜ now,liked my teacher → …now, and I like my teacher. ／ 用句号断开 ｜ 错因：逗号不能连接两个完整句子；「现在喜欢」用原形 like ｜ 连续答对 1
+- 第 2 课 ｜ she always is busy → she is always busy ｜ 错因：频度副词要放在 be 动词之后（第 2 次错时把 busy 拼成 bush） ｜ 连续答对 1
 - 第 2 课 ｜ zane（人名小写） → Zane ｜ 错因：人名、地名首字母一律大写 ｜ 连续答对 0
 - 第 诊断 课 ｜ Do you like coffee.（句号结尾） → Do you like coffee? ｜ 错因：疑问句结尾必须用问号 ｜ 连续答对 0
 - 第 4 课 ｜ I reading a book. → I am reading a book. ｜ 错因：现在进行时必须有 be 动词 am / is / are ｜ 连续答对 1
 - 第 4 课 ｜ my grandpa and me → my grandpa and I（别人在前，I 在后） ｜ 错因：作主语用主格 I，me 是宾格 ｜ 连续答对 0
-- 第 4 课 ｜ play game（第 3 次犯：第 6 课写 were playing game） → play games ｜ 错因：可数名词单数不能裸用，用复数或 a + 单数 ｜ 连续答对 0
-- 第 6 课 ｜ I am very busy.（题目要求「我们很忙」） → We are busy. ｜ 错因：中文「我们」要用 we，后面配 are；I 只代表「我」 ｜ 连续答对 1
-- 第 5 课 ｜ those are their bags.（句首小写） → Those are their bags. ｜ 错因：句首单词首字母必须大写 ｜ 连续答对 1
-- 第 6 课 ｜ Theri school is very big → Their school is very big ｜ 错因：拼写：their（他们的）字母顺序写反成 theri ｜ 连续答对 0
-- 第 6 课 ｜ at yesterday（I was busy at yesterday） → yesterday（不加 at） ｜ 错因：yesterday / today / tomorrow 前面不加介词 ｜ 连续答对 0
-- 第 6 课 ｜ play game（第 3 次犯：were playing game） → play games ｜ 错因：可数名词单数不能裸用，要加 s 或用 a + 单数 ｜ 连续答对 0
-- 第 6 课 ｜ What were you yesterday.（问「昨天怎么样」） → How were you yesterday? ｜ 错因：问「身体 / 状态怎么样」用 how，不用 what；句尾必须是问号 ｜ 连续答对 0
-- 第 6 课 ｜ I teached my friend to use AI → I taught my friend to use AI ｜ 错因：teach 是不规则动词，过去式 taught 不是加 -ed；另外 to use 的动词不定式用对了 ｜ 连续答对 0
+- 第 4 课 ｜ play game（累计第 3 次，第 6 课写 were playing game） → play games ｜ 错因：可数名词单数不能裸用，用复数或 a + 单数 ｜ 连续答对 0
 - 第 4 课 ｜ what do you do?（问「正在做什么」时） → What are you doing? ｜ 错因：What do you do? 问的是职业；问此刻在做的事用进行时 ｜ 连续答对 0
+- 第 5 课 ｜ those are their bags.（句首小写） → Those are their bags. ｜ 错因：句首单词首字母必须大写 ｜ 连续答对 1
+- 第 5 课 ｜ I am very busy.（题目要求「我们很忙」） → We are busy. ｜ 错因：中文「我们」要用 we，后面配 are；I 只代表「我」 ｜ 连续答对 1
+- 第 6 课 ｜ Theri school is very big → Their school is very big ｜ 错因：拼写：their 的字母顺序写反成 theri ｜ 连续答对 0
+- 第 6 课 ｜ at yesterday（I was busy at yesterday） → yesterday（不加 at） ｜ 错因：yesterday / today / tomorrow 前面不加介词 ｜ 连续答对 0
+- 第 6 课 ｜ What were you yesterday. → How were you yesterday? ｜ 错因：问「状态怎么样」用 how 不用 what；句尾必须是问号 ｜ 连续答对 0
+- 第 6 课 ｜ I teached my friend to use AI → I taught my friend to use AI ｜ 错因：teach 是不规则动词，过去式是 taught 不是加 -ed ｜ 连续答对 0
 
 ## 阅读文件
 
