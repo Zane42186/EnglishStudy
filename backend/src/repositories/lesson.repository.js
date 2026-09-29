@@ -95,6 +95,18 @@ async function updateFeedback(studentId, lessonNo, feedback, exec = null) {
   return result.affectedRows;
 }
 
+/** 某一课的练习明细（含批改结论） */
+async function findExercises(lessonId) {
+  return query(
+    `SELECT exercise_no, exercise_type, prompt, reference_answer, target_point,
+            user_answer, is_correct, error_type, error_note, revised_answer, order_index
+     FROM lesson_exercises
+     WHERE lesson_id = ?
+     ORDER BY order_index ASC, exercise_no ASC`,
+    [lessonId]
+  );
+}
+
 /** 某课首次犯错引入的错词条数（快照 recentLessons[].mistakeCount） */
 async function countMistakesByLesson(studentId, lessonId) {
   const rows = await query(
@@ -147,5 +159,5 @@ async function errorTrend(studentId, limit = 5) {
 
 module.exports = {
   count, list, listAll, findById, findByNo, findLatest, findSections, findVocabulary,
-  errorTrend, updateFeedback, countMistakesByLesson,
+  errorTrend, updateFeedback, countMistakesByLesson, findExercises,
 };

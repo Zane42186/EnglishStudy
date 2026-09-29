@@ -2,11 +2,15 @@
 
 > 状态：**已实现并实测**（2026-09-29）。本文档描述的是**可运行的真实接口**，非设计稿。
 > 服务地址：`http://localhost:4000`　接口前缀：`/api`
-> 冒烟测试：`npm run test:api`（**37 项全部通过**）
+> 冒烟测试：`npm run test:api`（**41 项全部通过**）
 >
 > 变更记录：
 > - 2026-09-29 · 第一批写接口与聚合快照落地：`GET /api/lessons/all`、`POST /api/mistakes/:id/review`、
 >   `POST /api/study-records`、`POST /api/progress/feedback`、`GET /api/agent/snapshot`；分页 `size` 上限 100 → **500**。
+> - 2026-09-29 · 第二批 DDL 落地：建 `lesson_exercises`、`mistake_events`；`section_type` 增
+>   `objectives` / `expected_mistakes`；删 `mistakes.id=19`（DQ1）。随之新增
+>   `GET /api/mistakes/:id/events`、`GET /api/lessons/:id/exercises`；
+>   `POST /api/mistakes/:id/review` 的复习流水改落 `mistake_events`（幂等键即其唯一键）。
 
 ---
 
@@ -84,6 +88,8 @@
 | 19 | GET | `/api/progress` | 学习进度 |
 | 20 | POST | `/api/progress/feedback` | 难度反馈（触发升降级） |
 | 21 | GET | `/api/agent/snapshot` | 教学快照（9 次请求 → 1 次） |
+| 22 | GET | `/api/mistakes/:id/events` | 某错词的复习流水（N2） |
+| 23 | GET | `/api/lessons/:id/exercises` | 某课的练习与批改结论（N4） |
 
 ---
 
@@ -257,7 +263,7 @@
 **服务端规则**（搬运 `wrong-words.md`，不重设计）
 - `wrong` → `wrongCount+1`、`streak=0`、`status='pending'`
 - `correct` → `streak+1`；`streak>=2` → `status='passed'`
-- 两者都写 `lastReviewedAt`，并留一条复习流水
+- 两者都写 `lastReviewedAt`，并在 `mistake_events` 留一条复习流水（`client_event_id` 即幂等键）
 
 **实测响应**
 ```json
@@ -379,6 +385,35 @@
 - `lastRecommendation` 形状 `{ lessonNo, text }`，取自最近一条 `feedback` 记录的 `payload.nextRecommendation`；无数据为 `null`
 - **缺数据一律降级**（`null` / `[]` / 省略键）+ `degradation`，**绝不 500、绝不空串**。当前 `backlog` / `readingCatalog` 依赖尚未建表，恒为降级值
 - `pendingMistakes[].firstCourseNo/lastCourseNo` 用课号；来源课号为脏值（DQ4）时**省略该键**而不是塞 `null`
+
+### 22. GET `/api/mistakes/:id/events`
+某错词的复习流水，**按时间升序**（便于看复发曲线）。`mistake_events` 表 2026-09-29 建。
+
+**Query**：`limit`（1—200，默认 50）、`studentId`
+```json
+{ "code": 200, "message": "success", "data": {
+  "list": [ { "eventId": 1, "result": "wrong", "lessonNo": 6,
+              "clientEventId": "dw-e1", "answeredAt": "2026-09-29 18:02:06",
+              "createdAt": "2026-09-29 18:02:06" } ],
+  "total": 1 } }
+```
+- **Error**：404 `错词不存在：id=<id>`
+
+### 23. GET `/api/lessons/:id/exercises`
+某课的练习明细与批改结论。`lesson_exercises` 表 2026-09-29 建。
+
+**路径**：`id` 必须为正整数；**Query**：`studentId`
+```json
+{ "code": 200, "message": "success", "data": {
+  "list": [ { "exerciseNo": 1, "exerciseType": "fill_blank", "prompt": "…",
+              "referenceAnswer": "…", "targetPoint": "规则动词过去式 -ed",
+              "userAnswer": "…", "isCorrect": false, "errorType": "grammar",
+              "errorNote": "…", "revisedAnswer": null } ],
+  "summary": { "exerciseCount": 1, "correctCount": 0, "byType": { "grammar": 1 } } } }
+```
+- `isCorrect` 为 `boolean | null`（`null` = 未批改）；批改结论**不新造 `verdict` 字段**
+- `summary.byType` 只统计「已批改且答错」的题；`errorType` 复用 `mistakes` 同源 ENUM
+- **Error**：404 `课程不存在：id=<id>`
 
 ---
 

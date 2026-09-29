@@ -69,21 +69,6 @@ async function insert(exec, { studentId, lessonId, recordType, summary, payload 
   return result.insertId;
 }
 
-/**
- * 幂等命中查询：某条 review 记录是否已带过同一 clientEventId。
- * 复习事件当前落在 study_records(record_type='review')，待 mistake_events 建表后改为读该表。
- */
-async function findReviewByClientEventId(exec, studentId, clientEventId) {
-  const rows = await queryOn(exec,
-    `SELECT id, payload FROM study_records
-     WHERE student_id = ? AND record_type = 'review'
-       AND JSON_UNQUOTE(JSON_EXTRACT(payload, '$.clientEventId')) = ?
-     ORDER BY id ASC LIMIT 1`,
-    [studentId, clientEventId]
-  );
-  return rows[0] || null;
-}
-
 /** 某类型最近一条记录（快照 lastRecommendation 的数据来源） */
 async function findLatestByType(studentId, recordType, exec = null) {
   const rows = await queryOn(exec,
@@ -106,4 +91,4 @@ async function listGrades(studentId) {
   );
 }
 
-module.exports = { count, list, statsByType, insert, findReviewByClientEventId, findLatestByType, listGrades };
+module.exports = { count, list, statsByType, insert, findLatestByType, listGrades };

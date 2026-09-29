@@ -10,6 +10,7 @@ router.get('/', controller.list);
 router.get('/all', controller.listAll);
 router.get('/latest', controller.latest);
 router.get('/error-trend', controller.errorTrend);
+router.get('/:id/exercises', controller.exercises);
 router.get('/:id', controller.detail);
 
 module.exports = router;

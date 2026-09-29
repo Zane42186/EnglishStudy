@@ -65,6 +65,8 @@ const CASES = [
   { name: '待复习错词', path: '/api/mistakes/pending', verify: (d) => (Array.isArray(d.list) ? null : '缺少 list') },
   { name: '错词统计', path: '/api/mistakes/stats', verify: (d) => (typeof d.pending === 'number' ? null : '缺少 pending') },
   { name: '错词详情', path: '/api/mistakes/1' },
+  { name: '错词复习流水', path: '/api/mistakes/1/events', verify: (d) => (Array.isArray(d.list) && typeof d.total === 'number' ? null : '缺少 list/total') },
+  { name: '课程练习明细', path: '/api/lessons/1/exercises', verify: (d) => (Array.isArray(d.list) && d.summary && typeof d.summary.exerciseCount === 'number' ? null : '缺少 list/summary') },
   { name: '学习记录', path: '/api/study-records' },
   { name: '学习记录(按类型)', path: '/api/study-records?type=grade' },
   { name: '学习记录统计', path: '/api/study-records/stats' },
@@ -102,6 +104,8 @@ const ERROR_CASES = [
   { name: '反馈缺 lessonNo → 400', path: '/api/progress/feedback', method: 'POST', body: { feedback: 'just_right' }, expectStatus: 400 },
   { name: '记录类型非法 → 400', path: '/api/study-records', method: 'POST', body: { recordType: 'nope' }, expectStatus: 400 },
   { name: '快照 recent 越界 → 400', path: '/api/agent/snapshot?recent=99', expectStatus: 400 },
+  { name: '错词流水不存在 → 404', path: '/api/mistakes/99999/events', expectStatus: 404 },
+  { name: '课程练习不存在 → 404', path: '/api/lessons/99999/exercises', expectStatus: 404 },
 ];
 
 (async () => {

@@ -130,6 +130,44 @@ async function getErrorTrend(studentId, limit = 5) {
   return { windowSize: byLesson.length, byLesson };
 }
 
+/**
+ * 某一课的练习与批改结论（N4）。
+ * summary.byType 只统计已批改且答错的题，与错词本的 errorType 同源。
+ */
+async function getLessonExercises(studentId, lessonId) {
+  const lesson = await lessonRepository.findById(lessonId, studentId);
+  if (!lesson) {
+    throw ApiError.notFound('LESSON_NOT_FOUND', `课程不存在：id=${lessonId}`);
+  }
+  const rows = await lessonRepository.findExercises(lessonId);
+  const byType = {};
+  let correctCount = 0;
+
+  const list = rows.map((r) => {
+    if (r.is_correct === 1) correctCount += 1;
+    if (r.is_correct === 0 && r.error_type) {
+      byType[r.error_type] = (byType[r.error_type] || 0) + 1;
+    }
+    return {
+      exerciseNo: r.exercise_no,
+      exerciseType: r.exercise_type,
+      prompt: r.prompt,
+      referenceAnswer: r.reference_answer,
+      targetPoint: r.target_point,
+      userAnswer: r.user_answer,
+      isCorrect: r.is_correct === null ? null : r.is_correct === 1,
+      errorType: r.error_type,
+      errorNote: r.error_note,
+      revisedAnswer: r.revised_answer,
+    };
+  });
+
+  return {
+    list,
+    summary: { exerciseCount: list.length, correctCount, byType },
+  };
+}
+
 module.exports = {
-  listLessons, listAllLessons, getLessonDetail, getLatestLesson, getErrorTrend, mapLesson,
+  listLessons, listAllLessons, getLessonDetail, getLessonExercises, getLatestLesson, getErrorTrend, mapLesson,
 };

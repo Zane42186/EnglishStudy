@@ -76,4 +76,16 @@ const review = asyncHandler(async (req, res) => {
   return ok(res, data);
 });
 
-module.exports = { list, pending, stats, detail, review };
+/** GET /api/mistakes/:id/events —— 某错词的复习流水（N2，按时间升序） */
+const events = asyncHandler(async (req, res) => {
+  const params = validate(req.params, ID_SCHEMA);
+  const query = validate(req.query, {
+    ...STUDENT_SCHEMA,
+    limit: { type: 'int', min: 1, max: 200 },
+  });
+  const studentId = await studentService.resolveStudentId({ studentId: query.studentId });
+  const data = await mistakeService.getMistakeEvents(studentId, params.id, query.limit || 50);
+  return ok(res, data);
+});
+
+module.exports = { list, pending, stats, detail, review, events };

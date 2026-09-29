@@ -2,10 +2,8 @@
 
 const mistakeRepository = require('../repositories/mistake.repository');
 const lessonRepository = require('../repositories/lesson.repository');
-const studyRecordRepository = require('../repositories/studyRecord.repository');
 const { withTransaction } = require('../config/db');
 const ApiError = require('../utils/ApiError');
-const { parseJsonColumn } = require('../utils/json');
 const { normalizeDateTime } = require('../utils/datetime');
 
 /**
@@ -82,10 +80,10 @@ async function getPendingByType(studentId) {
  * 规则（只搬运 wrong-words.md，不重设计）：
  *   wrong   → wrong_count+1、streak=0、status='pending'
  *   correct → streak+1；streak>=2 → status='passed'
- * 两者都写 last_reviewed_at，并留一条复习流水。
+ * 两者都写 last_reviewed_at，并在 mistake_events 留一条复习流水。
  *
- * 幂等：clientEventId 命中已存在的 review 流水时直接返回首次结果，
- * 不重复累加（配合 mistakes 行锁，单错词维度的重复提交是串行的）。
+ * 幂等：clientEventId 命中 mistake_events.client_event_id（唯一键）时直接返回首次结果，
+ * 不重复累加。配合 mistakes 行锁，同一错词的重复提交是串行的。
  */
 async function reviewMistake(studentId, mistakeId, { result, lessonNo, answeredAt, clientEventId }) {
   const reviewedAt = normalizeDateTime(answeredAt);
@@ -104,18 +102,15 @@ async function reviewMistake(studentId, mistakeId, { result, lessonNo, answeredA
     const row = await mistakeRepository.findByIdOn(conn, mistakeId, studentId);
 
     if (clientEventId) {
-      const dup = await studyRecordRepository.findReviewByClientEventId(conn, studentId, clientEventId);
+      const dup = await mistakeRepository.findEventByClientId(conn, studentId, clientEventId);
       if (dup) {
-        const prev = parseJsonColumn(dup.payload) || {};
-        const streak = Number.isInteger(prev.streak) ? prev.streak : row.streak;
-        const wrongCount = Number.isInteger(prev.wrongCount) ? prev.wrongCount : row.wrong_count;
-        const status = prev.status || row.status;
+        // 幂等命中：返回与首次调用完全一致的形状（不夹带 mapMistake 的额外字段）
         return {
           id: row.id,
-          streak,
-          wrongCount,
-          status,
-          priority: derivePriority({ wrong_count: wrongCount, streak }),
+          streak: row.streak,
+          wrongCount: row.wrong_count,
+          status: row.status,
+          priority: derivePriority(row),
           lastReviewedAt: row.last_reviewed_at,
         };
       }
@@ -130,20 +125,13 @@ async function reviewMistake(studentId, mistakeId, { result, lessonNo, answeredA
     }
 
     await mistakeRepository.updateReviewState(conn, mistakeId, { ...next, lastReviewedAt: reviewedAt });
-    await studyRecordRepository.insert(conn, {
+    await mistakeRepository.insertEvent(conn, {
       studentId,
+      mistakeId,
       lessonId,
-      recordType: 'review',
-      summary: `错词复习：${result === 'correct' ? '答对' : '答错'}（mistakeId=${mistakeId}）`,
-      payload: {
-        mistakeId,
-        result,
-        lessonNo: Number.isInteger(lessonNo) ? lessonNo : null,
-        clientEventId: clientEventId || null,
-        streak: next.streak,
-        wrongCount: next.wrongCount,
-        status: next.status,
-      },
+      result,
+      clientEventId,
+      answeredAt: reviewedAt,
     });
 
     return {
@@ -157,6 +145,26 @@ async function reviewMistake(studentId, mistakeId, { result, lessonNo, answeredA
   });
 }
 
+/** GET /api/mistakes/:id/events —— 某错词的复习流水（N2） */
+async function getMistakeEvents(studentId, mistakeId, limit = 50) {
+  const rows = await mistakeRepository.listEvents(studentId, mistakeId, limit);
+  if (rows === null) {
+    throw ApiError.notFound('MISTAKE_NOT_FOUND', `错词不存在：id=${mistakeId}`);
+  }
+  return {
+    list: rows.map((r) => ({
+      eventId: r.id,
+      result: r.result,
+      lessonNo: r.lesson_no ?? null,
+      clientEventId: r.client_event_id ?? null,
+      answeredAt: r.answered_at,
+      createdAt: r.created_at,
+    })),
+    total: rows.length,
+  };
+}
+
 module.exports = {
-  listMistakes, getMistake, getPendingMistakes, getStats, getPendingByType, reviewMistake, mapMistake,
+  listMistakes, getMistake, getPendingMistakes, getStats, getPendingByType,
+  reviewMistake, getMistakeEvents, mapMistake,
 };

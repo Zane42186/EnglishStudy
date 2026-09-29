@@ -76,4 +76,13 @@ const detail = asyncHandler(async (req, res) => {
   return ok(res, data);
 });
 
-module.exports = { list, listAll, latest, errorTrend, detail };
+/** GET /api/lessons/:id/exercises —— 本课练习与批改结论（N4） */
+const exercises = asyncHandler(async (req, res) => {
+  const params = validate(req.params, ID_SCHEMA);
+  const query = validate(req.query, STUDENT_SCHEMA);
+  const studentId = await studentService.resolveStudentId({ studentId: query.studentId });
+  const data = await lessonService.getLessonExercises(studentId, params.id);
+  return ok(res, data);
+});
+
+module.exports = { list, listAll, latest, errorTrend, detail, exercises };
