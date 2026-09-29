@@ -185,6 +185,7 @@
 | **S2** | `skill_runs` 缺父子关系 | 待确认 | ⏳ `schema.full.design.sql` 的 `skill_runs` 无 `parent_skill_run_id`【静态证据】 | 全部 | 退化为按 `course_id` + `created_at` 时序推断 |
 | **S3**（新增） | `skill_runs` 字段不足以承载 `SkillRun` | — | 🆕 完整设计仅 `id/skill_id/user_id/course_id/input/output/status/created_at`，**缺 `started_at`/`finished_at`/`duration_ms`/`degraded`/`notes`/`error`**【静态证据】 | 全部 | 阶段一不落盘，仅在对话留痕 |
 | **S4**（新增） | 阶段一缺 6 张表 | — | 🆕 `schema.sql` 仅 8 表，缺 `exercises`、`readings`+`reading_pieces`+`reading_questions`、`knowledge_points`+`course_knowledge_points`、`mistake_events`、`progress_feedback`、`skills`+`skill_runs`【静态证据】 | ①⑦⑧⑨② | 相应契约对象**只进 md / 只存在于对话**，不落库 |
+| **G10**（新增） | 补漏块错误 / 阅读理解题错误的**单独计数**无契约落点 | — | 🆕 Amy `amy-teaching-plan.md` §3.1 定了「不计入 `errorCount`、但单独计数」两类：补漏块作答错误（`backfillErrorCount`）、阅读理解题作答（`comprehensionErrorCount`）。`GradingResult.summary` 现只有 `exerciseCount/errorCount/blankCount/byType`，**无字段承载这两类**，且 `GradedItem` 无法标记「该题属于补漏块 / 阅读理解」 | ⑧⑨ | 暂不落：`errorCount` 已按 §3.1 明确只计 `verdict=wrong`（blank 与 correct_with_note 不计入，见 schema 描述）；两类细分计数**待与 amy / be-dev 定形后再加 optional 字段**（加字段兼容，不升版本） |
 
 > G3/G4/G6/G7 与 S4 是**当前的实际阻塞点**：没有写接口，Skill 产出的 `ReviewSession`、`GradingResult`、`MistakeAnalysisResult`、`LessonRecord`、`ReadingSet` 全部只能落到 md。
 
@@ -355,6 +356,38 @@ python adapter.py check --root E:\English      # 只校验不写入，退出码 
 10. **写入约定**：在 `docs/skills.md` 7.4 追加「权威 = 版本库 `skills/english-daily/`；`.workbuddy/skills/` 为运行副本」一句，消除二义。
 
 ### 4.6 后续每次改 Skill 的固定动作（见 6.3）
+
+### 4.7 与前端的生成边界（`review/` 页面归属）
+
+**前提纠正**（面向 fe-dev，2026-09-29）：fe-dev 依据的是 `.english-daily-package-yj7kiobf/` 那份副本（28980 字节 / 681 行 / md5 `101d1df7…`），它是 5 份里**最旧的一份**；权威副本是 `.workbuddy/skills/english-daily/scripts/build_board.py`（44415 字节 / 1040 行 / md5 `50aca14b…`）。他引用的输出映射 645—653 行，在权威版为 **1006—1012 行**：
+
+```python
+1006  "review/index.html":     build_board(lessons, level, days, wrong_rows),
+1007  "review/reading.html":   build_reading_page(days),
+1008  "review/readIndex.html": build_read_index_page(days),   # 权威版是生成产物，非手写
+1009  "review/words.html":     build_words_page(lessons),
+1010  "review/wrong.html":     build_wrong_page(wrong_rows),
+1012  {f"review/lessons/lesson-{no}.html": render_lesson_page(lesson) for ...}
+```
+
+**关键事实：`review/index.html` 的模板已经是 API 驱动版。** 权威版 `build_board()`（第 700 行）产出的骨架含 `#statLessons` / `apiError` / `apiRetry` 与 `BOARD_API_CSS` / `BOARD_API_JS`，且 F5 的 `.api-error.hide { display: none; }` **已在模板内（第 562 行）**【已实测 grep 双向验证】。因此：
+
+- 联调报告 F1「重建会冲掉 API 改造」的**当前状态是：模板已同步，重建不会冲掉**；
+- **真实风险换成另一条**：今后前端对页面的任何修改只落在产物上、未回填模板，重建即丢失；以及**误跑旧副本**（那份的 `build_board()` 仍是静态版）会让首页直接倒退成静态。
+
+**生成范围调整原则（答复 fe-dev 问题 1）**：分阶段收缩，**判据是「后端能否提供该页全部字段」**，不是一次性全停。
+
+| 页面 | 现在能否移出生成集 | 依据 |
+|---|---|---|
+| `review/words.html` | ✅ 可以 | `/api/vocabulary` 字段齐全（51 词含音标/释义/例句/首现课） |
+| `review/wrong.html` | ✅ 可以 | `/api/mistakes` 字段齐全（含 priority / streak / wrongCount） |
+| `review/index.html` | ⚠️ **不必移出** | 模板已是 API 版；移出反而形成两份首页 |
+| `review/reading.html`、`review/readIndex.html` | ❌ 暂缓 | 无 `readings` 表与接口（R7，P2）；前端不得解析 `read/*.md`（铁律） |
+| `review/lessons/lesson-N.html` | ❌ 暂缓 | `lesson_sections` 现只有 grammar / feedback 两类，作业/例句/批改/我的作答/复习 6 类正文库里没有（**R11**）；且无 `exercises` 表 |
+
+**永久保留由脚本生成**：`INDEX.md`、`digest.md`——两者是 Markdown 不是 HTML，不与前端冲突；其中 `digest.md` 是 Skill 上课第一步的唯一输入（适配层读它），**不可移交前端**。
+
+**入库答复（问题 2）**：会入库，走 4.3 防线①与 4.5 步骤（落到新建的 `skills/english-daily/`，不是给 `.workbuddy/` 开白名单——父目录被整体排除后否定无效，已实测）。**入库完成前，fe-dev 不要修改任何一份 `build_board.py` 副本**（改了无法追踪，且很可能改到旧那份）；改动 `review/` 产物可照常进行，被重建覆盖属预期。
 
 ---
 
@@ -554,6 +587,45 @@ be-dev 的初始导入方案（把 `progress.md`「已学知识点」写进 `les
 3. **`priority`、`errorType`、连击规则由服务端判定**，Skill 只报对错——这条边界保持不变（`06-api-requirements-amy.md` 已明确「服务端只搬运已有规则，不重设计教学策略」）。
 4. **数据质量 DQ1 优先于新接口**：错词计数不一致会直接让复习取词池出错。
 
+### 5.8 「语义关联不得靠文本匹配」—— 已否决方案（反面案例，勿再尝试）
+
+fe-dev 的 FE-3 提议：用**文本匹配**自动判定「某个词是否曾是错词」，在 `pendingMistakes` / 词汇表之间自动打关联标记。**该方案已被否决（integration-plan §D-13）**，本轮实证如下：
+
+| 项 | 内容 |
+|---|---|
+| 做法 | 对每条错词，用其 `wrongText` 去词汇表里做文本匹配，命中即标记「曾是错词」 |
+| 表面效果 | 20 条错词命中 15 条，**命中率高** |
+| 实际错误 | `Tom plays soccer` 错在三单 `-s` 缺失，文本匹配却命中 `play`；`Do you like coffee?` 错在句末问号，文本匹配却命中 `like` |
+| 结论 | 命中率高但**语义全错**，产出的是**假数据**——标记出来的关联与真实错误完全无关 |
+| 裁定 | **否决自动生成**。改走 `mistakes` 加可空 `vocabulary_id`，**由 amy 在批改时显式判定并关联** |
+
+**推广规则（写死，防止换个场景再来一次）**：凡是**语义关联**（「这个词与那条错词是不是同一件事」「这个知识点是不是那次诊断的那一项」），一律**由 amy 判定，不得用文本匹配 / 正则 / 相似度自动生成**。文本匹配只能在**格式翻译**层面使用（如 md 表格列 → 契约字段），一旦要判断「是不是同一个意思」，就必须回到人（amy）。理由：高命中率会让人误以为自动关联可用，而错误又是静默的——假关联会一路流进错词本、报告与复习池，事后极难追溯。
+
+### 5.9 历史数据可推导性（跨模块强制检查项）
+
+**实证（本轮发现）**：`backfillQueue` 的 `done` 判据是「该知识点已出现在某课 `lesson_knowledge_points(role='backfill')`」，但**历史上已补过的补漏块没有这条记录**（`lesson_knowledge_points` 是新表，只有建表后的数据）。后果：第 4/5/6 课已出队的三个补漏块（there is/are、this/that、疑问词）会被判为「未完成」，**重新冒进第 7 课队列**，与 amy 已定的第 7 课规划（补漏块 ④ 介词 on/at）直接冲突，学生会被要求重做已出队的内容。
+
+这是 be-dev 与 Skill 侧共同确认的 **Q12 修正项**：M2 初始导入必须补写第 4/5/6 课三条 `role='backfill'` 关联，`next` 判定才正确（见 5.6）。
+
+**推广规则（列为每次加字段 / 加接口前的强制检查项，来源 integration-plan §G-3）**：
+
+> **契约定得对不对，不看类型，看历史数据能不能接上。**
+
+任何「状态列 / 判据 / 队列」上线前，必须回答一句：**这条规则对历史数据跑一遍，结果对不对？** 具体检查三点：
+
+1. **判据依赖的关联记录是否存在**：若判据是 `role='backfill'` / `status='done'` 一类**建表后才有**的关联，必须同时给出历史回填方案，否则历史项一律被判「未完成」。
+2. **是否存在第二真相源**：快照型数据（诊断结论、`next_recommendation`）不得当「当前状态」用，必须带时间戳或 `superseded` 语义；与持续更新的真相源（错词本）冲突时**以错词本为准**（§D-8）。
+3. **同源问题是否只此一处**：同一根因大概率还存在于别处（`lesson_sections` 的作业/例句正文 R11、前端静态页里的历史数据均属同类），发现一处要顺手排查同类。
+
+**根因归类**：G-3 与 D-8 是同一类错误——把「某天的快照」当成「一直有效的状态」。故本条与 §G-4、§5.6 的诊断裁定合并为同一条跨模块检查项。
+
+### 5.10 诊断结果表不入库 —— 已裁决（记档）
+
+Q13 已由 team-lead 在 integration-plan §D-8 裁决：**2026-09-27 那张 10 题诊断结果表不入库**，保留在 `progress.md` 文本。裁定与理由见 5.6「诊断结果是否落库」。补充两条执行口径，供日后不再翻案：
+
+1. 若将来确要结构化，**只能**建独立 `diagnostics` 表，带 `diagnosed_at` / `superseded` 字段（按事件流水建模，**不是**状态列）；消费时只取最近一次，且**与错词本冲突时以错词本为准**。
+2. 在它落库之前，`backfillQueue.untested` **维持恒为空数组 + `degradation`**，不得由后端凭 `is_backlog` 猜测填充（见 5.6）。
+
 ---
 
 ## 6. 可维护性
@@ -622,6 +694,8 @@ be-dev 的初始导入方案（把 `progress.md`「已学知识点」写进 `les
 | R8 | **看板重建会覆盖 `review/index.html`**（联调 F1） | 前端 API 改造被静态模板冲掉 | 前端改造下沉到 `build_board.py` 模板或把该页移出生成集 | fe-dev + Skill 设计师 |
 | R9 | 适配层解析 `progress.md` 的**非结构化段落**（待补清单、补漏队列） | md 排版一改就解析失败（违反「Skill 只认对象」的初衷） | 优先走 `/api/knowledge-points`（R6）；G8 建议增列也是为了减少文本推断 | be-dev + Amy |
 | R10 | 触发识别【未验证】 | 「继续」等歧义词误触发 11 步流程 | 1.3 二次确认；真实环境补触发测试 | Skill 设计师 |
+| **R12**（新增） | **语义关联被自动化**（文本匹配打「曾是错词」标记等） | 命中率高但语义全错，**假数据**静默流入错词本 / 报告 / 复习池，事后难追溯 | 语义关联一律由 amy 判定；文本匹配只用于格式翻译（见 5.8）。已否决 FE-3 | Amy + Skill 设计师 |
+| **R13**（新增） | **历史数据不可推导**（判据依赖建表后才有的关联记录） | 历史项被判「未完成」而重新入队（如已出队的补漏块重回第 7 课），与 amy 规划冲突 | 加字段 / 加接口前强制跑 5.9 三项检查；Q12 已定回填第 4/5/6 课三条 `role='backfill'` | be-dev + Skill 设计师 |
 
 ### 7.2 未决问题（需他人决策）
 
@@ -632,7 +706,7 @@ be-dev 的初始导入方案（把 `progress.md`「已学知识点」写进 `les
 | ~~Q10~~ | `pendingMistakeStats` 还是 `pendingMistakesStats` | ~~be-dev~~ ✅ **已定** | 取 **`pendingMistakeStats`**（单数），以 `06-api-requirements-amy.md:79` 为准，复数写法作废 |
 | ~~Q11~~ | `knowledge_points.status` 是否落表 | ~~be-dev~~ ✅ **已定** | **不落列**，由 service 合成（见 5.6 末）。注：该表尚未建表，不是 `ALTER` 而是建表时的取舍 |
 | ~~Q12~~ | M2 初始导入是否补写三条历史 `role='backfill'` 关联 | ~~be-dev~~ ✅ **已定** | 补（第 4/5/6 课），已逐条核对 `progress.md`「已出队」原文（见 5.6） |
-| **Q13** | 诊断结果是否落库 | **Amy（教学侧）+ Skill 设计师** | **首版不落库**（Skill 侧裁定，见 5.6）。若 Amy 认为需保留，按**事件流水**建模，且冲突时以错词本为准 |
+| ~~Q13~~ | 诊断结果是否落库 | ~~Amy（教学侧）+ Skill 设计师~~ ✅ **已定** | **不入库**（Skill 侧裁定 + team-lead 裁决 integration-plan §D-8，见 5.6 / 5.10）。保留在 `progress.md` 文本；将来若结构化只能建独立 `diagnostics` 表带 `diagnosed_at`/`superseded`，**冲突时以错词本为准** |
 | Q3 | **入库方案选 C 还是 B**（4.4） | **git-manager**（必须沟通后定稿） | 推荐 C：只入库 `skills/`，`.workbuddy/` 维持忽略 |
 | Q4 | `.workbuddy/build/`、`_tmpx/` 是否可清理 | **git-manager** + 实操确认打包流程 | 先重命名加 `.bak-20260929`，确认无用后再删；不直接删 |
 | Q5 | 是否新增 `AgentSnapshot.provenance` 字段 | be-dev | 建议加（可选字段、兼容、Skill 忽略）；不加以不影响切换 |
@@ -640,6 +714,20 @@ be-dev 的初始导入方案（把 `progress.md`「已学知识点」写进 `les
 | Q7 | `error_type` 两条分歧（`what do you do?`、`I am very busy.`）如何裁定 | Amy | 裁定后锁定为 6.2 回归基线 |
 | Q8 | 是否启用 tag 规范（`skill-v2.2.0`） | git-manager | 建议启用，便于按 Skill 版本回滚 |
 | Q9 | `docs/testdata/` 目录约定（黄金样本是否入库、体积上限） | git-manager | 建议入库，单文件 < 200KB |
+
+---
+
+### 7.3 Amy 教学侧回复的落地（2026-09-29，已采纳）
+
+Amy 已将三条教学决策写入 `amy-teaching-plan.md` §2.7 与附录 B.1，Skill 侧落地情况如下：
+
+| # | Amy 裁定 | 内容 | Skill / 契约侧落地 |
+|---|---|---|---|
+| 1 | **`expectedMistakes` 学生端不展示**（前端 F10 取消） | 它是 `wrong→correct` 成对的**答案清单**，提交前展示等于提前给答案（违反 `ai-teacher.md` 1.3 硬规则 2）；课后展示又与批改视图重复 | 字段**仍按 D-10 入库**（供批改生成「为什么不是 Y」的文案），**前端不渲染**。契约 `TeachingBlock.expectedMistakes` / `lesson_sections(section_type='expected_mistakes')` 保留，仅约定「不出现在学生作答前的界面」 |
+| 2 | **降载判据给全**（`amy-teaching-plan.md` §2.7） | 触发 T-1 单课 `E>=5`；T-2 连续 2 课 `E>=5`；T-3 `too_hard`；T-4 断更 `D>=7`；T-5 复发阻断（`wrongCount>=4` 且 `error_type∈{grammar,word_choice}`）；T-6 拟排生词 >12。档位 L0 常规（生词 10 / 复习 5 / 1 新点讲全）、L1 轻度（生词 6—8）、L2 中度（生词 0—6、不讲新点改同点变式）、LX 阻断（生词 0）。退出：降载后连续 2 课同时 `E<=2` 且 `R=0` 且 `F∈{too_easy,just_right}` → 回 L0；任一课 `E>=5` 回退一档重算 | 详情页「降载缺触发条件」缺口关闭。**本轮只落生词量口径（见 3）**；T-x / L-x 判据是否写入 `level-map.md` 与 `SKILL.md` 第 5 步，待定（见下方 TODO） |
+| 3 | **生词量口径** | 以「**Level 2 常规 10（8—12）、降载 6—8**」为准；`SKILL.md` 第 5 步的「5—8」**作废**（那是 Level 1 的旧默认） | ✅ 已改两处：`skills/english-daily/SKILL.md` 第 5 步去掉写死的「5—8」，改为「数量按 `level-map.md` 当前级别的『每课词汇』行取」；`skills/english-daily/references/level-map.md` Level 2「每课词汇」由 6—8 改为「8—12（常规 10），降载档 6—8」【已实测：两处文本已核对，`diff -r` 与运行副本一致】 |
+
+**TODO（不阻塞，属 Skill 源码改动）**：T-1—T-6 与 L0/L1/L2/LX 这组降载判据目前只存在于 `amy-teaching-plan.md`，`SKILL.md` 与 `level-map.md` 只写了结果（生词 6—8），未写触发条件与档位流转。若要在上课时真正按档位降载，须把这组判据落到 `SKILL.md` 第 5 步与 `references/level-map.md`（或 `references/` 增一份降载规则），并走 6.3 的改版流程。**另**：`SKILL.md` 第 5 步现引用 `docs/plans/amy-teaching-plan.md` §2.7，待 Amy 按 6.4 流程把该判据同步进 `docs/ai-teacher.md` 后，引用应改指 `ai-teacher.md`（避免 Skill 长期依赖一份会归档的方案文档）。
 
 ---
 
@@ -659,3 +747,7 @@ be-dev 的初始导入方案（把 `progress.md`「已学知识点」写进 `les
 | schema 增补 `pendingMistakeStats` / `lastRecommendation` 后复跑校验 | ✅ 本轮已实测：`SCHEMA_OK`，objects 68 → 71 |
 | DQ1 根因为 `id=19` 非错题行、判重校验返回空 | ✅ be-dev 已实测（本方案引用，本人未复跑） |
 | `lesson_sections` 仅 2 类 12 条、`study_records.payload` 无 `next_recommendation` | ✅ be-dev 已实测（本方案引用） |
+| `skills/english-daily/` 入库目录就绪（8 文件、`build_board.py` md5 = `50aca14b…`、`diff -r` 与运行副本一致、`git check-ignore` 未忽略） | ✅ 本轮已实测 |
+| `SKILL.md` 第 5 步与 `references/level-map.md` 生词量口径按 Amy 裁定改正并同步运行副本 | ✅ 本轮已实测（两处文本已核对） |
+| `grading-result` / `lesson-record` 增 optional `revisedAnswer`、`agent-snapshot` 四个字段说明改写后复跑校验 | ✅ 本轮已实测：`SCHEMA_OK`，objects 71（未增对象，仅增属性与描述） |
+| S1 两个枚举值在 `common.schema.json` 中**已存在**（描述仍标「待后端确认」），描述回改**等 be-dev DDL + `constants.js` 完成后进行**（反序不做） | ⏳ 待 be-dev |
