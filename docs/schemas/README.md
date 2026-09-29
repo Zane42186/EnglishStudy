@@ -91,6 +91,14 @@ AI Skill → 结构化 JSON → Backend API → Database → Frontend
 
 本目录只使用 JSON Schema 2020-12 的 `type`、`enum`、`required`、`properties`、`items`、`$ref`、`anyOf`、`pattern` 等基础关键字，不依赖任何在线 metaschema。
 
+**推荐：零依赖只读校验（本目录自带，仅用标准库，无需安装任何包）**
+
+```bash
+python docs/schemas/check_schemas.py docs/schemas
+```
+
+通过时输出 `SCHEMA_CHECK files=12 refs=84 objects=71` 与 `SCHEMA_OK 全部 $ref 可解析，required 字段定义完整`；发现问题时输出 `SCHEMA_PROBLEMS` 清单并以退出码 `1` 结束，可直接作为 CI 门禁。脚本只读，不做任何写入。
+
 本地校验（需要 `jsonschema` 库）：
 
 ```bash
