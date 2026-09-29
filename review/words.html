@@ -1,249 +1,93 @@
-<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>词汇卡</title><style>
-:root { color-scheme: light; }
-* { box-sizing: border-box; }
-body { margin: 0; padding: 24px; background: #f7f7f5; color: #2c2c2a;
-  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 15px; line-height: 1.7; }
-.wrap { max-width: 900px; margin: 0 auto; }
-h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
-h2 { font-size: 16px; font-weight: 600; margin: 24px 0 8px; }
-h3 { font-size: 15px; font-weight: 600; margin: 0; }
-h4 { font-size: 13px; font-weight: 600; color: #6b6b66; margin: 14px 0 4px; }
-.sub { color: #6b6b66; font-size: 13px; margin: 0 0 16px; }
-.stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
-.stat { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 14px; min-width: 110px; }
-.stat b { display: block; font-size: 18px; font-weight: 600; }
-.stat span { color: #6b6b66; font-size: 12px; }
-.entries { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 16px 0 4px; }
-a.entry { display: block; background: #fff; border: 1px solid #d9d8d2; border-radius: 10px;
-  padding: 10px 14px; text-decoration: none; color: #2c2c2a; }
-a.entry:hover { border-color: #185fa5; }
-a.entry b { display: block; font-size: 15px; font-weight: 500; }
-a.entry span { color: #6b6b66; font-size: 12px; }
-#q { width: 100%; padding: 8px 12px; border: 1px solid #d9d8d2; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
-.card { background: #fff; border: 1px solid #e3e2dc; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
-.card .meta { color: #6b6b66; font-size: 12px; margin: 4px 0 8px; }
-.sum { color: #3d3d38; margin: 4px 0 8px; font-size: 14px; }
-a.btn { display: inline-block; background: #eef4fb; border: 1px solid #c9dcef; color: #185fa5;
-  border-radius: 8px; padding: 4px 12px; font-size: 13px; text-decoration: none; }
-a.btn:hover { background: #e0ecfa; }
-a.plain { color: #185fa5; }
-details summary { cursor: pointer; color: #185fa5; font-size: 14px; }
-details { margin-top: 8px; }
-table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 14px; }
-th, td { border: 1px solid #e3e2dc; padding: 6px 8px; text-align: left; }
-th { background: #f1efe8; font-weight: 600; }
-blockquote { margin: 0; padding-left: 10px; border-left: 3px solid #d9d8d2; color: #4a4a45; }
-.en { margin: 0 0 2px; }
-.zh { margin: 0 0 12px; color: #4a4a45; }
-.zh[hidden] { display: none; }
-button.zhbtn { background: #eef4fb; border: 1px solid #c9dcef; border-radius: 6px; padding: 2px 10px;
-  font-size: 12px; cursor: pointer; color: #185fa5; margin-bottom: 8px; }
-.words { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-.idx { display: flex; flex-wrap: wrap; gap: 4px; margin: 12px 0 4px; }
-.idx a { display: inline-block; min-width: 24px; text-align: center; background: #fff; border: 1px solid #d9d8d2;
-  border-radius: 6px; padding: 2px 6px; font-size: 13px; color: #185fa5; text-decoration: none; }
-.idx a:hover { border-color: #185fa5; }
-h2 .count { color: #6b6b66; font-size: 12px; font-weight: 400; margin-left: 8px; }
-.wcard { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
-.wcard .w { font-weight: 600; }
-.wcard .p { color: #6b6b66; font-size: 12px; }
-.wcard .c, .wcard .e { display: none; font-size: 13px; margin-top: 4px; }
-.wcard.show .c, .wcard.show .e { display: block; }
-.wcard .e { color: #4a4a45; }
-.hide { display: none; }
-/* 阅读页双栏布局：左侧目录 + 右侧单篇卡片 */
-.reading-layout { display: flex; gap: 16px; align-items: flex-start; }
-.reading-toc { flex: 0 0 190px; position: sticky; top: 16px; background: #fff;
-  border: 1px solid #e3e2dc; border-radius: 12px; overflow: hidden; }
-.reading-toc iframe { display: block; width: 100%; height: 260px; border: 0; }
-.reading-stage { flex: 1 1 auto; min-width: 0; }
-.stage-head { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 2px; }
-.stage-head h2 { margin: 0; }
-.stage-count { color: #6b6b66; font-size: 13px; }
-.stage-file { color: #88877f; font-size: 12px; margin: 0 0 10px; }
-.stage-body { display: flex; align-items: center; gap: 10px; }
-.navbtn { flex: 0 0 36px; height: 36px; border-radius: 50%; border: 1px solid #d9d8d2;
-  background: #fff; color: #185fa5; font-size: 16px; cursor: pointer; line-height: 1; }
-.navbtn:hover:not(:disabled) { border-color: #185fa5; background: #eef4fb; }
-.navbtn:disabled { opacity: .35; cursor: default; }
-.stage-viewport { flex: 1 1 auto; min-width: 0; }
-.rcard { margin-bottom: 0; animation: cardin .18s ease; }
-.rcard h3 { margin: 0 0 2px; font-size: 17px; }
-@keyframes cardin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-@media (max-width: 720px) {
-  .reading-layout { flex-direction: column; }
-  .reading-toc { position: static; flex: none; width: 100%; }
-  .reading-toc iframe { height: 150px; }
-}
-footer { color: #88877f; font-size: 12px; margin: 24px 0; }
-</style></head><body><div class="wrap"><h1>词汇卡</h1>
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>词汇卡</title>
+<link rel="stylesheet" href="assets/board.css">
+</head><body><div class="wrap">
+<h1>词汇卡</h1>
 <p><a class="plain" href="index.html">← 返回看板</a></p>
-<p class="sub">按首字母分组，点击卡片翻出中文与例句。</p>
-<div class="idx">
-<a href="#letter-A">A</a>
-<a href="#letter-B">B</a>
-<a href="#letter-C">C</a>
-<a href="#letter-D">D</a>
-<a href="#letter-E">E</a>
-<a href="#letter-F">F</a>
-<a href="#letter-H">H</a>
-<a href="#letter-K">K</a>
-<a href="#letter-L">L</a>
-<a href="#letter-M">M</a>
-<a href="#letter-N">N</a>
-<a href="#letter-O">O</a>
-<a href="#letter-P">P</a>
-<a href="#letter-Q">Q</a>
-<a href="#letter-R">R</a>
-<a href="#letter-S">S</a>
-<a href="#letter-T">T</a>
-<a href="#letter-U">U</a>
-<a href="#letter-W">W</a>
-<a href="#letter-Y">Y</a>
+<p class="sub">按首字母分组，点击卡片翻出中文与例句。<span id="totalNote"></span></p>
+
+<div id="apiError" class="api-error hide"><span id="apiErrorMsg"></span><button id="apiRetry" type="button">重试</button></div>
+
+<div class="idx" id="letterNav"></div>
+<input id="q" placeholder="搜索单词、释义或例句，输入关键词即时过滤">
+<div id="wordGroups"><p class="state loading">正在加载词汇…</p></div>
+<footer>提示：先自己回忆中文，再点开核对；例句取自该词首次出现的课程。</footer>
 </div>
-<h2 id="letter-A">A<span class="count">2 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">ago</div><div class="p">/əˈɡoʊ/</div><div class="c">以前（…之前）</div><div class="e">We were in Beijing two days ago.</div></div>
-<div class="wcard"><div class="w">at home</div><div class="p">/ət hoʊm/</div><div class="c">在家</div><div class="e">They were at home.</div></div>
-</div>
-<h2 id="letter-B">B<span class="count">4 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">bag</div><div class="p">/bæɡ/</div><div class="c">包；书包</div><div class="e">Her bag is big.</div></div>
-<div class="wcard"><div class="w">big</div><div class="p">/bɪɡ/</div><div class="c">大的</div><div class="e">My bag is big.</div></div>
-<div class="wcard"><div class="w">book</div><div class="p">/bʊk/</div><div class="c">书</div><div class="e">I like my book.</div></div>
-<div class="wcard"><div class="w">busy</div><div class="p">/ˈbɪzi/</div><div class="c">忙的</div><div class="e">I am busy today.</div></div>
-</div>
-<h2 id="letter-C">C<span class="count">3 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">class</div><div class="p">/klæs/</div><div class="c">班级；课</div><div class="e">My class is big.</div></div>
-<div class="wcard"><div class="w">computer</div><div class="p">/kəmˈpjuːtər/</div><div class="c">电脑</div><div class="e">I like my computer.</div></div>
-<div class="wcard"><div class="w">cook</div><div class="p">/kʊk/</div><div class="c">做饭</div><div class="e">My mother is cooking dinner.</div></div>
-</div>
-<h2 id="letter-D">D<span class="count">1 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">dinner</div><div class="p">/ˈdɪnər/</div><div class="c">晚饭</div><div class="e">We are making dinner now.</div></div>
-</div>
-<h2 id="letter-E">E<span class="count">3 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">email</div><div class="p">/ˈiːmeɪl/</div><div class="c">电子邮件</div><div class="e">I am writing an email now.</div></div>
-<div class="wcard"><div class="w">English</div><div class="p">/ˈɪŋɡlɪʃ/</div><div class="c">英语</div><div class="e">She studies English.</div></div>
-<div class="wcard"><div class="w">evening</div><div class="p">/ˈiːvnɪŋ/</div><div class="c">晚上</div><div class="e">We watch TV in the evening.</div></div>
-</div>
-<h2 id="letter-F">F<span class="count">2 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">fine</div><div class="p">/faɪn/</div><div class="c">好的</div><div class="e">I was fine yesterday.</div></div>
-<div class="wcard"><div class="w">friend</div><div class="p">/frend/</div><div class="c">朋友</div><div class="e">He is my friend.</div></div>
-</div>
-<h2 id="letter-H">H<span class="count">2 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">happy</div><div class="p">/ˈhæpi/</div><div class="c">开心的</div><div class="e">They are happy.</div></div>
-<div class="wcard"><div class="w">homework</div><div class="p">/ˈhoʊmwɜːrk/</div><div class="c">作业</div><div class="e">Tom is doing his homework now.</div></div>
-</div>
-<h2 id="letter-K">K<span class="count">1 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">kitchen</div><div class="p">/ˈkɪtʃɪn/</div><div class="c">厨房</div><div class="e">She is in the kitchen.</div></div>
-</div>
-<h2 id="letter-L">L<span class="count">3 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">last night</div><div class="p">/læst naɪt/</div><div class="c">昨晚</div><div class="e">He was at home last night.</div></div>
-<div class="wcard"><div class="w">late</div><div class="p">/leɪt/</div><div class="c">晚的；迟到</div><div class="e">Tom was late this morning.</div></div>
-<div class="wcard"><div class="w">like</div><div class="p">/laɪk/</div><div class="c">喜欢</div><div class="e">I like music.</div></div>
-</div>
-<h2 id="letter-M">M<span class="count">3 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">make</div><div class="p">/meɪk/</div><div class="c">做；制造</div><div class="e">She is making dinner.</div></div>
-<div class="wcard"><div class="w">morning</div><div class="p">/ˈmɔːrnɪŋ/</div><div class="c">早上</div><div class="e">I read English every morning.</div></div>
-<div class="wcard"><div class="w">music</div><div class="p">/ˈmjuːzɪk/</div><div class="c">音乐</div><div class="e">I like music.</div></div>
-</div>
-<h2 id="letter-N">N<span class="count">3 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">name</div><div class="p">/neɪm/</div><div class="c">名字</div><div class="e">My name is Zane.</div></div>
-<div class="wcard"><div class="w">need</div><div class="p">/niːd/</div><div class="c">需要</div><div class="e">We need help.</div></div>
-<div class="wcard"><div class="w">now</div><div class="p">/naʊ/</div><div class="c">现在</div><div class="e">I am busy now.</div></div>
-</div>
-<h2 id="letter-O">O<span class="count">2 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">office</div><div class="p">/ˈɔːfɪs/</div><div class="c">办公室</div><div class="e">He works in an office.</div></div>
-<div class="wcard"><div class="w">often</div><div class="p">/ˈɔːfn/</div><div class="c">经常</div><div class="e">He is often busy.</div></div>
-</div>
-<h2 id="letter-P">P<span class="count">1 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">play</div><div class="p">/pleɪ/</div><div class="c">玩；踢（球）</div><div class="e">They play football.</div></div>
-</div>
-<h2 id="letter-Q">Q<span class="count">1 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">question</div><div class="p">/ˈkwestʃən/</div><div class="c">问题</div><div class="e">The question was easy.</div></div>
-</div>
-<h2 id="letter-R">R<span class="count">2 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">read</div><div class="p">/riːd/</div><div class="c">读</div><div class="e">He is reading a book.</div></div>
-<div class="wcard"><div class="w">run</div><div class="p">/rʌn/</div><div class="c">跑</div><div class="e">Tom is running.</div></div>
-</div>
-<h2 id="letter-S">S<span class="count">7 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">school</div><div class="p">/skuːl/</div><div class="c">学校</div><div class="e">My school is big.</div></div>
-<div class="wcard"><div class="w">sick</div><div class="p">/sɪk/</div><div class="c">生病的</div><div class="e">She was sick last week.</div></div>
-<div class="wcard"><div class="w">sit</div><div class="p">/sɪt/</div><div class="c">坐</div><div class="e">I am sitting now.</div></div>
-<div class="wcard"><div class="w">sleep</div><div class="p">/sliːp/</div><div class="c">睡觉</div><div class="e">He is sleeping now.</div></div>
-<div class="wcard"><div class="w">sometimes</div><div class="p">/ˈsʌmtaɪmz/</div><div class="c">有时</div><div class="e">We sometimes play games.</div></div>
-<div class="wcard"><div class="w">student</div><div class="p">/ˈstuːdnt/</div><div class="c">学生</div><div class="e">I am a student.</div></div>
-<div class="wcard"><div class="w">study</div><div class="p">/ˈstʌdi/</div><div class="c">学习</div><div class="e">I study English.</div></div>
-</div>
-<h2 id="letter-T">T<span class="count">5 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">tall</div><div class="p">/tɔːl/</div><div class="c">高的</div><div class="e">Tom is tall.</div></div>
-<div class="wcard"><div class="w">teacher</div><div class="p">/ˈtiːtʃər/</div><div class="c">老师</div><div class="e">She is my teacher.</div></div>
-<div class="wcard"><div class="w">tired</div><div class="p">/ˈtaɪərd/</div><div class="c">累的</div><div class="e">We are tired.</div></div>
-<div class="wcard"><div class="w">tired</div><div class="p">/ˈtaɪərd/</div><div class="c">累的</div><div class="e">I was very tired yesterday.</div></div>
-<div class="wcard"><div class="w">today</div><div class="p">/təˈdeɪ/</div><div class="c">今天</div><div class="e">She is working today.</div></div>
-</div>
-<h2 id="letter-U">U<span class="count">1 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">usually</div><div class="p">/ˈjuːʒuəli/</div><div class="c">通常</div><div class="e">I usually study English after work.</div></div>
-</div>
-<h2 id="letter-W">W<span class="count">5 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">watch</div><div class="p">/wɑːtʃ/</div><div class="c">看（电视、电影）</div><div class="e">We watch movies.</div></div>
-<div class="wcard"><div class="w">week</div><div class="p">/wiːk/</div><div class="c">星期；周</div><div class="e">She was busy last week.</div></div>
-<div class="wcard"><div class="w">weekend</div><div class="p">/ˈwiːkend/</div><div class="c">周末</div><div class="e">They play football on the weekend.</div></div>
-<div class="wcard"><div class="w">work</div><div class="p">/wɜːrk/</div><div class="c">工作；干活</div><div class="e">I work in a small company.</div></div>
-<div class="wcard"><div class="w">write</div><div class="p">/raɪt/</div><div class="c">写</div><div class="e">I am writing an email.</div></div>
-</div>
-<h2 id="letter-Y">Y<span class="count">1 个</span></h2>
-<div class="words">
-<div class="wcard"><div class="w">yesterday</div><div class="p">/ˈjestərdeɪ/</div><div class="c">昨天</div><div class="e">I was tired yesterday.</div></div>
-</div></div><script>
-var tabs = document.querySelectorAll('nav button');
-tabs.forEach(function (btn) {
-  btn.addEventListener('click', function () {
-    tabs.forEach(function (b) { b.classList.remove('on'); });
-    btn.classList.add('on');
-    document.querySelectorAll('main section').forEach(function (s) { s.classList.add('hide'); });
-    document.getElementById('tab-' + btn.dataset.tab).classList.remove('hide');
-  });
-});
-document.querySelectorAll('.zhbtn').forEach(function (b) {
-  b.addEventListener('click', function () {
-    var scope = b.parentElement;
-    var blocks = scope.querySelectorAll('.zh');
-    var hidden = 0;
-    blocks.forEach(function (z) { if (z.hasAttribute('hidden')) { hidden += 1; } });
-    blocks.forEach(function (z) {
-      if (hidden > 0) { z.removeAttribute('hidden'); } else { z.setAttribute('hidden', ''); }
+
+<script src="assets/api.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+/* 词汇卡 · API 驱动（口径 51：按 word 去重后的词条数）
+ * 数据：GET /api/vocabulary/stats（total + byLetter）、GET /api/vocabulary（全量，getAll 分页取完） */
+(function () {
+  'use strict';
+  var el = UI.el;
+  UI.onRetry(loadAll);
+
+  function letterOf(word) {
+    var c = String(word || '').charAt(0).toUpperCase();
+    return /[A-Z]/.test(c) ? c : '#';
+  }
+
+  function renderNav(byLetter) {
+    var nav = el('letterNav');
+    var letters = Object.keys(byLetter || {}).sort();
+    nav.innerHTML = letters.map(function (L) {
+      return '<a href="#letter-' + UI.esc(L) + '">' + UI.esc(L) + '</a>';
+    }).join('');
+  }
+
+  function renderGroups(list) {
+    var box = el('wordGroups');
+    var groups = {};
+    list.forEach(function (w) {
+      var L = letterOf(w.word);
+      (groups[L] = groups[L] || []).push(w);
     });
-    b.textContent = hidden > 0 ? '收起中文' : '整篇看中文';
+    var letters = Object.keys(groups).sort();
+    box.innerHTML = letters.map(function (L) {
+      var items = groups[L].slice().sort(function (a, b) {
+        return String(a.word).localeCompare(String(b.word));
+      });
+      return '<h2 id="letter-' + UI.esc(L) + '">' + UI.esc(L)
+        + '<span class="count">' + items.length + ' 个</span></h2>'
+        + '<div class="words">' + items.map(UI.wordCard).join('') + '</div>';
+    }).join('');
+    applyFilter();
+  }
+
+  var applyFilter = function () {};
+
+  function showEmpty(text) {
+    el('wordGroups').innerHTML = UI.stateHTML('empty', text);
+    el('letterNav').innerHTML = '';
+    el('totalNote').textContent = '';
+  }
+
+  function loadAll() {
+    UI.clearError();
+    el('wordGroups').innerHTML = UI.stateHTML('loading', '正在加载词汇…');
+    var statsP = API.get('/vocabulary/stats').then(function (d) {
+      el('totalNote').textContent = '　共 ' + d.total + ' 个词条（按单词去重）';
+      renderNav(d.byLetter);
+    }).catch(function (e) { UI.partError('词汇统计', e); });
+    var listP = API.getAll('/vocabulary', { size: 100 }).then(function (d) {
+      if (!d.list.length) { showEmpty('暂无词汇记录'); return; }
+      renderGroups(d.list);
+    }).catch(function (e) { UI.partError('词汇列表', e); });
+    return Promise.all([statsP, listP]);
+  }
+
+  /* 点击卡片翻出中文与例句（.show） */
+  el('wordGroups').addEventListener('click', function (ev) {
+    var card = ev.target.closest ? ev.target.closest('.wcard') : null;
+    if (card) { card.classList.toggle('show'); }
   });
-});
-document.querySelectorAll('.wcard').forEach(function (c) {
-  c.addEventListener('click', function () { c.classList.toggle('show'); });
-});
-var q = document.getElementById('q');
-if (q) {
-  q.addEventListener('input', function () {
-    var v = q.value.trim().toLowerCase();
-    document.querySelectorAll('.lesson').forEach(function (card) {
-      card.classList.toggle('hide', v !== '' && card.dataset.text.indexOf(v) === -1);
-    });
+
+  loadAll().then(function () {
+    applyFilter = UI.bindFilter('q', 'wordGroups', '.wcard', '没有匹配的词汇，换个关键词试试');
   });
-}
-</script></body></html>
+})();
+</script>
+</body></html>

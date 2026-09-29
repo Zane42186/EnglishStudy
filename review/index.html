@@ -1,99 +1,13 @@
-<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>英语复习看板</title><style>
-:root { color-scheme: light; }
-* { box-sizing: border-box; }
-body { margin: 0; padding: 24px; background: #f7f7f5; color: #2c2c2a;
-  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 15px; line-height: 1.7; }
-.wrap { max-width: 900px; margin: 0 auto; }
-h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
-h2 { font-size: 16px; font-weight: 600; margin: 24px 0 8px; }
-h3 { font-size: 15px; font-weight: 600; margin: 0; }
-h4 { font-size: 13px; font-weight: 600; color: #6b6b66; margin: 14px 0 4px; }
-.sub { color: #6b6b66; font-size: 13px; margin: 0 0 16px; }
-.stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
-.stat { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 14px; min-width: 110px; }
-.stat b { display: block; font-size: 18px; font-weight: 600; }
-.stat span { color: #6b6b66; font-size: 12px; }
-.entries { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 16px 0 4px; }
-a.entry { display: block; background: #fff; border: 1px solid #d9d8d2; border-radius: 10px;
-  padding: 10px 14px; text-decoration: none; color: #2c2c2a; }
-a.entry:hover { border-color: #185fa5; }
-a.entry b { display: block; font-size: 15px; font-weight: 500; }
-a.entry span { color: #6b6b66; font-size: 12px; }
-#q { width: 100%; padding: 8px 12px; border: 1px solid #d9d8d2; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
-.card { background: #fff; border: 1px solid #e3e2dc; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
-.card .meta { color: #6b6b66; font-size: 12px; margin: 4px 0 8px; }
-.sum { color: #3d3d38; margin: 4px 0 8px; font-size: 14px; }
-a.btn { display: inline-block; background: #eef4fb; border: 1px solid #c9dcef; color: #185fa5;
-  border-radius: 8px; padding: 4px 12px; font-size: 13px; text-decoration: none; }
-a.btn:hover { background: #e0ecfa; }
-a.plain { color: #185fa5; }
-details summary { cursor: pointer; color: #185fa5; font-size: 14px; }
-details { margin-top: 8px; }
-table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 14px; }
-th, td { border: 1px solid #e3e2dc; padding: 6px 8px; text-align: left; }
-th { background: #f1efe8; font-weight: 600; }
-blockquote { margin: 0; padding-left: 10px; border-left: 3px solid #d9d8d2; color: #4a4a45; }
-.en { margin: 0 0 2px; }
-.zh { margin: 0 0 12px; color: #4a4a45; }
-.zh[hidden] { display: none; }
-button.zhbtn { background: #eef4fb; border: 1px solid #c9dcef; border-radius: 6px; padding: 2px 10px;
-  font-size: 12px; cursor: pointer; color: #185fa5; margin-bottom: 8px; }
-.words { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-.idx { display: flex; flex-wrap: wrap; gap: 4px; margin: 12px 0 4px; }
-.idx a { display: inline-block; min-width: 24px; text-align: center; background: #fff; border: 1px solid #d9d8d2;
-  border-radius: 6px; padding: 2px 6px; font-size: 13px; color: #185fa5; text-decoration: none; }
-.idx a:hover { border-color: #185fa5; }
-h2 .count { color: #6b6b66; font-size: 12px; font-weight: 400; margin-left: 8px; }
-.wcard { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
-.wcard .w { font-weight: 600; }
-.wcard .p { color: #6b6b66; font-size: 12px; }
-.wcard .c, .wcard .e { display: none; font-size: 13px; margin-top: 4px; }
-.wcard.show .c, .wcard.show .e { display: block; }
-.wcard .e { color: #4a4a45; }
-.hide { display: none; }
-/* 阅读页双栏布局：左侧目录 + 右侧单篇卡片 */
-.reading-layout { display: flex; gap: 16px; align-items: flex-start; }
-.reading-toc { flex: 0 0 190px; position: sticky; top: 16px; background: #fff;
-  border: 1px solid #e3e2dc; border-radius: 12px; overflow: hidden; }
-.reading-toc iframe { display: block; width: 100%; height: 260px; border: 0; }
-.reading-stage { flex: 1 1 auto; min-width: 0; }
-.stage-head { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 2px; }
-.stage-head h2 { margin: 0; }
-.stage-count { color: #6b6b66; font-size: 13px; }
-.stage-file { color: #88877f; font-size: 12px; margin: 0 0 10px; }
-.stage-body { display: flex; align-items: center; gap: 10px; }
-.navbtn { flex: 0 0 36px; height: 36px; border-radius: 50%; border: 1px solid #d9d8d2;
-  background: #fff; color: #185fa5; font-size: 16px; cursor: pointer; line-height: 1; }
-.navbtn:hover:not(:disabled) { border-color: #185fa5; background: #eef4fb; }
-.navbtn:disabled { opacity: .35; cursor: default; }
-.stage-viewport { flex: 1 1 auto; min-width: 0; }
-.rcard { margin-bottom: 0; animation: cardin .18s ease; }
-.rcard h3 { margin: 0 0 2px; font-size: 17px; }
-@keyframes cardin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-@media (max-width: 720px) {
-  .reading-layout { flex-direction: column; }
-  .reading-toc { position: static; flex: none; width: 100%; }
-  .reading-toc iframe { height: 150px; }
-}
-footer { color: #88877f; font-size: 12px; margin: 24px 0; }
-</style><style>
-/* ---- API 联调状态样式（Loading / Error / Empty） ---- */
-.api-error { background: #fdf1f0; border: 1px solid #f0c8c5; color: #a5392f;
-  border-radius: 10px; padding: 10px 14px; margin: 16px 0; font-size: 14px;
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.api-error.hide { display: none; }
-.api-error button { background: #fff; border: 1px solid #e0aca7; color: #a5392f;
-  border-radius: 8px; padding: 4px 14px; font-size: 13px; cursor: pointer; }
-.api-error button:hover { background: #fbe9e7; }
-.state { color: #88877f; font-size: 14px; margin: 16px 0; }
-.state.loading::after { content: ""; display: inline-block; width: 12px; height: 12px;
-  margin-left: 8px; border: 2px solid #d9d8d2; border-top-color: #185fa5; border-radius: 50%;
-  vertical-align: -2px; animation: spin .8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.stat b.pending { color: #c9c8c1; }
-</style></head><body><div class="wrap"><h1>英语复习看板</h1>
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>英语复习看板</title>
+<link rel="stylesheet" href="assets/board.css">
+</head><body><div class="wrap">
+<h1>英语复习看板</h1>
 <p class="sub">数据由后端 API（localhost:4000）实时加载。首页只放总结，正文、阅读、词汇都在各自页面。</p>
+
 <div id="apiError" class="api-error hide"><span id="apiErrorMsg"></span><button id="apiRetry" type="button">重试</button></div>
+
 <div class="stats">
 <div class="stat"><b id="statLessons" class="pending">…</b><span>已上课数</span></div>
 <div class="stat"><b id="statLevel" class="pending">…</b><span>当前级别</span></div>
@@ -101,169 +15,108 @@ footer { color: #88877f; font-size: 12px; margin: 24px 0; }
 <div class="stat"><b id="statReading" class="pending">…</b><span>阅读篇数</span></div>
 <div class="stat"><b id="statMistakes" class="pending">…</b><span>未过关错词</span></div>
 </div>
+
 <div class="entries">
 <a class="entry" href="reading.html"><b>阅读</b><span>按天查看，点击看中文</span></a>
 <a class="entry" href="words.html"><b>词汇卡</b><span>点击翻中文与例句</span></a>
 <a class="entry" href="wrong.html"><b>错词本</b><span>已过关与待复习</span></a>
 </div>
+
+<div id="whyBlock"></div>
+
+<h2>近 6 课错误趋势<span class="count">错误处数，目标带 2—4</span></h2>
+<div id="trendBox"><p class="state loading">正在加载趋势…</p></div>
+
 <h2>课程<span class="count" id="lessonCount"></span></h2>
 <input id="q" placeholder="搜索课程总结与语法点，输入关键词即时过滤">
 <div id="lessonList"><p class="state loading">正在加载课程…</p></div>
-<footer>提示：先看总结回想，再点「查看全文」核对。</footer></div><script>
-var tabs = document.querySelectorAll('nav button');
-tabs.forEach(function (btn) {
-  btn.addEventListener('click', function () {
-    tabs.forEach(function (b) { b.classList.remove('on'); });
-    btn.classList.add('on');
-    document.querySelectorAll('main section').forEach(function (s) { s.classList.add('hide'); });
-    document.getElementById('tab-' + btn.dataset.tab).classList.remove('hide');
-  });
-});
-document.querySelectorAll('.zhbtn').forEach(function (b) {
-  b.addEventListener('click', function () {
-    var scope = b.parentElement;
-    var blocks = scope.querySelectorAll('.zh');
-    var hidden = 0;
-    blocks.forEach(function (z) { if (z.hasAttribute('hidden')) { hidden += 1; } });
-    blocks.forEach(function (z) {
-      if (hidden > 0) { z.removeAttribute('hidden'); } else { z.setAttribute('hidden', ''); }
-    });
-    b.textContent = hidden > 0 ? '收起中文' : '整篇看中文';
-  });
-});
-document.querySelectorAll('.wcard').forEach(function (c) {
-  c.addEventListener('click', function () { c.classList.toggle('show'); });
-});
-var q = document.getElementById('q');
-if (q) {
-  q.addEventListener('input', function () {
-    var v = q.value.trim().toLowerCase();
-    document.querySelectorAll('.lesson').forEach(function (card) {
-      card.classList.toggle('hide', v !== '' && card.dataset.text.indexOf(v) === -1);
-    });
-  });
-}
-</script>
+<footer>提示：先看总结回想，再点「查看全文」核对。</footer>
+</div>
+
+<script src="assets/api.js"></script>
+<script src="assets/ui.js"></script>
 <script>
-/* 数据来源：后端 API（Frontend → GET /api/* → MySQL）。
-   构建期不再把课程内容写进 HTML，页面在浏览器里实时取数。 */
-var API_BASE = 'http://localhost:4000/api';
+/* 首页 · API 驱动
+ * 统计：/lessons（取 total）、/progress、/vocabulary/stats、/mistakes/stats；阅读篇数等 /readings/stats（缺口，占位）
+ * 趋势：/lessons/error-trend?limit=6（Amy F6）
+ * 课程：/lessons/all（含 grammarPoint，API.lessonIndex 优先用它、失败回退分页全量）
+ * 建议：/agent/snapshot 的 lastRecommendation（Amy：替代 progress.note 原文；无数据不显示） */
+(function () {
+  'use strict';
+  var el = UI.el;
+  UI.onRetry(loadAll);
+  var applyFilter = function () {};
 
-function apiGet(path) {
-  return fetch(API_BASE + path)
-    .then(function (res) {
-      return res.json().catch(function () {
-        throw new Error('服务返回异常（HTTP ' + res.status + '）');
-      });
-    })
-    .then(function (body) {
-      if (!body || body.code !== 200) {
-        throw new Error((body && body.message) || '请求失败（HTTP ' + (body ? body.code : '未知') + '）');
-      }
-      return body.data;
+  /* ---- 统计卡（分区块降级：某卡失败只让该卡显示 —，不整页报错） ---- */
+  function loadStats() {
+    var jobs = [
+      API.getPage('/lessons', 1, 1).then(function (d) { UI.setText('statLessons', d.total); })
+        .catch(function (e) { UI.setUnknown('statLessons', '加载失败：' + e.message); UI.partError('已上课数', e); }),
+      API.get('/progress').then(function (d) { UI.setText('statLevel', d.currentLevel || '—'); })
+        .catch(function (e) { UI.setUnknown('statLevel', '加载失败：' + e.message); UI.partError('当前级别', e); }),
+      API.get('/vocabulary/stats').then(function (d) { UI.setText('statVocab', d.total); })
+        .catch(function (e) { UI.setUnknown('statVocab', '加载失败：' + e.message); UI.partError('累计生词', e); }),
+      API.get('/mistakes/stats').then(function (d) { UI.setText('statMistakes', d.pending); })
+        .catch(function (e) { UI.setUnknown('statMistakes', '加载失败：' + e.message); UI.partError('未过关错词', e); })
+    ];
+    // 阅读篇数：后端暂无阅读统计接口（缺口 R1），显示占位而不是报错
+    UI.setUnknown('statReading', '后端暂未提供阅读统计接口（API 缺口 R1）');
+    return Promise.all(jobs);
+  }
+
+  /* ---- 为什么今天学这个（Amy：用 lastRecommendation，不展示 progress.note 原文）
+   * 语义是「当时的建议」而非当前实时判断，故必须标注出自哪一课；
+   * 库内可能恒为 null —— 无数据时整块不渲染（不留空白框），请求失败同样静默降级。 */
+  function loadSnapshot() {
+    return API.get('/agent/snapshot').then(function (d) {
+      var rec = d && d.lastRecommendation;
+      var text = rec && rec.text ? String(rec.text) : '';
+      if (!text) { el('whyBlock').innerHTML = ''; return; }
+      var from = rec.lessonNo ? ('出自第 ' + rec.lessonNo + ' 课的课后反馈') : '出自上一课的课后反馈';
+      el('whyBlock').innerHTML = '<h2>为什么今天学这个</h2>'
+        + '<div class="card"><p class="sum">' + UI.esc(text) + '</p>'
+        + '<p class="meta">' + UI.esc(from) + '（当时的建议，非当前实时判断）</p></div>';
+    }).catch(function () {
+      el('whyBlock').innerHTML = '';   // 可选区块，失败即不显示，不打扰主流程
     });
-}
-
-function esc(s) {
-  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-  });
-}
-
-function setText(id, text) {
-  var el = document.getElementById(id);
-  if (el) { el.textContent = text; el.classList.remove('pending'); }
-}
-
-/* ---- 统计卡 ---- */
-function loadStats() {
-  var jobs = [
-    apiGet('/lessons?size=1').then(function (d) { setText('statLessons', d.total); }),
-    apiGet('/progress').then(function (d) { setText('statLevel', d.currentLevel || '—'); }),
-    apiGet('/vocabulary/stats').then(function (d) { setText('statVocab', d.total); }),
-    apiGet('/mistakes/stats').then(function (d) { setText('statMistakes', d.pending); })
-  ];
-  // 阅读篇数：后端暂无阅读统计接口（API 缺口 R1），显示占位而不是报错
-  setText('statReading', '—');
-  document.getElementById('statReading').title = '后端暂未提供阅读统计接口（API 缺口 R1）';
-  return Promise.all(jobs);
-}
-
-/* ---- 课程列表 ---- */
-function lessonCard(l) {
-  var title = '第 ' + l.lessonNo + ' 课' + (l.lessonDate ? ' · ' + l.lessonDate : '');
-  var searchText = [title, l.summary, l.grammarPoint].join('  ').toLowerCase();
-  return '<article class="card lesson" data-text="' + esc(searchText) + '">'
-    + '<h3>' + esc(title) + '</h3>'
-    + '<p class="sum">' + esc(l.summary || '') + '</p>'
-    + '<p class="meta">生词 ' + (l.vocabCount || 0) + ' 个 ｜ 作业 ' + (l.exerciseCount || 0) + ' 项</p>'
-    + '<a class="btn" href="lessons/lesson-' + l.lessonNo + '.html">查看全文</a>'
-    + '</article>';
-}
-
-function renderLessons(list) {
-  var box = document.getElementById('lessonList');
-  if (!list.length) {
-    box.innerHTML = '<p class="state">暂无课程记录</p>';
-    document.getElementById('lessonCount').textContent = '';
-    return;
   }
-  box.innerHTML = list.map(lessonCard).join('');
-  document.getElementById('lessonCount').textContent = '共 ' + list.length + ' 课';
-  applyFilter();
-}
 
-function loadLessons() {
-  var box = document.getElementById('lessonList');
-  box.innerHTML = '<p class="state loading">正在加载课程…</p>';
-  return apiGet('/lessons?size=100').then(function (d) { renderLessons(d.list); });
-}
-
-/* ---- 错误与重试 ---- */
-function showError(msg) {
-  document.getElementById('apiErrorMsg').textContent = '加载失败：' + msg + '（请确认后端服务是否在运行）';
-  document.getElementById('apiError').classList.remove('hide');
-}
-
-function hideError() {
-  document.getElementById('apiError').classList.add('hide');
-}
-
-function loadAll() {
-  hideError();
-  var statsReady = loadStats().catch(function (err) { throw { part: '统计卡', err: err }; });
-  var lessonsReady = loadLessons().catch(function (err) { throw { part: '课程列表', err: err }; });
-  return Promise.all([statsReady, lessonsReady]).catch(function (e) {
-    var msg = e && e.err ? (e.part ? e.part + '：' + e.err.message : e.err.message) : String(e);
-    showError(msg);
-  });
-}
-
-/* ---- 搜索过滤（保留原有交互） ---- */
-function applyFilter() {
-  var input = document.getElementById('q');
-  if (!input) { return; }
-  var v = input.value.trim().toLowerCase();
-  document.querySelectorAll('.lesson').forEach(function (card) {
-    card.classList.toggle('hide', v !== '' && card.dataset.text.indexOf(v) === -1);
-  });
-  var visible = document.querySelectorAll('.lesson:not(.hide)').length;
-  var total = document.querySelectorAll('.lesson').length;
-  var count = document.getElementById('lessonCount');
-  if (count) {
-    count.textContent = (visible < total) ? ('匹配 ' + visible + ' 课') : (total ? '共 ' + total + ' 课' : '');
+  /* ---- 错误趋势（F6） ---- */
+  function loadTrend() {
+    return API.get('/lessons/error-trend?limit=6').then(function (d) {
+      el('trendBox').innerHTML = UI.trendChart(d.byLesson);
+    }).catch(function (e) {
+      el('trendBox').innerHTML = UI.stateHTML('empty', '趋势加载失败：' + e.message);
+      UI.partError('错误趋势', e);
+    });
   }
-  var box = document.getElementById('lessonList');
-  var emptyTip = box.querySelector('.state');
-  if (visible === 0 && total > 0) {
-    if (!emptyTip) { box.insertAdjacentHTML('beforeend', '<p class="state" id="filterEmpty">没有匹配的课程，换个关键词试试</p>'); }
-  } else if (emptyTip && emptyTip.id === 'filterEmpty') {
-    emptyTip.remove();
-  }
-}
 
-document.getElementById('q').addEventListener('input', applyFilter);
-document.getElementById('apiRetry').addEventListener('click', loadAll);
-loadAll();
+  /* ---- 课程列表 ---- */
+  function loadLessons() {
+    el('lessonList').innerHTML = UI.stateHTML('loading', '正在加载课程…');
+    return API.lessonIndex().then(function (d) {
+      if (!d.list.length) {
+        el('lessonList').innerHTML = UI.stateHTML('empty', '暂无课程记录');
+        el('lessonCount').textContent = '';
+        return;
+      }
+      el('lessonList').innerHTML = d.list.map(UI.lessonCard).join('');
+      el('lessonCount').textContent = '共 ' + d.list.length + ' 课';
+      applyFilter();
+    }).catch(function (e) {
+      el('lessonList').innerHTML = UI.stateHTML('empty', '课程加载失败：' + e.message);
+      UI.partError('课程列表', e);
+    });
+  }
+
+  function loadAll() {
+    UI.clearError();
+    return Promise.all([loadStats(), loadTrend(), loadLessons(), loadSnapshot()]);
+  }
+
+  loadAll().then(function () {
+    applyFilter = UI.bindFilter('q', 'lessonList', '.lesson', '没有匹配的课程，换个关键词试试');
+  });
+})();
 </script>
 </body></html>
