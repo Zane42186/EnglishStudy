@@ -226,6 +226,16 @@ CREATE TABLE IF NOT EXISTS mistake_events (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='错词复习流水';
 
 -- -----------------------------------------------------------------------------
+-- 数据导入规则（DQ1 落地，2026-09-29）：
+--   错词本导入必须跳过「非错题」行 —— 满足以下任一即不导入：
+--     · correct_text 为占位符（NULL / 空串 / '-' / '—'）
+--     · wrong_count = 0
+--   依据：mistakes.id=19（correct_text='—'、wrong_count=0、status='passed'）曾误入，
+--   造成库内 20 条与 wrong-words.md 19 条不一致（且 byType 多出 other=1）。
+--   该行已按 D-7 删除；M2 迁移脚本须固化此规则，否则重跑仍会带回来。
+-- -----------------------------------------------------------------------------
+
+-- -----------------------------------------------------------------------------
 -- 视图：看板统计（等价 review/index.html 顶部统计卡）
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE VIEW v_dashboard_stats AS
