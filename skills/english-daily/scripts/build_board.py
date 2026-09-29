@@ -1,4 +1,4 @@
-r"""扫描 notes 与 read 目录，重建总目录、学习摘要、看板与各专题页面。
+r"""扫描 notes 与 read 目录，重建总目录与学习摘要（md 产物）。
 
 用法：python build_board.py --root E:\English
 成功：BOARD_OK 课程数=<n> 阅读数=<n> 词汇数=<n> 摘要字节=<n>
@@ -7,12 +7,11 @@ r"""扫描 notes 与 read 目录，重建总目录、学习摘要、看板与各
 产物（全部在 --root 下）：
 - INDEX.md                       总目录
 - digest.md                      学习摘要，供上课时读取，不必读 notes 全文
-- review/index.html              看板首页（统计与课程卡改为前端实时调用后端 API，脚本不再写入课程正文）
-- review/reading.html            阅读页（左侧目录 + 右侧卡片，默认显示最新一天）
-- review/readIndex.html          阅读目录页，被 reading.html 左侧以 iframe 嵌入
-- review/words.html              词汇卡页
-- review/wrong.html              错词本页
-- review/lessons/lesson-N.html   每课详情页，脚本每次重建时重新生成
+
+注意：自 2026-09-29 起，本脚本**不再生成 review/*.html**。
+review/ 已改为纯 API 驱动静态页（前端资产，见 `docs/architecture.md` 的「前端」条目），
+数据来自后端 API，而非脚本拼装。脚本只保留 md 解析与 INDEX.md / digest.md 产物。
+**禁止**恢复 review/*.html 的写入：会静默覆盖前端对页面的改动。
 """
 
 from __future__ import annotations
@@ -1000,16 +999,13 @@ def main() -> int:
         days = parse_read_dir(root / "read")
         level = read_level(root)
         wrong_rows = parse_wrong_words(root / "wrong-words.md")
+        # review/ 已改为纯 API 驱动静态页（前端资产，见 docs/architecture.md 的「前端」条目）：
+        # 本脚本退役 HTML 生成，只保留 md 解析与 INDEX.md / digest.md 产物，
+        # 不再写入 review/*.html（否则会静默覆盖前端对页面的改动）。
         outputs = {
             "INDEX.md": build_index(lessons, level, days),
             "digest.md": build_digest(lessons, level, days, wrong_rows),
-            "review/index.html": build_board(lessons, level, days, wrong_rows),
-            "review/reading.html": build_reading_page(days),
-            "review/readIndex.html": build_read_index_page(days),
-            "review/words.html": build_words_page(lessons),
-            "review/wrong.html": build_wrong_page(wrong_rows),
         }
-        pages = {f"review/lessons/lesson-{lesson['no']}.html": render_lesson_page(lesson) for lesson in lessons}
     except Exception as exc:
         print(f"BOARD_FAIL 原因={exc}")
         return 1
@@ -1018,12 +1014,6 @@ def main() -> int:
             target = root / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(text, encoding="utf-8")
-        lessons_dir = root / "review" / "lessons"
-        lessons_dir.mkdir(parents=True, exist_ok=True)
-        for old in lessons_dir.glob("lesson-*.html"):
-            old.unlink()
-        for relative, text in pages.items():
-            (root / relative).write_text(text, encoding="utf-8")
     except Exception as exc:
         print(f"BOARD_FAIL 原因=写入失败：{exc}")
         return 1
