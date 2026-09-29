@@ -202,6 +202,28 @@ CREATE TABLE IF NOT EXISTS lesson_exercises (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='课程练习明细';
 
 -- -----------------------------------------------------------------------------
+-- 10. mistake_events —— 错词复习流水（第二批新增 2026-09-29）
+--     每次判对/判错插一条，用于回放「这个错是慢慢变好还是反复」。
+--     client_event_id 提供写入幂等；NULL 可重复（MySQL 唯一键不约束 NULL）。
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS mistake_events (
+  id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  student_id      BIGINT UNSIGNED NOT NULL,
+  mistake_id      BIGINT UNSIGNED NOT NULL,
+  lesson_id       BIGINT UNSIGNED NULL COMMENT '发生复习的课，可空',
+  result          ENUM('correct','wrong') NOT NULL,
+  client_event_id VARCHAR(64)     NULL COMMENT '客户端事件 id，用于幂等去重',
+  answered_at     DATETIME        NOT NULL COMMENT '本次复习时间',
+  created_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_me_client (student_id, client_event_id),
+  KEY idx_me_mistake (mistake_id, answered_at),
+  CONSTRAINT fk_me_student FOREIGN KEY (student_id) REFERENCES students (id),
+  CONSTRAINT fk_me_mistake FOREIGN KEY (mistake_id) REFERENCES mistakes (id),
+  CONSTRAINT fk_me_lesson  FOREIGN KEY (lesson_id)  REFERENCES lessons (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='错词复习流水';
+
+-- -----------------------------------------------------------------------------
 -- 视图：看板统计（等价 review/index.html 顶部统计卡）
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE VIEW v_dashboard_stats AS
