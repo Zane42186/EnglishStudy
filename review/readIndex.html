@@ -1,0 +1,50 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>阅读目录</title><style>
+* { box-sizing: border-box; }
+body { margin: 0; padding: 10px; background: #fbfbf9; color: #2c2c2a;
+  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+.rtoc-title { font-size: 12px; color: #6b6b66; margin: 2px 4px 8px; font-weight: 600; }
+.rtoc-item { display: block; width: 100%; text-align: left; background: transparent; border: 0;
+  border-radius: 8px; padding: 8px 10px; cursor: pointer; font: inherit; color: #2c2c2a; }
+.rtoc-item b { display: block; font-size: 14px; font-weight: 600; }
+.rtoc-item span { display: block; color: #6b6b66; font-size: 12px; }
+.rtoc-item:hover { background: #f1efe8; }
+.rtoc-item.on { background: #eef4fb; }
+.rtoc-item.on b { color: #185fa5; }
+</style></head><body><nav class="rtoc">
+<p class="rtoc-title">阅读目录</p>
+<button type="button" class="rtoc-item" data-date="2026-09-29"><b>2026-09-29</b><span>3 篇</span></button>
+<button type="button" class="rtoc-item" data-date="2026-09-28"><b>2026-09-28</b><span>3 篇</span></button>
+<button type="button" class="rtoc-item" data-date="2026-09-27"><b>2026-09-27</b><span>3 篇</span></button>
+<button type="button" class="rtoc-item" data-date="2026-09-26"><b>2026-09-26</b><span>2 篇</span></button>
+</nav><script>
+(function () {
+  var items = Array.prototype.slice.call(document.querySelectorAll('.rtoc-item'));
+  function activate(date) {
+    items.forEach(function (b) { b.classList.toggle('on', b.dataset.date === date); });
+  }
+  items.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var date = b.dataset.date;
+      activate(date);
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'reading-select', date: date }, '*');
+      } else {
+        location.href = 'reading.html#' + date;
+      }
+    });
+  });
+  window.addEventListener('message', function (event) {
+    var data = event.data || {};
+    if (data.type === 'reading-active') { activate(data.date); }
+  });
+  function reportHeight() {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage(
+        { type: 'reading-toc-height', height: document.documentElement.scrollHeight }, '*'
+      );
+    }
+  }
+  reportHeight();
+  window.addEventListener('load', reportHeight);
+})();
+</script></body></html>

@@ -3,3 +3,11 @@
 
 # 打包产物
 *.zip
+
+# 临时打包目录（english-daily 打包时生成，用完即弃）
+.english-daily-package-*/
+
+# 后端运行时产物（backend/README.md 要求）
+node_modules/
+.env
+db/_snapshot.json

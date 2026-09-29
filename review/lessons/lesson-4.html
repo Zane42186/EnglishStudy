@@ -13,10 +13,12 @@ h4 { font-size: 13px; font-weight: 600; color: #6b6b66; margin: 14px 0 4px; }
 .stat { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 14px; min-width: 110px; }
 .stat b { display: block; font-size: 18px; font-weight: 600; }
 .stat span { color: #6b6b66; font-size: 12px; }
-nav { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
-nav button { background: #fff; border: 1px solid #d9d8d2; border-radius: 8px; padding: 6px 14px;
-  font-size: 14px; cursor: pointer; color: #2c2c2a; }
-nav button.on { background: #2c2c2a; color: #fff; border-color: #2c2c2a; }
+.entries { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 16px 0 4px; }
+a.entry { display: block; background: #fff; border: 1px solid #d9d8d2; border-radius: 10px;
+  padding: 10px 14px; text-decoration: none; color: #2c2c2a; }
+a.entry:hover { border-color: #185fa5; }
+a.entry b { display: block; font-size: 15px; font-weight: 500; }
+a.entry span { color: #6b6b66; font-size: 12px; }
 #q { width: 100%; padding: 8px 12px; border: 1px solid #d9d8d2; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
 .card { background: #fff; border: 1px solid #e3e2dc; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
 .card .meta { color: #6b6b66; font-size: 12px; margin: 4px 0 8px; }
@@ -37,6 +39,11 @@ blockquote { margin: 0; padding-left: 10px; border-left: 3px solid #d9d8d2; colo
 button.zhbtn { background: #eef4fb; border: 1px solid #c9dcef; border-radius: 6px; padding: 2px 10px;
   font-size: 12px; cursor: pointer; color: #185fa5; margin-bottom: 8px; }
 .words { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.idx { display: flex; flex-wrap: wrap; gap: 4px; margin: 12px 0 4px; }
+.idx a { display: inline-block; min-width: 24px; text-align: center; background: #fff; border: 1px solid #d9d8d2;
+  border-radius: 6px; padding: 2px 6px; font-size: 13px; color: #185fa5; text-decoration: none; }
+.idx a:hover { border-color: #185fa5; }
+h2 .count { color: #6b6b66; font-size: 12px; font-weight: 400; margin-left: 8px; }
 .wcard { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
 .wcard .w { font-weight: 600; }
 .wcard .p { color: #6b6b66; font-size: 12px; }
@@ -101,9 +108,14 @@ tabs.forEach(function (btn) {
 });
 document.querySelectorAll('.zhbtn').forEach(function (b) {
   b.addEventListener('click', function () {
-    var zh = b.nextElementSibling;
-    if (zh.hasAttribute('hidden')) { zh.removeAttribute('hidden'); b.textContent = '收起中文'; }
-    else { zh.setAttribute('hidden', ''); b.textContent = '看中文'; }
+    var scope = b.parentElement;
+    var blocks = scope.querySelectorAll('.zh');
+    var hidden = 0;
+    blocks.forEach(function (z) { if (z.hasAttribute('hidden')) { hidden += 1; } });
+    blocks.forEach(function (z) {
+      if (hidden > 0) { z.removeAttribute('hidden'); } else { z.setAttribute('hidden', ''); }
+    });
+    b.textContent = hidden > 0 ? '收起中文' : '整篇看中文';
   });
 });
 document.querySelectorAll('.wcard').forEach(function (c) {

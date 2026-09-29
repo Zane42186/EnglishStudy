@@ -1,0 +1,132 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>第 5 课</title><style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px; background: #f7f7f5; color: #2c2c2a;
+  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 15px; line-height: 1.7; }
+.wrap { max-width: 900px; margin: 0 auto; }
+h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+h2 { font-size: 16px; font-weight: 600; margin: 24px 0 8px; }
+h3 { font-size: 15px; font-weight: 600; margin: 0; }
+h4 { font-size: 13px; font-weight: 600; color: #6b6b66; margin: 14px 0 4px; }
+.sub { color: #6b6b66; font-size: 13px; margin: 0 0 16px; }
+.stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.stat { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 14px; min-width: 110px; }
+.stat b { display: block; font-size: 18px; font-weight: 600; }
+.stat span { color: #6b6b66; font-size: 12px; }
+.entries { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 16px 0 4px; }
+a.entry { display: block; background: #fff; border: 1px solid #d9d8d2; border-radius: 10px;
+  padding: 10px 14px; text-decoration: none; color: #2c2c2a; }
+a.entry:hover { border-color: #185fa5; }
+a.entry b { display: block; font-size: 15px; font-weight: 500; }
+a.entry span { color: #6b6b66; font-size: 12px; }
+#q { width: 100%; padding: 8px 12px; border: 1px solid #d9d8d2; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
+.card { background: #fff; border: 1px solid #e3e2dc; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+.card .meta { color: #6b6b66; font-size: 12px; margin: 4px 0 8px; }
+.sum { color: #3d3d38; margin: 4px 0 8px; font-size: 14px; }
+a.btn { display: inline-block; background: #eef4fb; border: 1px solid #c9dcef; color: #185fa5;
+  border-radius: 8px; padding: 4px 12px; font-size: 13px; text-decoration: none; }
+a.btn:hover { background: #e0ecfa; }
+a.plain { color: #185fa5; }
+details summary { cursor: pointer; color: #185fa5; font-size: 14px; }
+details { margin-top: 8px; }
+table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 14px; }
+th, td { border: 1px solid #e3e2dc; padding: 6px 8px; text-align: left; }
+th { background: #f1efe8; font-weight: 600; }
+blockquote { margin: 0; padding-left: 10px; border-left: 3px solid #d9d8d2; color: #4a4a45; }
+.en { margin: 0 0 2px; }
+.zh { margin: 0 0 12px; color: #4a4a45; }
+.zh[hidden] { display: none; }
+button.zhbtn { background: #eef4fb; border: 1px solid #c9dcef; border-radius: 6px; padding: 2px 10px;
+  font-size: 12px; cursor: pointer; color: #185fa5; margin-bottom: 8px; }
+.words { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.idx { display: flex; flex-wrap: wrap; gap: 4px; margin: 12px 0 4px; }
+.idx a { display: inline-block; min-width: 24px; text-align: center; background: #fff; border: 1px solid #d9d8d2;
+  border-radius: 6px; padding: 2px 6px; font-size: 13px; color: #185fa5; text-decoration: none; }
+.idx a:hover { border-color: #185fa5; }
+h2 .count { color: #6b6b66; font-size: 12px; font-weight: 400; margin-left: 8px; }
+.wcard { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+.wcard .w { font-weight: 600; }
+.wcard .p { color: #6b6b66; font-size: 12px; }
+.wcard .c, .wcard .e { display: none; font-size: 13px; margin-top: 4px; }
+.wcard.show .c, .wcard.show .e { display: block; }
+.wcard .e { color: #4a4a45; }
+.hide { display: none; }
+footer { color: #88877f; font-size: 12px; margin: 24px 0; }
+</style></head><body><div class="wrap"><h1>第 5 课 · 2026-09-28</h1>
+<p class="sub">分清一般现在时与现在进行时什么时候该用哪个</p>
+<p><a class="plain" href="../index.html">← 返回看板</a></p>
+<h4>复习</h4>
+<ol><li>第 4 课现在进行时（翻译：他正在读一本书）：正确。He is reading a book.</li><li>第 2 课 be 动词（翻译：我们很忙）：作答 I am very busy. 语法本身没错，但「我们」是 we，不是 I。正确句：We are busy. → 新入错词本。</li><li>错词 always 位置（改错 She always is busy）：正确。She is always busy. 第 1 次答对 → 1。</li><li>错词进行时漏 be 动词（改错 I reading a book）：正确。I am reading a book. 第 1 次答对 → 1。</li><li>错词可数名词（改错 They play game every day）：正确。They play games every day. 第 1 次答对 → 1。</li></ol>
+<h4>今日语法</h4>
+<p>两个时态的分工：</p>
+<ul><li><strong>一般现在时</strong>：习惯、事实、长期状态。标志词 every day、usually、always、sometimes、on Sundays。</li><li><strong>现在进行时</strong>：此刻正在、暂时发生。标志词 now、right now、today（暂时情况）。</li></ul>
+<p>对照着看：</p>
+<table><thead><tr><th>一般现在时（习惯 / 事实）</th><th>现在进行时（此刻 / 暂时）</th></tr></thead><tbody><tr><td>I study English <strong>every day</strong>.</td><td>I <strong>am studying</strong> English <strong>now</strong>.</td></tr><tr><td>He <strong>plays</strong> football <strong>on Sundays</strong>.</td><td>He <strong>is playing</strong> football <strong>now</strong>.</td></tr><tr><td>She <strong>works</strong> in an office.</td><td>She <strong>is sleeping now</strong>.</td></tr></tbody></table>
+<p>判断口诀：先找<strong>标志词</strong>。看到 every day / usually 用一般现在时，看到 now / right now 用进行时。</p>
+<p>一个重要例外：<strong>心里状态的动词通常不用进行时</strong> —— like、need、want、know、love。</p>
+<ul><li>❌ I am liking music.</li><li>✅ I like music.（即使「此刻喜欢」，也用一般现在时）</li></ul>
+<h4>词汇</h4>
+<table><thead><tr><th>单词</th><th>音标</th><th>中文</th><th>例句</th></tr></thead><tbody><tr><td>usually</td><td>/ˈjuːʒuəli/</td><td>通常</td><td>I usually study English after work.</td></tr><tr><td>sometimes</td><td>/ˈsʌmtaɪmz/</td><td>有时</td><td>We sometimes play games.</td></tr><tr><td>often</td><td>/ˈɔːfn/</td><td>经常</td><td>He is often busy.</td></tr><tr><td>morning</td><td>/ˈmɔːrnɪŋ/</td><td>早上</td><td>I read English every morning.</td></tr><tr><td>evening</td><td>/ˈiːvnɪŋ/</td><td>晚上</td><td>We watch TV in the evening.</td></tr><tr><td>weekend</td><td>/ˈwiːkend/</td><td>周末</td><td>They play football on the weekend.</td></tr><tr><td>today</td><td>/təˈdeɪ/</td><td>今天</td><td>She is working today.</td></tr><tr><td>office</td><td>/ˈɔːfɪs/</td><td>办公室</td><td>He works in an office.</td></tr><tr><td>sleep</td><td>/sliːp/</td><td>睡觉</td><td>He is sleeping now.</td></tr><tr><td>homework</td><td>/ˈhoʊmwɜːrk/</td><td>作业</td><td>Tom is doing his homework now.</td></tr></tbody></table>
+<h4>例句</h4>
+<ol><li>I read English every morning. I am not reading now.</li><li>He plays football on Sundays. He is playing football now.</li><li>She works in an office. She is sleeping now.</li><li>We usually watch TV in the evening.</li><li>They play games on the weekend.</li></ol>
+<h4>作业</h4>
+<ol><li>选词填空：He usually ___ football on Sundays.（plays / is playing）</li></ol>
+<details><summary>看答案</summary>plays（usually + on Sundays 是习惯，用一般现在时）</details>
+
+2. 改错：I am liking music.
+<details><summary>看答案</summary>I like music.（like 这类心理状态动词一般不用进行时）</details>
+
+3. 翻译：他现在正在睡觉。
+<details><summary>看答案</summary>He is sleeping now.</details>
+
+4. 开放题：写 6 句 —— 3 句写你的日常习惯（一般现在时），3 句写此刻正在做的事（现在进行时）。写前五查：句首大写 / 句号后空格 / 人名大写 / 逗号不连句 / 疑问句用问号。
+
+<h4>我的作答</h4>
+<p>补漏块 2：</p>
+<ol><li>this is my book.</li><li>These are my books.</li><li>those are their bags.</li></ol>
+<p>作业：</p>
+<ol><li>plays</li><li>I like music.</li><li>Now, he is sleeping.</li><li>I study English every morning. I drink water every day, I need sleep every night. I am studying English and drinking water now. I am typing.</li></ol>
+<h4>批改</h4>
+<p>补漏块 2：</p>
+<ol><li>选词正确（this 指近处单数），但句首没大写 → This is my book. 新入错词本。</li><li>正确。these 是 this 的复数，配 are。</li><li>内容正确（those 复数、their 物主代词都对），句首没大写 → Those are their bags.</li></ol>
+<p>作业：</p>
+<ol><li>正确。usually + on Sundays 是习惯，用一般现在时 plays。</li><li>正确。like 是心理状态动词，不用进行时。</li><li>正确。Now, he is sleeping. 语序也对，更常见的写法是把 now 放句末：He is sleeping now.</li><li>三处问题。</li></ol>
+<ul><li>语法（标点）：I drink water every day, I need sleep every night. 是逗号连接两个完整句子 —— 这条你在第 2 课作业、第 5 课复习里都处理过，这是<strong>第 3 次犯</strong>。改成句号断开：I drink water every day. I need sleep every night. 或者加 and：I drink water every day, and I need sleep every night.</li><li>语法（进行时缺 be 动词这条这次没再犯）：I am studying English and drinking water now. 正确，两个动词共用一个 am 很地道。</li><li>任务完成度：习惯句写了 3 句达标，进行时只写了 2 句（studying / typing），还差 1 句。补一句就满：I am sitting in my room.</li></ul>
+<p>完整改后版：I study English every morning. I drink water every day. I need sleep every night. I am studying English and drinking water now. I am typing. I am sitting in my room.</p>
+<h4>难度反馈</h4>
+<p>刚好</p>
+<blockquote>备注：第 5 课作业错误回落到 2 处（上一课 6 处），但反馈仍是「刚好」，未触发翻倍复议条件（该条件要求连续 2—3 课每课错误 ≤2 处且反馈「简单」）。第 6 课继续 Level 2，补漏块推进到疑问词 what / who / where。</blockquote></div><script>
+var tabs = document.querySelectorAll('nav button');
+tabs.forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    tabs.forEach(function (b) { b.classList.remove('on'); });
+    btn.classList.add('on');
+    document.querySelectorAll('main section').forEach(function (s) { s.classList.add('hide'); });
+    document.getElementById('tab-' + btn.dataset.tab).classList.remove('hide');
+  });
+});
+document.querySelectorAll('.zhbtn').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var scope = b.parentElement;
+    var blocks = scope.querySelectorAll('.zh');
+    var hidden = 0;
+    blocks.forEach(function (z) { if (z.hasAttribute('hidden')) { hidden += 1; } });
+    blocks.forEach(function (z) {
+      if (hidden > 0) { z.removeAttribute('hidden'); } else { z.setAttribute('hidden', ''); }
+    });
+    b.textContent = hidden > 0 ? '收起中文' : '整篇看中文';
+  });
+});
+document.querySelectorAll('.wcard').forEach(function (c) {
+  c.addEventListener('click', function () { c.classList.toggle('show'); });
+});
+var q = document.getElementById('q');
+if (q) {
+  q.addEventListener('input', function () {
+    var v = q.value.trim().toLowerCase();
+    document.querySelectorAll('.lesson').forEach(function (card) {
+      card.classList.toggle('hide', v !== '' && card.dataset.text.indexOf(v) === -1);
+    });
+  });
+}
+</script></body></html>

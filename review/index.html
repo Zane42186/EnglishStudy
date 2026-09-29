@@ -13,10 +13,12 @@ h4 { font-size: 13px; font-weight: 600; color: #6b6b66; margin: 14px 0 4px; }
 .stat { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 14px; min-width: 110px; }
 .stat b { display: block; font-size: 18px; font-weight: 600; }
 .stat span { color: #6b6b66; font-size: 12px; }
-nav { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
-nav button { background: #fff; border: 1px solid #d9d8d2; border-radius: 8px; padding: 6px 14px;
-  font-size: 14px; cursor: pointer; color: #2c2c2a; }
-nav button.on { background: #2c2c2a; color: #fff; border-color: #2c2c2a; }
+.entries { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 16px 0 4px; }
+a.entry { display: block; background: #fff; border: 1px solid #d9d8d2; border-radius: 10px;
+  padding: 10px 14px; text-decoration: none; color: #2c2c2a; }
+a.entry:hover { border-color: #185fa5; }
+a.entry b { display: block; font-size: 15px; font-weight: 500; }
+a.entry span { color: #6b6b66; font-size: 12px; }
 #q { width: 100%; padding: 8px 12px; border: 1px solid #d9d8d2; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
 .card { background: #fff; border: 1px solid #e3e2dc; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
 .card .meta { color: #6b6b66; font-size: 12px; margin: 4px 0 8px; }
@@ -37,6 +39,11 @@ blockquote { margin: 0; padding-left: 10px; border-left: 3px solid #d9d8d2; colo
 button.zhbtn { background: #eef4fb; border: 1px solid #c9dcef; border-radius: 6px; padding: 2px 10px;
   font-size: 12px; cursor: pointer; color: #185fa5; margin-bottom: 8px; }
 .words { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.idx { display: flex; flex-wrap: wrap; gap: 4px; margin: 12px 0 4px; }
+.idx a { display: inline-block; min-width: 24px; text-align: center; background: #fff; border: 1px solid #d9d8d2;
+  border-radius: 6px; padding: 2px 6px; font-size: 13px; color: #185fa5; text-decoration: none; }
+.idx a:hover { border-color: #185fa5; }
+h2 .count { color: #6b6b66; font-size: 12px; font-weight: 400; margin-left: 8px; }
 .wcard { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
 .wcard .w { font-weight: 600; }
 .wcard .p { color: #6b6b66; font-size: 12px; }
@@ -46,22 +53,34 @@ button.zhbtn { background: #eef4fb; border: 1px solid #c9dcef; border-radius: 6p
 .hide { display: none; }
 footer { color: #88877f; font-size: 12px; margin: 24px 0; }
 </style></head><body><div class="wrap"><h1>英语复习看板</h1>
-<p class="sub">由 build_board.py 自动生成，共 4 课。这里只放总结，全文在各课详情页。</p>
+<p class="sub">由 build_board.py 自动生成，共 6 课。首页只放总结，正文、阅读、词汇都在各自页面。</p>
 <div class="stats">
-<div class="stat"><b>4</b><span>已上课数</span></div>
+<div class="stat"><b>6</b><span>已上课数</span></div>
 <div class="stat"><b>Level 2</b><span>当前级别</span></div>
-<div class="stat"><b>32</b><span>累计生词</span></div>
-<div class="stat"><b>5</b><span>阅读篇数</span></div>
-<div class="stat"><b>9</b><span>未过关错词</span></div>
+<div class="stat"><b>52</b><span>累计生词</span></div>
+<div class="stat"><b>11</b><span>阅读篇数</span></div>
+<div class="stat"><b>16</b><span>未过关错词</span></div>
 </div>
-<nav><button class="on" data-tab="lessons">课程</button>
-<button data-tab="reading">阅读</button>
-<button data-tab="words">词汇</button>
-<button data-tab="wrong">错词本</button></nav>
-<main>
-<section id="tab-lessons">
+<div class="entries">
+<a class="entry" href="reading.html"><b>阅读</b><span>按天查看，点击看中文</span></a>
+<a class="entry" href="words.html"><b>词汇卡</b><span>点击翻中文与例句</span></a>
+<a class="entry" href="wrong.html"><b>错词本</b><span>已过关与待复习</span></a>
+</div>
+<h2>课程</h2>
 <input id="q" placeholder="搜索课程总结，输入关键词即时过滤">
-<article class="card lesson" data-text="学会现在进行时 am/is/are + -ing，能说清「此刻正在做什么」  1. 第 3 课物主代词（翻译：他的包很大）：正确。his bag is very big. 2. 第 1 课主谓宾语序（连词成句 likes / music / she）：正确。she likes music. 三单 -s 也用对了。 3. 错词逗号连句（改错 i am a student now, i like my english teacher）：正确。用句号断开即正确：i am a student now. i like my english teacher. 第 1 次答对 → 1。 4. 错词 always 位置（改错 she always is busy）：作答 she always is bush。语法错误（词序没改）+ 拼写错误（bush 是灌木，busy 是忙的）。正确句：she is always busy. 第 2 次答错 → 连续答对清零。 5. 错词 there is（翻译：桌上有一本书）：正确。there is a book on the table. 第 1 次答对 → 1。   表示「此刻正在做」，用 **主语 + am / is / are + 动词的 -ing 形式**：  - i am studying english now.（我正在学英语。） - he is reading a book.（他正在读一本书。） - we are watching tv.（我们正在看电视。）  和一般现在时对比着看：  - 每天都这样：i study english every day.（一般现在时） - 此刻正在：i **am studying** english now.（现在进行时）  动词加 -ing 的三条拼写规则：  1. 一般情况下直接加：study → studying，play → playing 2. 以不发音的 e 结尾，去掉 e 再加：make → **making**，write → **writing** 3. 重读闭音节（辅音+元音+辅音结尾），双写最后一个辅音字母：run → **running**，sit → **sitting**  否定：在 am / is / are 后面加 not → i am not working now. ／ she isn't studying. 疑问：把 am / is / are 提到主语前面 → **are you studying?** ／ **is he playing football?** 简答：yes, i am. ／ no, he isn't.  标志词：**now**（现在）、right now、at the moment —— 看到 now 就优先考虑进行时。   | 单词 | 音标 | 中文 | 例句 | |---|---|---|---| | read | /riːd/ | 读 | he is reading a book. | | write | /raɪt/ | 写 | i am writing an email. | | make | /meɪk/ | 做；制造 | she is making dinner. | | cook | /kʊk/ | 做饭 | my mother is cooking dinner. | | dinner | /ˈdɪnər/ | 晚饭 | we are making dinner now. | | email | /ˈiːmeɪl/ | 电子邮件 | i am writing an email now. | | sit | /sɪt/ | 坐 | i am sitting now. | | run | /rʌn/ | 跑 | tom is running. | | now | /naʊ/ | 现在 | i am busy now. | | kitchen | /ˈkɪtʃɪn/ | 厨房 | she is in the kitchen. |   1. i am studying english now. 2. he is reading a book. 3. she is cooking dinner. 4. they are playing football. 5. are you watching tv? — yes, i am.   1. 写出 -ing 形式：make / run / write &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;making / running / writing&lt;/details&gt;  2. 选词填空：he ___ football now.（plays / is playing） &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;is playing（now 表示此刻正在进行）&lt;/details&gt;  3. 翻译：我正在读一本书。 &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;i am reading a book.&lt;/details&gt;  4. 开放题：写 5 句，用进行时描述「此刻你和你身边的人在做什么」，至少包含 1 句否定句和 1 句疑问句。写前自查：句首大写 / 句号后空格 / 人名大写 / 逗号不连句 / 疑问句用问号。   补漏块 1： 1. there is a bed in the room 2. there are two books on the desk. 3. there is a book on the table.  作业： 1. making running writing 2. he is playing football now. 3. i reading a book. 4. now, my grandpa and me sit on the chair. i am not playing game but studying english. what do you do ?   补漏块 1： 1. 正确。there is a bed in the room. 句尾补句号。 2. 正确。复数 two books 用 are。 3. 正确。写成 there is a book on the table. 既修掉了 an → a，也用对了 there is 结构，第 2 次答对 → 已过关。  作业： 1. 正确。making（去 e）、running（双写 n）、writing（去 e）三条拼写规则全对。 2. 正确。now 表示此刻正在进行，用 is playing。 3. 语法错误：进行时缺 be 动词。正确句：i am reading a book. 4. 六处错误。    - 语法（时态）：now, ... sit 与 now 冲突，此刻正在坐要用进行时：my grandpa and i **are sitting**.    - 语法（代词）：my grandpa and me 里 me 是宾格，作主语要用主格 i：my grandpa and **i**。（第 3 课刚讲的主格 / 物主代词）    - 拼写（大小写）：now, my 里的 my 不是句首，不需要大写 → now, my。    - 语法：play game → **play games**（或 play a game）。可数名词单数不能裸用，这条上次已经错过。    - 用词：what do you do 是问「你是做什么工作的」，问「你此刻在做什么」要说 **what are you doing?**    - 标点：句首小写 → what；问号前不要留空格，写成 what are you doing?     完整改后版：now, my grandpa and i are sitting on the chair. i am not playing games, but i am studying english. what are you doing?   刚好  &gt; 备注：第 4 课数据进行时是新语法点，作业错误数从上一课的 2 处升到 6 处，因此反馈为「刚好」，太简单连击中断归零。第 5 课继续 level 2，补漏块推进到 this / that / these / those。">
+<article class="card lesson" data-text="学会过去时 was / were，能说清「昨天怎么样」  1. 第 5 课时态辨析（选填 she usually ___ english in the morning）：正确。studies，usually 是习惯标志词。 2. 第 3 课物主代词（翻译：他们的学校很大）：作答 theri school is very big。拼写错误：their 的字母顺序写反了。正确句：their school is very big. 3. 错词逗号连句（改错 i drink water every day, i need sleep every night）：正确。用句号断开。第 3 次错后第一次答对 → 1。 4. 错词 we 配 are（改错 i am very busy → 我们很忙）：正确。we are very busy. 第 1 次答对 → 1。 5. 错词句首大写（改错 those are their bags）：正确。those are their bags. 第 1 次答对 → 1。   讲昨天、上次、以前的事，be 动词要换成过去式：  | 现在 | 过去 | |---|---| | i am busy. | i was busy. | | he / she / it is busy. | he / she / it was busy. | | you / we / they are busy. | you / we / they were busy. |  口诀：am / is → was，are → were。  - 否定：was / were 后加 not → i was not busy. ／ they weren't here. - 疑问：把 was / were 提到主语前面 → was he tired? ／ were you at school? - 时间标志词：yesterday、last night、last week、two days ago   | 单词 | 音标 | 中文 | 例句 | |---|---|---|---| | yesterday | /ˈjestərdeɪ/ | 昨天 | i was tired yesterday. | | last night | /læst naɪt/ | 昨晚 | he was at home last night. | | ago | /əˈɡoʊ/ | 以前（…之前） | we were in beijing two days ago. | | week | /wiːk/ | 星期；周 | she was busy last week. | | tired | /ˈtaɪərd/ | 累的 | i was very tired yesterday. | | late | /leɪt/ | 晚的；迟到 | tom was late this morning. | | sick | /sɪk/ | 生病的 | she was sick last week. | | fine | /faɪn/ | 好的 | i was fine yesterday. | | at home | /ət hoʊm/ | 在家 | they were at home. | | question | /ˈkwestʃən/ | 问题 | the question was easy. |   1. i was busy yesterday. 2. he was at home last night. 3. they were in the office two days ago. 4. she was sick last week. 5. were you tired? — yes, i was.   1. 选填：i ___ tired yesterday.（am / was / were） &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;was&lt;/details&gt;  2. 选填：they ___ at home last night.（was / were） &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;were&lt;/details&gt;  3. 改错：he were late this morning. &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;he was late this morning.&lt;/details&gt;  4. 翻译：我昨天很忙。 &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;i was busy yesterday.&lt;/details&gt;  5. 开放题：写 5 句讲你昨天的一天，每句都要用 was 或 were，至少 1 句否定、1 句疑问。   补漏块 3： 1. what is your name? 2. who is that man? 3. where is your school  作业： 1. was 2. were 3. were → was 4. i was busy yesterday. 5. i was busy yesterday. tom and i were playing game at yesterday at 8.00 p.m. i teached my friend to use ai at yesterday. what were you yesterday.   补漏块 3： 1. 正确。what 问名字。 2. 正确。who 问人。 3. 正确。where is your school? 句尾问号别丢。  作业： 1. 正确。yesterday 是过去时间，用 was。 2. 正确。they 用 were。 3. 正确。he 配 was。 4. 正确。i was busy yesterday. 5. 五处问题。    - 语法（时态混用）：tom and i were playing game 用了进行时，但这句在讲「昨天某个时刻正在做」，进行时本身可以（was / were + -ing 是过去进行时，第 7 课才正式讲），问题在 game 单数裸用 → games。    - 语法（介词）：at yesterday 连用两次。yesterday 前面不加 at，直接说 yesterday 或 at 8 p.m. yesterday。正确：tom and i were playing games at 8 p.m. yesterday.    - 拼写（不规则动词）：teached → taught。teach 的过去式是不规则变化。    - 语法（介词）：i taught my friend to use ai at yesterday → 去掉 at，或写成 yesterday evening。    - 用词（疑问句）：what were you yesterday. 想问「你昨天怎么样」，英语用 how：how were you yesterday? 而且句尾必须是问号。    - 任务完成度：5 句里只有 2 个不同句式（was busy / were playing），否定句没写。补一句：i was not happy yesterday.（或 i wasn't tired yesterday.）     完整改后版：i was busy yesterday. tom and i were playing games at 8 p.m. we had a good time. i taught my friend to use ai. how were you yesterday? i was not very happy yesterday.   刚好  &gt; 备注：第 6 课作业 5 处错，集中在三处老问题复发（play games 第 3 次、句尾问号、拼写）与两处新知识点（yesterday 前不加介词、teach 的不规则过去式）。反馈「刚好」，维持 level 2。第 7 课是 day-01-07.md 的最后一课，内容为 level 2 规则动词过去式 + 补漏块 4（介词 on / at）。 ">
+<h3>第 6 课 · 2026-09-29</h3>
+<p class="sum">学会过去时 was / were，能说清「昨天怎么样」</p>
+<p class="meta">生词 10 个 ｜ 作业 9 项</p>
+<a class="btn" href="lessons/lesson-6.html">查看全文</a>
+</article>
+<article class="card lesson" data-text="分清一般现在时与现在进行时什么时候该用哪个  1. 第 4 课现在进行时（翻译：他正在读一本书）：正确。he is reading a book. 2. 第 2 课 be 动词（翻译：我们很忙）：作答 i am very busy. 语法本身没错，但「我们」是 we，不是 i。正确句：we are busy. → 新入错词本。 3. 错词 always 位置（改错 she always is busy）：正确。she is always busy. 第 1 次答对 → 1。 4. 错词进行时漏 be 动词（改错 i reading a book）：正确。i am reading a book. 第 1 次答对 → 1。 5. 错词可数名词（改错 they play game every day）：正确。they play games every day. 第 1 次答对 → 1。   两个时态的分工：  - **一般现在时**：习惯、事实、长期状态。标志词 every day、usually、always、sometimes、on sundays。 - **现在进行时**：此刻正在、暂时发生。标志词 now、right now、today（暂时情况）。  对照着看：  | 一般现在时（习惯 / 事实） | 现在进行时（此刻 / 暂时） | |---|---| | i study english **every day**. | i **am studying** english **now**. | | he **plays** football **on sundays**. | he **is playing** football **now**. | | she **works** in an office. | she **is sleeping now**. |  判断口诀：先找**标志词**。看到 every day / usually 用一般现在时，看到 now / right now 用进行时。  一个重要例外：**心里状态的动词通常不用进行时** —— like、need、want、know、love。  - ❌ i am liking music. - ✅ i like music.（即使「此刻喜欢」，也用一般现在时）   | 单词 | 音标 | 中文 | 例句 | |---|---|---|---| | usually | /ˈjuːʒuəli/ | 通常 | i usually study english after work. | | sometimes | /ˈsʌmtaɪmz/ | 有时 | we sometimes play games. | | often | /ˈɔːfn/ | 经常 | he is often busy. | | morning | /ˈmɔːrnɪŋ/ | 早上 | i read english every morning. | | evening | /ˈiːvnɪŋ/ | 晚上 | we watch tv in the evening. | | weekend | /ˈwiːkend/ | 周末 | they play football on the weekend. | | today | /təˈdeɪ/ | 今天 | she is working today. | | office | /ˈɔːfɪs/ | 办公室 | he works in an office. | | sleep | /sliːp/ | 睡觉 | he is sleeping now. | | homework | /ˈhoʊmwɜːrk/ | 作业 | tom is doing his homework now. |   1. i read english every morning. i am not reading now. 2. he plays football on sundays. he is playing football now. 3. she works in an office. she is sleeping now. 4. we usually watch tv in the evening. 5. they play games on the weekend.   1. 选词填空：he usually ___ football on sundays.（plays / is playing） &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;plays（usually + on sundays 是习惯，用一般现在时）&lt;/details&gt;  2. 改错：i am liking music. &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;i like music.（like 这类心理状态动词一般不用进行时）&lt;/details&gt;  3. 翻译：他现在正在睡觉。 &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;he is sleeping now.&lt;/details&gt;  4. 开放题：写 6 句 —— 3 句写你的日常习惯（一般现在时），3 句写此刻正在做的事（现在进行时）。写前五查：句首大写 / 句号后空格 / 人名大写 / 逗号不连句 / 疑问句用问号。   补漏块 2： 1. this is my book. 2. these are my books. 3. those are their bags.  作业： 1. plays 2. i like music. 3. now, he is sleeping. 4. i study english every morning. i drink water every day, i need sleep every night. i am studying english and drinking water now. i am typing.   补漏块 2： 1. 选词正确（this 指近处单数），但句首没大写 → this is my book. 新入错词本。 2. 正确。these 是 this 的复数，配 are。 3. 内容正确（those 复数、their 物主代词都对），句首没大写 → those are their bags.  作业： 1. 正确。usually + on sundays 是习惯，用一般现在时 plays。 2. 正确。like 是心理状态动词，不用进行时。 3. 正确。now, he is sleeping. 语序也对，更常见的写法是把 now 放句末：he is sleeping now. 4. 三处问题。    - 语法（标点）：i drink water every day, i need sleep every night. 是逗号连接两个完整句子 —— 这条你在第 2 课作业、第 5 课复习里都处理过，这是**第 3 次犯**。改成句号断开：i drink water every day. i need sleep every night. 或者加 and：i drink water every day, and i need sleep every night.    - 语法（进行时缺 be 动词这条这次没再犯）：i am studying english and drinking water now. 正确，两个动词共用一个 am 很地道。    - 任务完成度：习惯句写了 3 句达标，进行时只写了 2 句（studying / typing），还差 1 句。补一句就满：i am sitting in my room.     完整改后版：i study english every morning. i drink water every day. i need sleep every night. i am studying english and drinking water now. i am typing. i am sitting in my room.   刚好  &gt; 备注：第 5 课作业错误回落到 2 处（上一课 6 处），但反馈仍是「刚好」，未触发翻倍复议条件（该条件要求连续 2—3 课每课错误 ≤2 处且反馈「简单」）。第 6 课继续 level 2，补漏块推进到疑问词 what / who / where。  --- ">
+<h3>第 5 课 · 2026-09-28</h3>
+<p class="sum">分清一般现在时与现在进行时什么时候该用哪个</p>
+<p class="meta">生词 10 个 ｜ 作业 7 项</p>
+<a class="btn" href="lessons/lesson-5.html">查看全文</a>
+</article>
+<article class="card lesson" data-text="学会现在进行时 am/is/are + -ing，能说清「此刻正在做什么」  1. 第 3 课物主代词（翻译：他的包很大）：正确。his bag is very big. 2. 第 1 课主谓宾语序（连词成句 likes / music / she）：正确。she likes music. 三单 -s 也用对了。 3. 错词逗号连句（改错 i am a student now, i like my english teacher）：正确。用句号断开即正确：i am a student now. i like my english teacher. 第 1 次答对 → 1。 4. 错词 always 位置（改错 she always is busy）：作答 she always is bush。语法错误（词序没改）+ 拼写错误（bush 是灌木，busy 是忙的）。正确句：she is always busy. 第 2 次答错 → 连续答对清零。 5. 错词 there is（翻译：桌上有一本书）：正确。there is a book on the table. 第 1 次答对 → 1。   表示「此刻正在做」，用 **主语 + am / is / are + 动词的 -ing 形式**：  - i am studying english now.（我正在学英语。） - he is reading a book.（他正在读一本书。） - we are watching tv.（我们正在看电视。）  和一般现在时对比着看：  - 每天都这样：i study english every day.（一般现在时） - 此刻正在：i **am studying** english now.（现在进行时）  动词加 -ing 的三条拼写规则：  1. 一般情况下直接加：study → studying，play → playing 2. 以不发音的 e 结尾，去掉 e 再加：make → **making**，write → **writing** 3. 重读闭音节（辅音+元音+辅音结尾），双写最后一个辅音字母：run → **running**，sit → **sitting**  否定：在 am / is / are 后面加 not → i am not working now. ／ she isn't studying. 疑问：把 am / is / are 提到主语前面 → **are you studying?** ／ **is he playing football?** 简答：yes, i am. ／ no, he isn't.  标志词：**now**（现在）、right now、at the moment —— 看到 now 就优先考虑进行时。   | 单词 | 音标 | 中文 | 例句 | |---|---|---|---| | read | /riːd/ | 读 | he is reading a book. | | write | /raɪt/ | 写 | i am writing an email. | | make | /meɪk/ | 做；制造 | she is making dinner. | | cook | /kʊk/ | 做饭 | my mother is cooking dinner. | | dinner | /ˈdɪnər/ | 晚饭 | we are making dinner now. | | email | /ˈiːmeɪl/ | 电子邮件 | i am writing an email now. | | sit | /sɪt/ | 坐 | i am sitting now. | | run | /rʌn/ | 跑 | tom is running. | | now | /naʊ/ | 现在 | i am busy now. | | kitchen | /ˈkɪtʃɪn/ | 厨房 | she is in the kitchen. |   1. i am studying english now. 2. he is reading a book. 3. she is cooking dinner. 4. they are playing football. 5. are you watching tv? — yes, i am.   1. 写出 -ing 形式：make / run / write &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;making / running / writing&lt;/details&gt;  2. 选词填空：he ___ football now.（plays / is playing） &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;is playing（now 表示此刻正在进行）&lt;/details&gt;  3. 翻译：我正在读一本书。 &lt;details&gt;&lt;summary&gt;看答案&lt;/summary&gt;i am reading a book.&lt;/details&gt;  4. 开放题：写 5 句，用进行时描述「此刻你和你身边的人在做什么」，至少包含 1 句否定句和 1 句疑问句。写前自查：句首大写 / 句号后空格 / 人名大写 / 逗号不连句 / 疑问句用问号。   补漏块 1： 1. there is a bed in the room 2. there are two books on the desk. 3. there is a book on the table.  作业： 1. making running writing 2. he is playing football now. 3. i reading a book. 4. now, my grandpa and me sit on the chair. i am not playing game but studying english. what do you do ?   补漏块 1： 1. 正确。there is a bed in the room. 句尾补句号。 2. 正确。复数 two books 用 are。 3. 正确。写成 there is a book on the table. 既修掉了 an → a，也用对了 there is 结构，第 2 次答对 → 已过关。  作业： 1. 正确。making（去 e）、running（双写 n）、writing（去 e）三条拼写规则全对。 2. 正确。now 表示此刻正在进行，用 is playing。 3. 语法错误：进行时缺 be 动词。正确句：i am reading a book. 4. 六处错误。    - 语法（时态）：now, ... sit 与 now 冲突，此刻正在坐要用进行时：my grandpa and i **are sitting**.    - 语法（代词）：my grandpa and me 里 me 是宾格，作主语要用主格 i：my grandpa and **i**。（第 3 课刚讲的主格 / 物主代词）    - 拼写（大小写）：now, my 里的 my 不是句首，不需要大写 → now, my。    - 语法：play game → **play games**（或 play a game）。可数名词单数不能裸用，这条上次已经错过。    - 用词：what do you do 是问「你是做什么工作的」，问「你此刻在做什么」要说 **what are you doing?**    - 标点：句首小写 → what；问号前不要留空格，写成 what are you doing?     完整改后版：now, my grandpa and i are sitting on the chair. i am not playing games, but i am studying english. what are you doing?   刚好  &gt; 备注：第 4 课数据进行时是新语法点，作业错误数从上一课的 2 处升到 6 处，因此反馈为「刚好」，太简单连击中断归零。第 5 课继续 level 2，补漏块推进到 this / that / these / those。  --- ">
 <h3>第 4 课</h3>
 <p class="sum">学会现在进行时 am/is/are + -ing，能说清「此刻正在做什么」</p>
 <p class="meta">生词 10 个 ｜ 作业 7 项</p>
@@ -85,163 +104,6 @@ footer { color: #88877f; font-size: 12px; margin: 24px 0; }
 <p class="meta">生词 8 个 ｜ 作业 7 项</p>
 <a class="btn" href="lessons/lesson-1.html">查看全文</a>
 </article>
-</section>
-<section id="tab-reading" class="hide">
-<h2>阅读</h2>
-<article class="card">
-<h3>2026-09-27（3 篇）</h3>
-<p class="meta">read\2026-09-27-read.md</p>
-<h4>第 1 篇 · My Friend Tom</h4>
-<p class="meta">级别：Level 1 ｜ 来源：自编</p>
-<p class="en">Tom is my friend. His bag is big.</p>
-<button class="zhbtn">看中文</button>
-<p class="zh" hidden>Tom 是我的朋友。他的包很大。</p>
-<p class="en">He is a student. His school is near my home.</p>
-<button class="zhbtn">看中文</button>
-<p class="zh" hidden>他是学生。他的学校在我家附近。</p>
-<p class="en">We study English together after work.</p>
-<button class="zhbtn">看中文</button>
-<p class="zh" hidden>我们下班后一起学英语。</p>
-<h4>生词注释</h4>
-<p>friend 朋友 / near 在……附近 / home 家 / together 一起 / after work 下班后</p>
-<h4>理解题</h4>
-<ol><li>Is Tom's bag big?</li></ol>
-<details><summary>看答案</summary>Yes, it is.</details>
-2. What do they do together after work?
-<details><summary>看答案</summary>They study English together.</details>
-<h4>第 2 篇 · My Room</h4>
-<p class="meta">级别：Level 1 ｜ 来源：自编</p>
-<p class="en">There is a bed in my room. There is a desk near the bed.</p>
-<button class="zhbtn">看中文</button>
-<p class="zh" hidden>我的房间里有一张床。床边有一张书桌。</p>
-<p class="en">There are two books on the desk. My computer is on the desk, too.</p>
-<button class="zhbtn">看中文</button>
-<p class="zh" hidden>桌上有两本书。我的电脑也在桌上。</p>
-<p class="en">My bag is under the desk. I like my room.</p>
-<button class="zhbtn">看中文</button>
-<p class="zh" hidden>我的包在桌子下面。我喜欢我的房间。</p>
-<h4>生词注释</h4>
-<p>bed 床 / desk 书桌 / near 在……附近 / under 在……下面 / too 也</p>
-<h4>理解题</h4>
-<ol><li>How many books are on the desk?</li></ol>
-<details><summary>看答案</summary>Two.</details>
-2. Where is the writer's bag?
-<details><summary>看答案</summary>It is under the desk.</details>
-<h4>第 3 篇 · My Work Day</h4>
-<p class="meta">级别：Level 1 ｜ 来源：自编</p>
-<p class="en">I work in a small company. I am busy every day.</p>
-<button class="zhbtn">看中文</button>
-<p class="zh" hidden>我在一家小公司上班。我每天都很忙。</p>
-<p class="en">I study English after work. My teacher is Amy.</p>
-<button class="zhbtn">看中文</button>
-<p class="zh" hidden>下班后我学英语。我的老师是 Amy。</p>
-<p class="en">Her class is interesting, and I like my English class.</p>
-<button class="zhbtn">看中文</button>
-<p class="zh" hidden>她的课很有趣，我喜欢我的英语课。</p>
-<h4>生词注释</h4>
-<p>company 公司 / busy 忙的 / interesting 有趣的 / after work 下班后 / class 课</p>
-<h4>理解题</h4>
-<ol><li>Where does the writer work?</li></ol>
-<details><summary>看答案</summary>In a small company.</details>
-2. Who is the writer's English teacher?
-<details><summary>看答案</summary>Amy.</details>
-</article>
-<article class="card">
-<h3>2026-09-26（2 篇）</h3>
-<p class="meta">read\2026-09-26-read.md</p>
-<h4>第 1 篇 · My Day</h4>
-<p class="meta">级别：Level 1 ｜ 来源：自编</p>
-<p class="en">I like music. I study English every day.</p>
-<button class="zhbtn">看中文</button>
-<p class="zh" hidden>我喜欢音乐。我每天学英语。</p>
-<p class="en">I work in a small company. I play games after work.</p>
-<button class="zhbtn">看中文</button>
-<p class="zh" hidden>我在一家小公司上班。下班后我打游戏。</p>
-<p class="en">I need help with my English.</p>
-<button class="zhbtn">看中文</button>
-<p class="zh" hidden>我的英语需要有人帮我。</p>
-<h4>生词注释</h4>
-<p>every day 每天 / company 公司 / after work 下班后 / play games 打游戏 / with 在……方面</p>
-<h4>理解题</h4>
-<ol><li>What does the writer study every day?</li></ol>
-<details><summary>看答案</summary>English.</details>
-2. What does the writer do after work?
-<details><summary>看答案</summary>He plays games.</details>
-<h4>第 2 篇 · My Teacher and I</h4>
-<p class="meta">级别：Level 1 ｜ 来源：自编</p>
-<p class="en">I am a student. I study English every day.</p>
-<button class="zhbtn">看中文</button>
-<p class="zh" hidden>我是学生。我每天学英语。</p>
-<p class="en">My teacher is Amy. She is kind and patient.</p>
-<button class="zhbtn">看中文</button>
-<p class="zh" hidden>我的老师是 Amy。她又和蔼又有耐心。</p>
-<p class="en">We are busy after work. I am tired, but I am happy.</p>
-<button class="zhbtn">看中文</button>
-<p class="zh" hidden>我们下班后很忙。我很累，但我很开心。</p>
-<h4>生词注释</h4>
-<p>kind 和蔼的 / patient 有耐心的 / but 但是 / every day 每天 / after work 下班后</p>
-<h4>理解题</h4>
-<ol><li>What is Amy like?</li></ol>
-<details><summary>看答案</summary>She is kind and patient.</details>
-2. Is the writer happy?
-<details><summary>看答案</summary>Yes, he is tired but happy.</details>
-</article>
-</section>
-<section id="tab-words" class="hide">
-<h2>词汇卡（点击翻中文）</h2>
-<div class="words">
-<div class="wcard"><div class="w">kitchen</div><div class="p">/ˈkɪtʃɪn/</div><div class="c">厨房</div><div class="e">She is in the kitchen.</div></div>
-<div class="wcard"><div class="w">now</div><div class="p">/naʊ/</div><div class="c">现在</div><div class="e">I am busy now.</div></div>
-<div class="wcard"><div class="w">run</div><div class="p">/rʌn/</div><div class="c">跑</div><div class="e">Tom is running.</div></div>
-<div class="wcard"><div class="w">sit</div><div class="p">/sɪt/</div><div class="c">坐</div><div class="e">I am sitting now.</div></div>
-<div class="wcard"><div class="w">email</div><div class="p">/ˈiːmeɪl/</div><div class="c">电子邮件</div><div class="e">I am writing an email now.</div></div>
-<div class="wcard"><div class="w">dinner</div><div class="p">/ˈdɪnər/</div><div class="c">晚饭</div><div class="e">We are making dinner now.</div></div>
-<div class="wcard"><div class="w">cook</div><div class="p">/kʊk/</div><div class="c">做饭</div><div class="e">My mother is cooking dinner.</div></div>
-<div class="wcard"><div class="w">make</div><div class="p">/meɪk/</div><div class="c">做；制造</div><div class="e">She is making dinner.</div></div>
-<div class="wcard"><div class="w">write</div><div class="p">/raɪt/</div><div class="c">写</div><div class="e">I am writing an email.</div></div>
-<div class="wcard"><div class="w">read</div><div class="p">/riːd/</div><div class="c">读</div><div class="e">He is reading a book.</div></div>
-<div class="wcard"><div class="w">school</div><div class="p">/skuːl/</div><div class="c">学校</div><div class="e">My school is big.</div></div>
-<div class="wcard"><div class="w">computer</div><div class="p">/kəmˈpjuːtər/</div><div class="c">电脑</div><div class="e">I like my computer.</div></div>
-<div class="wcard"><div class="w">class</div><div class="p">/klæs/</div><div class="c">班级；课</div><div class="e">My class is big.</div></div>
-<div class="wcard"><div class="w">big</div><div class="p">/bɪɡ/</div><div class="c">大的</div><div class="e">My bag is big.</div></div>
-<div class="wcard"><div class="w">bag</div><div class="p">/bæɡ/</div><div class="c">包；书包</div><div class="e">Her bag is big.</div></div>
-<div class="wcard"><div class="w">book</div><div class="p">/bʊk/</div><div class="c">书</div><div class="e">I like my book.</div></div>
-<div class="wcard"><div class="w">name</div><div class="p">/neɪm/</div><div class="c">名字</div><div class="e">My name is Zane.</div></div>
-<div class="wcard"><div class="w">tall</div><div class="p">/tɔːl/</div><div class="c">高的</div><div class="e">Tom is tall.</div></div>
-<div class="wcard"><div class="w">happy</div><div class="p">/ˈhæpi/</div><div class="c">开心的</div><div class="e">They are happy.</div></div>
-<div class="wcard"><div class="w">tired</div><div class="p">/ˈtaɪərd/</div><div class="c">累的</div><div class="e">We are tired.</div></div>
-<div class="wcard"><div class="w">busy</div><div class="p">/ˈbɪzi/</div><div class="c">忙的</div><div class="e">I am busy today.</div></div>
-<div class="wcard"><div class="w">friend</div><div class="p">/frend/</div><div class="c">朋友</div><div class="e">He is my friend.</div></div>
-<div class="wcard"><div class="w">teacher</div><div class="p">/ˈtiːtʃər/</div><div class="c">老师</div><div class="e">She is my teacher.</div></div>
-<div class="wcard"><div class="w">student</div><div class="p">/ˈstuːdnt/</div><div class="c">学生</div><div class="e">I am a student.</div></div>
-<div class="wcard"><div class="w">music</div><div class="p">/ˈmjuːzɪk/</div><div class="c">音乐</div><div class="e">I like music.</div></div>
-<div class="wcard"><div class="w">English</div><div class="p">/ˈɪŋɡlɪʃ/</div><div class="c">英语</div><div class="e">She studies English.</div></div>
-<div class="wcard"><div class="w">watch</div><div class="p">/wɑːtʃ/</div><div class="c">看（电视、电影）</div><div class="e">We watch movies.</div></div>
-<div class="wcard"><div class="w">play</div><div class="p">/pleɪ/</div><div class="c">玩；踢（球）</div><div class="e">They play football.</div></div>
-<div class="wcard"><div class="w">need</div><div class="p">/niːd/</div><div class="c">需要</div><div class="e">We need help.</div></div>
-<div class="wcard"><div class="w">work</div><div class="p">/wɜːrk/</div><div class="c">工作；干活</div><div class="e">I work in a small company.</div></div>
-<div class="wcard"><div class="w">study</div><div class="p">/ˈstʌdi/</div><div class="c">学习</div><div class="e">I study English.</div></div>
-<div class="wcard"><div class="w">like</div><div class="p">/laɪk/</div><div class="c">喜欢</div><div class="e">I like music.</div></div>
-</div></section>
-<section id="tab-wrong" class="hide">
-<h2>错词本</h2>
-<table><thead><tr><th>课号</th><th>错误点</th><th>正确形式</th><th>错因</th><th>连续答对</th><th>状态</th></tr></thead><tbody>
-<tr><td>1</td><td>We see movie</td><td>We watch movies</td><td>「看电视/电影」用 watch 不用 see；movie 是可数名词，单数不能裸用</td><td>2</td><td>已过关</td></tr>
-<tr><td>1</td><td>ask for my teacher</td><td>ask my teacher for help</td><td>ask for 表示「要某物」，向人请教要说 ask sb (for help)</td><td>2</td><td>已过关</td></tr>
-<tr><td>1</td><td>Tv</td><td>TV</td><td>缩写词两个字母都要大写</td><td>2</td><td>已过关</td></tr>
-<tr><td>2</td><td>Tom play soccer</td><td>Tom plays soccer</td><td>主语是第三人称单数时一般现在时动词要加 -s</td><td>1</td><td>未过关</td></tr>
-<tr><td>2</td><td>now,liked my teacher</td><td>and I like my teacher</td><td>逗号不能连接两个完整句子；「现在喜欢」用原形 like 不用 liked</td><td>1</td><td>未过关</td></tr>
-<tr><td>2</td><td>she always is busy（第 2 次错：She always is bush）</td><td>she is always busy</td><td>频度副词要放在 be 动词之后；busy 别拼成 bush（灌木）</td><td>0</td><td>未过关</td></tr>
-<tr><td>2</td><td>zane（人名小写）</td><td>Zane</td><td>人名、地名首字母一律大写</td><td>0</td><td>未过关</td></tr>
-<tr><td>诊断</td><td>Do you like coffee.（句号结尾）</td><td>Do you like coffee?</td><td>疑问句结尾必须用问号</td><td>0</td><td>未过关</td></tr>
-<tr><td>诊断</td><td>An book on the table.</td><td>There is a book on the table.</td><td>「某处有某物」要用 there is / there are；an 只用于元音音素开头的词，book 用 a</td><td>2</td><td>已过关</td></tr>
-<tr><td>4</td><td>I reading a book.</td><td>I am reading a book.</td><td>现在进行时必须有 be 动词 am / is / are</td><td>0</td><td>未过关</td></tr>
-<tr><td>4</td><td>my grandpa and me</td><td>my grandpa and I（别人在前，I 在后）</td><td>作主语用主格 I，me 是宾格</td><td>0</td><td>未过关</td></tr>
-<tr><td>4</td><td>play game</td><td>play games</td><td>可数名词单数不能裸用，用复数或 a + 单数</td><td>0</td><td>未过关</td></tr>
-<tr><td>4</td><td>what do you do?（问「正在做什么」时）</td><td>What are you doing?</td><td>What do you do? 问的是职业；问此刻在做的事用进行时</td><td>0</td><td>未过关</td></tr>
-</tbody></table>
-</section>
-</main>
 <footer>提示：先看总结回想，再点「查看全文」核对。</footer></div><script>
 var tabs = document.querySelectorAll('nav button');
 tabs.forEach(function (btn) {
@@ -254,9 +116,14 @@ tabs.forEach(function (btn) {
 });
 document.querySelectorAll('.zhbtn').forEach(function (b) {
   b.addEventListener('click', function () {
-    var zh = b.nextElementSibling;
-    if (zh.hasAttribute('hidden')) { zh.removeAttribute('hidden'); b.textContent = '收起中文'; }
-    else { zh.setAttribute('hidden', ''); b.textContent = '看中文'; }
+    var scope = b.parentElement;
+    var blocks = scope.querySelectorAll('.zh');
+    var hidden = 0;
+    blocks.forEach(function (z) { if (z.hasAttribute('hidden')) { hidden += 1; } });
+    blocks.forEach(function (z) {
+      if (hidden > 0) { z.removeAttribute('hidden'); } else { z.setAttribute('hidden', ''); }
+    });
+    b.textContent = hidden > 0 ? '收起中文' : '整篇看中文';
   });
 });
 document.querySelectorAll('.wcard').forEach(function (c) {
