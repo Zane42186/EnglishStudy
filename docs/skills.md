@@ -1257,21 +1257,34 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 改名会影响触发词，需在改造时同步更新 `description` 并做触发测试。
 
-### 7.4 Skill 源码入库（已决策，本轮不执行）
+### 7.4 Skill 源码入库（已定方案，目录已就绪待 git-manager 入库）
 
 **决策**：Skill 源码纳入版本库。理由：`.gitignore` 第 2 行排除整个 `.workbuddy/`，仓库丢失即无法恢复 Skill。
 
-**执行步骤（待确认后执行）**：
+**入库方案（方案 A：只入库 `skills/`，`.workbuddy/` 保持整体忽略）**：
 
-1. 新建 `skills/english-daily/`，从 `.workbuddy/skills/english-daily/` 复制全部 8 个文件。
-2. 在 `.gitignore` 中为 `.workbuddy/` 增加例外：`!.workbuddy/skills/`（或改为按需入库 `skills/` 目录，`.workbuddy/` 保持忽略）。
-3. `git add skills/` 并提交，提交信息说明「Skill 源码入库」。
+1. 新建 `skills/english-daily/`，从 `.workbuddy/skills/english-daily/` 复制全部 8 个源文件（`SKILL.md`、`skill-dependencies.json`、`scripts/{build_board,check_environment,init_workspace}.py`、`references/{course-template,level-map,setup-guide}.md`），**排除 `scripts/__pycache__/`（编译产物，`.gitignore` 已忽略 `__pycache__/` 与 `*.pyc`）**。
+2. **不改 `.gitignore` 的 `.workbuddy/` 规则**，直接 `git add skills/` 提交。
+3. 提交信息说明「Skill 源码入库」，`docs/changelog.md` 同步记录。
+
+**为什么不能用否定写法 `.workbuddy/` + `!.workbuddy/skills/`（重要，避免后人再踩）**：
+
+git 不允许在父目录被**整体排除**后重新包含其子内容——父目录已被排除，git 根本不会再进入该目录去匹配子路径的否定规则。因此：
+
+```
+方案 A：.workbuddy/  + !.workbuddy/skills/   →  git check-ignore -v 命中 .gitignore:2:.workbuddy/（仍被忽略，无效）
+方案 B：.workbuddy/* + !.workbuddy/skills/   →  git check-ignore 退出码 1（未被忽略，有效）
+```
+
+已实测：在临时仓库用 `git check-ignore -v` 验证，方案 A 命中原规则、方案 B 才真正放行。方案 B 虽然可行，但会让仓库里同时存在 `.workbuddy/skills/`（运行副本）与 `skills/`（受控源码）两份副本，再次产生「哪份权威」的二义（即 G-5 多副本漂移风险），且 `.workbuddy/` 下还有 `tmp`、`memory` 等需逐条排除。故**本文件直接采用方案 A**：`.workbuddy/` 维持整体忽略，受控源码只落在仓库根的 `skills/`。
+
+**权威约定**：受控权威 = 版本库 `skills/english-daily/`；`.workbuddy/skills/english-daily/` 为**运行副本**，同步方向**单向**为 `skills/` ⇒ `.workbuddy/skills/`，禁止反向提交。
 
 **影响**：仓库新增 8 个文件；Git 历史新增一次提交；`docs/changelog.md` 需同步记录。
 
 **回滚**：`git revert` 该提交；`skills/` 删除不影响 `.workbuddy/` 下的实际运行副本。
 
-**未决点**：`skills/` 目录与构建流程（`.workbuddy/build/`）的关系需明确——建议 `skills/` 只存源码，构建产物仍放 `.workbuddy/build/` 且不入库。
+**未决点**：`skills/` 目录与构建流程的关系需明确——建议 `skills/` 只存源码，构建产物仍放 `.workbuddy/build/` 且不入库（`.workbuddy/` 已整体忽略）。
 
 ---
 

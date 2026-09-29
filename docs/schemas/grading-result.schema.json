@@ -12,13 +12,17 @@
       "properties": {
         "exerciseNo": { "type": "integer", "minimum": 1 },
         "verdict": {
-          "description": "判定结果。correct=正确；correct_with_note=正确但有更地道的表达，不计错；wrong=错误；blank=未作答，不计错也不计对。",
+          "description": "Skill 内部教学判定（四态）。correct=正确；correct_with_note=正确但有更地道的表达，不计错；wrong=错误；blank=未作答，不计错也不计对。注意：本字段只用于教学判定，不直接落库、不进 API 响应。落库与对外接口的批改结论字段名统一为 isCorrect（boolean|null），来源为 lesson_exercises.is_correct，见 lesson-record.schema.json 的 ExerciseRecord.isCorrect。归档时映射：correct/correct_with_note → isCorrect=true；wrong → isCorrect=false；blank → isCorrect=null 且 userAnswer=null。禁止再新增 verified / 第二个同义字段。",
           "type": "string",
           "enum": ["correct", "correct_with_note", "wrong", "blank"]
         },
         "userAnswer": { "type": ["string", "null"] },
         "correctText": {
-          "description": "最小修正后的正确形式，不是整句重写。写错词本时直接取此字段。",
+          "description": "最小修正后的正确形式，只改错处、不是整句重写。写错词本时直接取此字段（对应 mistakes.correct_text）。",
+          "type": ["string", "null"]
+        },
+        "revisedAnswer": {
+          "description": "开放题（exerciseType=open）的完整改后版：把学生整段作答改写为正确、地道的表达，用于向学生展示「应该怎么写」。与 correctText 语义不同——correctText 是最小修正（只改错处、供错词本使用），revisedAnswer 是整段重写（供展示与归档），两者都保留，不得互相替代或合并。非开放题可为 null；来源为 lesson_exercises.revised_answer（后端 plan 已批准加列）。",
           "type": ["string", "null"]
         },
         "errorNote": {
@@ -33,7 +37,7 @@
       }
     },
     "MistakeCandidate": {
-      "description": "待写入错词本的候选条目。errorType 由 answer-grading 按固定顺序判定，不留给下游猜。",
+      "description": "待写入错词本的候选条目。errorType 由 answer-grading 按固定顺序判定，不留给下游猜；取值复用 mistakes.error_type 的同一套 6 值 ENUM（见 common.schema.json#/$defs/ErrorType），不得新增取值。",
       "type": "object",
       "required": ["wrongText", "correctText", "errorType", "errorReason", "sourceExerciseNo"],
       "properties": {
@@ -59,7 +63,7 @@
       "items": { "$ref": "#/$defs/MistakeCandidate" }
     },
     "summary": {
-      "description": "汇总口径固定为错误处数，不折算百分制，与 study_records(record_type='grade').payload 一致。",
+      "description": "汇总口径固定为错误处数，不折算百分制，与 study_records(record_type='grade').payload 一致。errorCount 只统计 verdict=wrong 的处数（一处 = 一个可独立改正的点，填空题每空算一处；同句多错、跨句重复均分别计数），blank 与 correct_with_note 不计入（依据 docs/plans/amy-teaching-plan.md §3.1）。【已知缺口】§3.1 另有两类「不计入 errorCount 但要单独计数」的项——补漏块作答错误（backfillErrorCount）与阅读理解题作答（comprehensionErrorCount）——**当前契约无字段承载**，已在 skill-plan 登记，待与 amy / be-dev 定形后再加 optional 字段。",
       "type": "object",
       "required": ["exerciseCount", "errorCount"],
       "properties": {

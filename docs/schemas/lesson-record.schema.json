@@ -39,7 +39,14 @@
         "prompt": { "type": "string" },
         "referenceAnswer": { "type": "string" },
         "userAnswer": { "type": ["string", "null"] },
-        "isCorrect": { "type": ["boolean", "null"], "description": "null 表示未批改。" },
+        "isCorrect": {
+          "type": ["boolean", "null"],
+          "description": "批改结论的唯一对外字段名（对应 lesson_exercises.is_correct）。true=对，false=错，null=未批改或未作答。禁止新增 verified / verdict 一类同义字段；Skill 内部的四态判定见 grading-result.schema.json 的 GradedItem.verdict，归档时按该处映射规则转换。"
+        },
+        "revisedAnswer": {
+          "description": "开放题的完整改后版（学生整段作答的修正），对应 lesson_exercises.revised_answer。与 referenceAnswer（题目标准答案）语义不同：前者是「这个学生应该怎么写」，后者是「标准答案」。两者都保留，不得合并；非开放题为 null。",
+          "type": ["string", "null"]
+        },
         "errorNote": { "type": ["string", "null"] },
         "targetPoint": { "type": "string", "description": "本题考核的知识点代码。" }
       }

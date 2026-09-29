@@ -63,9 +63,20 @@
       }
     },
     "pendingMistakes": {
-      "description": "未过关错词，等价 v_pending_mistakes 视图，按出题优先级排列。出复习题的取词池。",
+      "description": "未过关错词，即 mistakes.status='pending' 的条目（等价 v_pending_mistakes 视图），按出题优先级排列，是出复习题的唯一取词池。注意：已过关（status='passed'）的错词不得出现在此数组；诊断判「通过/免修」的知识点若其错词仍未过关，仍留在此数组（走复习通道，不进 backlog）。",
       "type": "array",
       "items": { "$ref": "common.schema.json#/$defs/MistakeItem" }
+    },
+    "pendingMistakeStats": {
+      "description": "未过关错词的统计，只统计 status='pending' 的条目（不含 passed）。total 为条数，byType 为 errorType → count。对应 backend/docs/06-api-requirements-amy.md R1 的 pendingMistakeStats，取名以 R1 为准（单数，不是 pendingMistakesStats）。后端未返回时缺省，Skill 不得据此报错。",
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "byType": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
     },
     "readingCatalog": {
       "description": "阅读日清单，用作「当天是否已生成阅读」的判断依据。",
@@ -104,10 +115,11 @@
       }
     },
     "backlog": {
-      "description": "待补知识点与补漏队列。对应文档缺口 G3，支撑教学规则 R2。",
+      "description": "R2 升级不豁免欠账的唯一数据来源。含两类清单，语义不同、不得混用：pendingKnowledgePoints 是「待补的 Level 1 知识点」背景清单（当前 7 项），只作背景、绝不进补漏队列；backfillQueue 是 Amy 的编号补漏队列（当前 4 项，队首 next 为介词 on/at），才是每课补漏块的排期来源。borderline：planned 状态的主干新知识点（如 L2-04 规则动词过去式）不得进 backfillQueue（否则会一课讲两个语法点）。",
       "type": "object",
       "properties": {
         "pendingKnowledgePoints": {
+          "description": "待补知识点背景清单。code/title 必填；levelCode 缺失可空；reason 非必填，缺失时 Skill 不得反向推断原因（不得猜「诊断未通过」或「已掌握」），须写 degradation。",
           "type": "array",
           "items": {
             "type": "object",
@@ -121,6 +133,7 @@
           }
         },
         "backfillQueue": {
+          "description": "编号补漏队列。status：next=队首（order_index 最小且未完成）由 next-lesson-planning 排入本课补漏块；queued=其余未完成项；done=已出现在某课 lesson_knowledge_points(role='backfill')；untested 首版恒为空数组。seq 从 1 起（minimum=1），后端 order_index 从 0 起时映射须 +1。",
           "type": "array",
           "items": {
             "type": "object",
@@ -135,13 +148,27 @@
       }
     },
     "lastIncomplete": {
-      "description": "上次中断时未完成的教学动作。对应文档缺口 G4，用于断更补课。",
+      "description": "上次中断时未完成的教学动作。对应文档缺口 G4，用于断更补课。数据来源为 lastRecommendation，后端未回传时缺省。",
       "type": "object",
       "properties": {
         "lessonNo": { "type": "integer", "minimum": 1 },
         "nextRecommendation": { "type": "string" },
         "incompleteStep": { "type": "string" }
       }
+    },
+    "lastRecommendation": {
+      "description": "最近一条 study_records(record_type='feedback').payload.next_recommendation，形状为对象 {lessonNo, text}（不是纯字符串），lessonNo 取该条记录课号。是 G4 断更接续与 lastIncomplete 的数据来源（需求 R5 + R1，写入路径 P-2）。注意：它是「当时的建议」而非「当前有效建议」，凡消费必须带时间/课号语义；当前库内尚无任何 payload 含 next_recommendation，故恒为 null，Skill 必须走 degradation 降级而不是报错，也不得据此编造建议。",
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["text"],
+          "properties": {
+            "lessonNo": { "type": "integer", "minimum": 1 },
+            "text": { "type": "string" }
+          }
+        },
+        { "type": "null" }
+      ]
     },
     "degradation": { "$ref": "common.schema.json#/$defs/Degradation" }
   }

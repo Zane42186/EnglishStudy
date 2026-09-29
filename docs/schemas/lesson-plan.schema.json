@@ -66,7 +66,7 @@
       ]
     },
     "vocabularySize": {
-      "description": "本课生词数量，按级别取值：Level 1—2 为 5—8，Level 3 及以上为 8—12。",
+      "description": "本课生词数量。取值与 progress.md「过渡期方案」一致：Level 2 常规 10（8—12），降载时 6—8；其余级别见 docs/ai-teacher.md 与 progress.md。本字段只约束 3—12 的绝对范围，级别口径由 Amy 维护。",
       "type": "integer",
       "minimum": 3,
       "maximum": 12
