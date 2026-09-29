@@ -98,6 +98,45 @@ mysql -e "DROP DATABASE <db>_bakcheck;"          # 清理临时库
 
 ---
 
+## 五之二、已执行的数据修复记录
+
+> 只记录**已在本机 `english_platform` 实际执行过**的数据修复，供追溯与复原。表结构变更（DDL）见各次 commit。
+
+### R-1 · 删除非错题记录 `mistakes.id=19`（2026-09-29，DQ1 / D-7）
+
+```sql
+-- 前置校验：确认无外键引用
+SELECT COUNT(*) FROM mistake_events WHERE mistake_id = 19;   -- 实测 = 0
+DELETE FROM mistakes WHERE id = 19
+  AND (wrong_count = 0 OR correct_text IN ('—','-',''));
+```
+
+- 该行内容：`correct_text='—'`、`error_type='other'`、`streak=1`、`wrong_count=0`、`status='passed'`，语义上不是错题。
+- 成因：`wrong-words.md` 已删、DB 种子未同步；它也解释了 `byType` 多出的 `other=1`。
+- 复原：`INSERT INTO mistakes (id, student_id, wrong_text, correct_text, error_type, streak, wrong_count, status)`
+  `VALUES (19, 1, 'I was busy yesterday.（翻译题「我昨天很忙」正确）', '—', 'other', 1, 0, 'passed');`
+  （本就是误入数据，**不建议复原**）
+- 规则固化：M2 迁移脚本必须跳过 `correct_text` 为占位符（NULL / 空串 / `-` / `—`）**或** `wrong_count = 0` 的行。
+
+### R-2 · 回滚探针测试写入 `mistakes.id=5`（2026-09-29）
+
+```sql
+START TRANSACTION;
+UPDATE mistakes SET streak=2, wrong_count=3, status='pending', last_reviewed_at=NULL WHERE id=5;
+DELETE FROM study_records WHERE id=31;
+COMMIT;
+```
+
+- 成因：前端的写接口探针（curl）把 `id=5` 从 `pending` 翻成 `passed`，并留下 `study_records.id=31`
+  （`payload.clientEventId="probe-fe-1"`，summary「错词复习：答对（mistakeId=5）」）。当天无真实上课，判定为测试残留（前端已确认）。
+- 影响：`mistakes` 一度变成 19 / pending 14 / passed 5，与 `wrong-words.md` 的 19 / 15 / 4 差 1 条。
+- 复原后实测：`GET /api/mistakes/stats` = **total 19 / pending 15 / passed 4**，`byType` 无 `other`；
+  `study_records` 回到 18 条（attend 6 / grade 6 / feedback 6）。
+- 预防：**探测写接口必须用一次性数据并当场回滚**，不要拿真实错词当探针 ——
+  `POST /api/mistakes/:id/review` 是学生打卡的写路径，会直接改变过关判定。
+
+---
+
 ## 六、待你确认的事项
 
 1. **MySQL root 密码**（或专用账号）——M1 起必须，仅用于建库与连接。
