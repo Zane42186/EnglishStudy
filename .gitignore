@@ -11,3 +11,35 @@
 node_modules/
 .env
 db/_snapshot.json
+
+# 环境变量变体（.env 只匹配同名文件，变体需显式列出）
+.env.local
+.env.*.local
+
+# Python 字节码（Skill 脚本执行产生）
+__pycache__/
+*.pyc
+
+# 前端构建产物
+dist/
+build/
+
+# 运行日志
+*.log
+logs/
+npm-debug.log*
+
+# 数据库本地文件
+*.sqlite
+*.sqlite3
+
+# 系统/编辑器/备份残留
+.DS_Store
+Thumbs.db
+*.bak
+*.orig
+*.rej
+
+# 测试临时产出（docs/testdata/ 黄金样本本体仍入库）
+docs/testdata/**/*.tmp
+docs/testdata/**/*.actual.json
