@@ -103,8 +103,10 @@
   - 辅音 + y 改 i 加 ed：studied
   - 重读闭音节双写：stopped
   - 对比第 6 课：be 动词走 was / were，实义动词走 -ed，**两套不能混**
-- **词汇 10 个**：played / worked / watched / studied / cooked / cleaned / visited / stopped + last week / last month
+- **词汇 8 个**：played / watched / studied / cooked / cleaned / stopped + last week / last month
 - **预计 28 分钟**（复习 6 + 新课 12 + 补漏块 6 + 收尾 4）
+
+> **⚠ 订正（2026-09-29 本轮收尾）**：本文件原写「词汇 10 个」（played / worked / watched / studied / cooked / cleaned / **visited** / stopped + last week / last month）。第 6 课 `E_6 = 5` 命中 `docs/plans/amy-teaching-plan.md` §2.7 的 **T-1 单课超阈（`E_{N-1} >= 5`）→ 轻度降载档 L1**，生词应降为 **6—8**，故第 7 课取 **8**，砍掉 `worked`、`visited` 2 个。**原计划 10 个的痕迹保留在此行，不删除**（便于课后复盘降载的实际效果）。依据：`amy-teaching-plan.md` §2.7、§四 4.2；第 7 课最终以 §四 4.3 / 4.7 为准。
 
 ### 3.3 练习什么
 
