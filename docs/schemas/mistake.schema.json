@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://english-study.local/schemas/v1/mistake.schema.json",
+  "title": "MistakeAnalysisResult 错词分析结果",
+  "description": "mistake-analysis 的输出。把一次批改产生的候选错误去重、归并进错词本，命中错误模式，并对高频复发项发出警告。本对象的根校验对象是 MistakeAnalysisResult；错词条目本身见 common.schema.json 的 MistakeItem。",
+  "type": "object",
+  "required": ["lessonNo", "newMistakes", "updatedMistakes", "patternHits"],
+  "$defs": {
+    "MistakeEvent": {
+      "description": "一次犯错的流水，对应 mistake_events 表。只增不改。",
+      "type": "object",
+      "required": ["mistakeId", "courseNo", "result"],
+      "properties": {
+        "mistakeId": { "type": "integer", "minimum": 1 },
+        "courseNo": { "type": "integer", "minimum": 1 },
+        "result": { "type": "string", "enum": ["wrong", "correct"] },
+        "createdAt": { "$ref": "common.schema.json#/$defs/DateTime" }
+      }
+    },
+    "MistakeUpdate": {
+      "description": "本次对既有错词条目造成的状态变化。after 为变更后的完整状态，便于幂等重放。",
+      "type": "object",
+      "required": ["mistakeId", "after"],
+      "properties": {
+        "mistakeId": { "type": "integer", "minimum": 1 },
+        "after": { "$ref": "common.schema.json#/$defs/MistakeItem" },
+        "beforeStreak": { "type": "integer", "minimum": 0 },
+        "beforeStatus": { "$ref": "common.schema.json#/$defs/MistakeStatus" }
+      }
+    },
+    "PatternHit": {
+      "description": "命中的错误模式，分类依据见 docs/ai-teacher.md 4.2。A=形态限定类，B=书写规范类，C=用词搭配类。",
+      "type": "object",
+      "required": ["pattern", "evidence"],
+      "properties": {
+        "pattern": { "type": "string", "enum": ["A", "B", "C"] },
+        "evidence": { "type": "string" },
+        "mistakeIds": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "RecurrenceWarning": {
+      "description": "高频复发警告。wrongCount 达到 3 次即触发，用于生成下一课的强制自查项（教学规则 R4）。",
+      "type": "object",
+      "required": ["mistakeId", "wrongCount", "suggestedSelfCheck"],
+      "properties": {
+        "mistakeId": { "type": "integer", "minimum": 1 },
+        "wrongCount": { "type": "integer", "minimum": 3 },
+        "suggestedSelfCheck": { "type": "string" }
+      }
+    }
+  },
+  "properties": {
+    "lessonNo": { "type": "integer", "minimum": 1 },
+    "newMistakes": {
+      "description": "本次新建的错词条目。判重键为规范化后的 correctText 加 errorType；已存在则进 updatedMistakes 而不是这里。",
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/MistakeItem" }
+    },
+    "updatedMistakes": {
+      "description": "本次被更新的既有错词条目（含复习答对答错、复发累加）。",
+      "type": "array",
+      "items": { "$ref": "#/$defs/MistakeUpdate" }
+    },
+    "events": {
+      "description": "本次产生的流水，对应 mistake_events。",
+      "type": "array",
+      "items": { "$ref": "#/$defs/MistakeEvent" }
+    },
+    "patternHits": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/PatternHit" }
+    },
+    "recurrenceWarnings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/RecurrenceWarning" }
+    },
+    "similarTo": {
+      "description": "无法合并但疑似与既有条目相关的提示，供人工复核。Skill 不得自动合并此类条目。",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["newText", "existingMistakeId"],
+        "properties": {
+          "newText": { "type": "string" },
+          "existingMistakeId": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "degradation": { "$ref": "common.schema.json#/$defs/Degradation" }
+  }
+}

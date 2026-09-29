@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://english-study.local/schemas/v1/skill-run.schema.json",
+  "title": "SkillRun Skill 执行记录",
+  "description": "一次 Skill 执行的完整留痕，对应 skill_runs 表。九个 Skill（含内嵌能力）每次被调用都产出一条，用于回答「这一课的教学决策是怎么做出来的」。",
+  "type": "object",
+  "required": ["skillName", "status", "startedAt"],
+  "properties": {
+    "skillRunId": { "type": "integer", "minimum": 1 },
+    "skillName": { "$ref": "common.schema.json#/$defs/SkillName" },
+    "version": {
+      "description": "Skill 包版本号，如 2.2.0。出现异常时用于定位是哪一版的行为。",
+      "type": "string"
+    },
+    "courseNo": {
+      "description": "本次执行服务的课号。不挂课的执行（如单独的学情查询）可缺省。",
+      "type": ["integer", "null"],
+      "minimum": 1
+    },
+    "parentSkillRunId": {
+      "description": "内嵌能力被编排层调用时，指向 daily-lesson 那一次的 skillRunId，形成调用树。",
+      "type": ["integer", "null"],
+      "minimum": 1
+    },
+    "deploymentMode": { "$ref": "common.schema.json#/$defs/DeploymentMode" },
+    "input": {
+      "description": "本次执行的输入对象，形状由 skillName 对应的输入契约决定。",
+      "type": "object"
+    },
+    "output": {
+      "description": "本次执行的输出对象，形状由 skillName 对应的输出契约决定。",
+      "type": "object"
+    },
+    "status": { "$ref": "common.schema.json#/$defs/SkillRunStatus" },
+    "degraded": {
+      "description": "本次执行是否处于降级状态。与各契约内的 degradation 字段一致。",
+      "type": "boolean"
+    },
+    "notes": {
+      "description": "需要人工知晓的事实，例如「按笔记修正了课号」「当天阅读已存在故跳过生成」。",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "error": {
+      "description": "status 为 failed 或 partial 时填写，错误码与 backend/docs/03-api-contract.md 的错误码表一致。",
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["code", "message"],
+          "properties": {
+            "code": { "type": "string" },
+            "message": { "type": "string" },
+            "details": { "type": "object" }
+          }
+        },
+        { "type": "null" }
+      ]
+    },
+    "startedAt": { "$ref": "common.schema.json#/$defs/DateTime" },
+    "finishedAt": { "$ref": "common.schema.json#/$defs/DateTime" },
+    "durationMs": { "type": ["integer", "null"], "minimum": 0 }
+  }
+}

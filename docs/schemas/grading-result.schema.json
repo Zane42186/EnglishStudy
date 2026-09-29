@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://english-study.local/schemas/v1/grading-result.schema.json",
+  "title": "GradingResult 批改结果",
+  "description": "answer-grading 的输出。逐题给出判定，并把需要进错词本的错误整理成候选条目交给 mistake-analysis。本对象不含教学内容，只有判定与归因，便于稳定复算。",
+  "type": "object",
+  "required": ["lessonNo", "kind", "items", "summary"],
+  "$defs": {
+    "GradedItem": {
+      "type": "object",
+      "required": ["exerciseNo", "verdict"],
+      "properties": {
+        "exerciseNo": { "type": "integer", "minimum": 1 },
+        "verdict": {
+          "description": "判定结果。correct=正确；correct_with_note=正确但有更地道的表达，不计错；wrong=错误；blank=未作答，不计错也不计对。",
+          "type": "string",
+          "enum": ["correct", "correct_with_note", "wrong", "blank"]
+        },
+        "userAnswer": { "type": ["string", "null"] },
+        "correctText": {
+          "description": "最小修正后的正确形式，不是整句重写。写错词本时直接取此字段。",
+          "type": ["string", "null"]
+        },
+        "errorNote": {
+          "description": "批改说明，对应 exercises.error_note。判错时必填，含一句话解释。",
+          "type": ["string", "null"]
+        },
+        "note": {
+          "description": "verdict 为 correct_with_note 时的改进建议。",
+          "type": ["string", "null"]
+        },
+        "targetPoint": { "type": ["string", "null"] }
+      }
+    },
+    "MistakeCandidate": {
+      "description": "待写入错词本的候选条目。errorType 由 answer-grading 按固定顺序判定，不留给下游猜。",
+      "type": "object",
+      "required": ["wrongText", "correctText", "errorType", "errorReason", "sourceExerciseNo"],
+      "properties": {
+        "wrongText": { "type": "string", "minLength": 1 },
+        "correctText": { "type": "string", "minLength": 1 },
+        "errorType": { "$ref": "common.schema.json#/$defs/ErrorType" },
+        "errorReason": { "type": "string" },
+        "sourceExerciseNo": { "type": "integer", "minimum": 1 },
+        "targetPoint": { "type": ["string", "null"] }
+      }
+    }
+  },
+  "properties": {
+    "lessonNo": { "type": "integer", "minimum": 1 },
+    "kind": { "$ref": "common.schema.json#/$defs/ExerciseSetKind" },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/GradedItem" }
+    },
+    "mistakeCandidates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/MistakeCandidate" }
+    },
+    "summary": {
+      "description": "汇总口径固定为错误处数，不折算百分制，与 study_records(record_type='grade').payload 一致。",
+      "type": "object",
+      "required": ["exerciseCount", "errorCount"],
+      "properties": {
+        "exerciseCount": { "type": "integer", "minimum": 0 },
+        "errorCount": { "type": "integer", "minimum": 0 },
+        "blankCount": { "type": "integer", "minimum": 0 },
+        "byType": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "reviewOutcomes": {
+      "description": "本批题目中属于复习题的部分，逐条给出对错，交给 lesson-review 或 daily-lesson 更新 streak。",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["mistakeId", "result"],
+        "properties": {
+          "mistakeId": { "type": "integer", "minimum": 1 },
+          "result": { "type": "string", "enum": ["correct", "wrong"] }
+        }
+      }
+    },
+    "degradation": { "$ref": "common.schema.json#/$defs/Degradation" }
+  }
+}

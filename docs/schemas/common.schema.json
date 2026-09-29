@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://english-study.local/schemas/v1/common.schema.json",
+  "title": "公共类型定义",
+  "description": "本目录全部契约共用的枚举与基础类型。其他契约通过相对路径 $ref 引用本文件的 $defs。枚举取值与 backend/db/schema.sql 逐一对齐，Skill 侧不得自行扩展取值。",
+  "$defs": {
+    "LevelCode": {
+      "description": "级别代码，取值与 levels.code 一致。",
+      "type": "string",
+      "enum": ["Level 1", "Level 2", "Level 3", "Level 4", "Level 5"]
+    },
+    "Feedback": {
+      "description": "难度反馈，取值与 progress_feedback.feedback 一致。",
+      "type": "string",
+      "enum": ["too_easy", "just_right", "too_hard"]
+    },
+    "ErrorType": {
+      "description": "错误类型，取值与 mistakes.error_type 一致。一条错词只归一个类型，判定顺序见 docs/skills.md 第三章 answer-grading。",
+      "type": "string",
+      "enum": ["grammar", "spelling", "punctuation", "word_choice", "capitalization", "other"]
+    },
+    "MistakeStatus": {
+      "description": "错词过关状态，取值与 mistakes.status 一致。连续答对 2 次即 passed。",
+      "type": "string",
+      "enum": ["pending", "passed"]
+    },
+    "ExerciseType": {
+      "description": "题型，取值与 exercises.exercise_type 一致。",
+      "type": "string",
+      "enum": ["fill_blank", "translate", "error_correction", "reorder", "open", "choice"]
+    },
+    "ExerciseSetKind": {
+      "description": "题集用途。homework=课后作业；review=课前复习；backfill=补漏块；diagnostic=诊断测试（用于免修判定）。",
+      "type": "string",
+      "enum": ["homework", "review", "backfill", "diagnostic"]
+    },
+    "SectionType": {
+      "description": "课程小节类型。review / grammar / vocab_table / examples / homework / my_answer / grading / feedback 与 course_sections.section_type 现有枚举一致；objectives 与 expected_mistakes 是 docs/ai-teacher.md 5.4 提交后端评估的新增值，后端确认前 Skill 侧按可选字段处理，不得依赖其结构化查询。",
+      "type": "string",
+      "enum": ["objectives", "review", "grammar", "vocab_table", "examples", "homework", "my_answer", "grading", "feedback", "expected_mistakes"]
+    },
+    "StudyRecordType": {
+      "description": "学习记录类型，取值与 study_records.record_type 一致。",
+      "type": "string",
+      "enum": ["attend", "homework_submit", "grade", "review", "feedback", "reading"]
+    },
+    "KnowledgeRole": {
+      "description": "知识点在本课中的角色，取值与 course_knowledge_points.role 一致。backfill 表示补漏，不占新语法点额度。",
+      "type": "string",
+      "enum": ["new", "review", "backfill"]
+    },
+    "SkillName": {
+      "description": "九个 Skill 的机器名。三个独立 Skill 与六个内嵌能力共用此枚举，便于 skill_runs 统一登记。",
+      "type": "string",
+      "enum": [
+        "daily-lesson",
+        "lesson-review",
+        "grammar-teaching",
+        "vocabulary-teaching",
+        "exercise-generation",
+        "answer-grading",
+        "mistake-analysis",
+        "learning-progress-analysis",
+        "next-lesson-planning"
+      ]
+    },
+    "SkillRunStatus": {
+      "description": "Skill 执行结果，取值与 skill_runs.status 一致。",
+      "type": "string",
+      "enum": ["success", "failed", "partial"]
+    },
+    "DateOnly": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "DateTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "DeploymentMode": {
+      "description": "数据来源模式。backend=从后端 API 取数；markdown=由适配层从 md 文件合成同样的 JSON。两种模式下 Skill 逻辑完全一致，切换只换适配层。",
+      "type": "string",
+      "enum": ["backend", "markdown"]
+    },
+    "Degradation": {
+      "description": "本对象是否处于降级状态。任何降级结果都必须带此对象，并逐项列出受影响能力，供上层提示用户限制。",
+      "type": "object",
+      "required": ["degraded"],
+      "properties": {
+        "degraded": { "type": "boolean" },
+        "reason": { "type": "string" },
+        "affected": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "MistakeItem": {
+      "description": "错词本条目，字段与 mistakes 表一一对应。wrongText 与 correctText 是判重与判过关的唯一依据。",
+      "type": "object",
+      "required": ["id", "wrongText", "correctText", "errorType", "status"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 1 },
+        "wrongText": { "type": "string", "minLength": 1 },
+        "correctText": { "type": "string", "minLength": 1 },
+        "errorType": { "$ref": "#/$defs/ErrorType" },
+        "errorReason": { "type": "string" },
+        "streak": { "type": "integer", "minimum": 0 },
+        "wrongCount": { "type": "integer", "minimum": 0 },
+        "status": { "$ref": "#/$defs/MistakeStatus" },
+        "priority": {
+          "description": "出题优先级。规则见 docs/ai-teacher.md 9.3 的 G2 建议：wrongCount>=2 为 high，streak==1 为 medium，其余 low。",
+          "type": "string",
+          "enum": ["high", "medium", "low"]
+        },
+        "firstCourseNo": { "type": "integer", "minimum": 1 },
+        "lastCourseNo": { "type": "integer", "minimum": 1 },
+        "lastReviewedAt": {
+          "anyOf": [{ "$ref": "#/$defs/DateTime" }, { "type": "null" }]
+        }
+      }
+    }
+  }
+}

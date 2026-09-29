@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://english-study.local/schemas/v1/teaching-block.schema.json",
+  "title": "TeachingBlock 教学内容块",
+  "description": "grammar-teaching 与 vocabulary-teaching 的输出，是组装 LessonRecord 之前的中间对象。存在的意义是：教学内容先结构化，再由 daily-lesson 统一翻译成课程小节正文与词表，避免每个能力各自拼 Markdown 导致格式漂移。",
+  "type": "object",
+  "required": ["kind", "lessonNo", "levelCode"],
+  "$defs": {
+    "FamilyCoverage": {
+      "description": "同一语法家族是否一次讲全。例：现在进行时须同时覆盖肯定、否定、疑问三种形式。任一项为 false 即视为本语法点未讲完，不得进入下一课。",
+      "type": "object",
+      "required": ["affirmative", "negative", "question"],
+      "properties": {
+        "affirmative": { "type": "boolean" },
+        "negative": { "type": "boolean" },
+        "question": { "type": "boolean" }
+      }
+    },
+    "GrammarBlock": {
+      "type": "object",
+      "required": ["knowledgePoint", "bodyMd", "familyCoverage"],
+      "properties": {
+        "knowledgePoint": {
+          "type": "object",
+          "required": ["code", "title", "role"],
+          "properties": {
+            "code": { "type": "string" },
+            "title": { "type": "string" },
+            "role": { "$ref": "common.schema.json#/$defs/KnowledgeRole" }
+          }
+        },
+        "bodyMd": {
+          "description": "语法正文 Markdown，含规则、形式变化、配用学生已学的词汇。写入 course_sections(section_type='grammar')。",
+          "type": "string",
+          "minLength": 1
+        },
+        "examples": {
+          "description": "3—5 个例句，只用已学词汇与本次语法点。",
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "required": ["en"],
+            "properties": {
+              "en": { "type": "string" },
+              "zh": { "type": "string" }
+            }
+          }
+        },
+        "expectedMistakes": {
+          "description": "预判易错点，批改时用于回答「为什么不是另一种写法」。至少 1 条，且优先取历史复发错词。",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["wrong", "correct", "reason"],
+            "properties": {
+              "wrong": { "type": "string" },
+              "correct": { "type": "string" },
+              "reason": { "type": "string" },
+              "fromMistakeId": { "type": "integer", "minimum": 1 }
+            }
+          }
+        },
+        "familyCoverage": { "$ref": "#/$defs/FamilyCoverage" }
+      }
+    },
+    "VocabularyBlock": {
+      "type": "object",
+      "required": ["entries"],
+      "properties": {
+        "entries": {
+          "description": "本课词表，数量与 LessonPlan.vocabularySize 一致。已出现过的词只更新例句并标 isNew=false。",
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": ["word", "isNew"],
+            "properties": {
+              "word": { "type": "string", "minLength": 1, "maxLength": 64 },
+              "phonetic": { "type": "string" },
+              "meaning": { "type": "string" },
+              "example": { "type": "string" },
+              "isNew": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "properties": {
+    "kind": {
+      "description": "grammar=语法教学内容块；vocabulary=词汇教学内容块。一份对象只装一类。",
+      "type": "string",
+      "enum": ["grammar", "vocabulary"]
+    },
+    "lessonNo": { "type": "integer", "minimum": 1 },
+    "levelCode": { "$ref": "common.schema.json#/$defs/LevelCode" },
+    "grammar": { "$ref": "#/$defs/GrammarBlock" },
+    "vocabulary": { "$ref": "#/$defs/VocabularyBlock" },
+    "degradation": { "$ref": "common.schema.json#/$defs/Degradation" }
+  }
+}

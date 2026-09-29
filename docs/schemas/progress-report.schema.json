@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://english-study.local/schemas/v1/progress-report.schema.json",
+  "title": "ProgressReport 学情报告",
+  "description": "learning-progress-analysis 的输出，也是「我学得怎么样」的唯一回答格式。核心特征是把理解与产出分开评估，并给出可判定的级别建议与瓶颈定位，不输出笼统好坏。",
+  "type": "object",
+  "required": ["asOfLessonNo", "dimensions", "bottleneck", "levelRecommendation"],
+  "$defs": {
+    "Dimension": {
+      "description": "单个能力维度的评估。evidence 必须能指回具体课号或错词 id，不接受「表现良好」这类无证据结论。",
+      "type": "object",
+      "required": ["name", "assessment", "evidence"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["grammar", "vocabulary", "reading", "spelling_punctuation", "self_check_habit"]
+        },
+        "assessment": {
+          "description": "相对当前级别的档位：stable=稳定，unstable=不稳定，untested=未测。",
+          "type": "string",
+          "enum": ["stable", "unstable", "untested"]
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "ErrorSplit": {
+      "description": "理解与产出分开统计。理解型=知道意思但选错（主要为 word_choice）；产出型=知道规则但写错（语法形态、标点、大小写、拼写）。",
+      "type": "object",
+      "required": ["understandingLevel", "productionLevel"],
+      "properties": {
+        "understandingLevel": { "$ref": "common.schema.json#/$defs/LevelCode" },
+        "productionLevel": { "$ref": "common.schema.json#/$defs/LevelCode" },
+        "understandingErrors": { "type": "integer", "minimum": 0 },
+        "productionErrors": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "TrendPoint": {
+      "type": "object",
+      "required": ["lessonNo", "errorCount"],
+      "properties": {
+        "lessonNo": { "type": "integer", "minimum": 1 },
+        "lessonDate": { "type": ["string", "null"] },
+        "errorCount": { "type": "integer", "minimum": 0 },
+        "exerciseCount": { "type": ["integer", "null"] }
+      }
+    },
+    "Bottleneck": {
+      "description": "瓶颈定位。必须是可执行结论，说明「缺什么动作」而不是「哪部分差」。",
+      "type": "object",
+      "required": ["summary", "kind"],
+      "properties": {
+        "summary": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": ["not_learned", "not_practiced", "no_self_check_habit", "insufficient_sample"]
+        },
+        "actions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "LevelRecommendation": {
+      "description": "级别建议。hold=维持，upgrade=升级，downgrade=降级，freeze=冻结升级。执行动作仍由 POST /progress/feedback 落库。",
+      "type": "object",
+      "required": ["action", "targetLevel", "reason"],
+      "properties": {
+        "action": { "type": "string", "enum": ["hold", "upgrade", "downgrade", "freeze"] },
+        "targetLevel": { "$ref": "common.schema.json#/$defs/LevelCode" },
+        "reason": { "type": "string" },
+        "unlockCondition": {
+          "description": "action 为 freeze 时必填，写明解锁条件（对应教学规则 R1）。",
+          "type": ["string", "null"]
+        },
+        "ruleRefs": {
+          "description": "本建议依据的规则编号，如 R1 / R3 / R4，便于回溯。",
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  },
+  "properties": {
+    "asOfLessonNo": { "type": "integer", "minimum": 0 },
+    "asOfDate": {
+      "anyOf": [{ "$ref": "common.schema.json#/$defs/DateOnly" }, { "type": "null" }]
+    },
+    "sampleSize": {
+      "description": "参与本次分析的课数。少于 3 课时瓶颈只能给 insufficient_sample，不得给出趋势结论。",
+      "type": "integer",
+      "minimum": 0
+    },
+    "dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/Dimension" }
+    },
+    "errorSplit": { "$ref": "#/$defs/ErrorSplit" },
+    "trend": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/TrendPoint" }
+    },
+    "recurringMistakes": {
+      "description": "复发次数最高的错词，按 wrongCount 倒序。",
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/MistakeItem" }
+    },
+    "bottleneck": { "$ref": "#/$defs/Bottleneck" },
+    "levelRecommendation": { "$ref": "#/$defs/LevelRecommendation" },
+    "degradation": { "$ref": "common.schema.json#/$defs/Degradation" }
+  }
+}

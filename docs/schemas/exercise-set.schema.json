@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://english-study.local/schemas/v1/exercise-set.schema.json",
+  "title": "ExerciseSet 题集",
+  "description": "exercise-generation 的输出。同一份契约承载四类题集（作业 / 复习 / 补漏 / 诊断），由 kind 区分。题目与答案必须成对出现，缺参考答案的题不得进入题集。",
+  "type": "object",
+  "required": ["kind", "lessonNo", "levelCode", "items"],
+  "$defs": {
+    "ExerciseItem": {
+      "type": "object",
+      "required": ["exerciseNo", "exerciseType", "prompt", "referenceAnswer"],
+      "properties": {
+        "exerciseNo": { "type": "integer", "minimum": 1 },
+        "exerciseType": { "$ref": "common.schema.json#/$defs/ExerciseType" },
+        "prompt": { "type": "string" },
+        "referenceAnswer": { "type": "string", "minLength": 1 },
+        "targetPoint": {
+          "description": "本题考核的知识点代码，用于错误归因。复习题取自旧课时填该课知识点。",
+          "type": "string"
+        },
+        "fromMistakeId": {
+          "description": "本题由哪条错词生成，对应 mistakes.id。来自错词池的题必须带此字段，便于批改时直接回写 streak。",
+          "type": "integer",
+          "minimum": 1
+        },
+        "fromLessonNo": {
+          "description": "复习题取自哪一课。source 为 N-1 / N-3 / N-7 时必填。",
+          "type": "integer",
+          "minimum": 1
+        },
+        "selfCheck": {
+          "description": "本题点名的强制自查项，如「句尾标点」「可数名词复数」。写进题干提示，学生提交前自查。",
+          "type": "string"
+        },
+        "allowOpenEnded": {
+          "description": "开放题标记。开放题只判「是否达到目标」，不逐字比对参考答案。",
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "properties": {
+    "kind": { "$ref": "common.schema.json#/$defs/ExerciseSetKind" },
+    "lessonNo": { "type": "integer", "minimum": 1 },
+    "levelCode": { "$ref": "common.schema.json#/$defs/LevelCode" },
+    "estimatedMinutes": {
+      "description": "预计作答时长。作业题集控制在 8—12 分钟；复习题集 3—5 分钟；补漏块 5—8 分钟。整课不超 30 分钟。",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 30
+    },
+    "instructions": {
+      "description": "写在题集最前的一段要求，含强制自查项。",
+      "type": "string"
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/ExerciseItem" }
+    },
+    "degradation": { "$ref": "common.schema.json#/$defs/Degradation" }
+  }
+}

@@ -1,0 +1,344 @@
+{
+  "schemaVersion": "amy-next-lesson/1.0",
+  "generatedAt": "2026-09-29T15:05:00+08:00",
+  "generatedBy": "Amy",
+  "dataMode": "backend",
+  "dataSources": [
+    {
+      "endpoint": "GET /api/health",
+      "purpose": "确认服务与数据库可用、取默认学生档案",
+      "result": "database=up；学生 Zane（刘凤渝），目标「能读懂并写出日常句子」"
+    },
+    {
+      "endpoint": "GET /api/progress",
+      "purpose": "级别、课号、反馈、连击、冻结状态",
+      "result": "Level 2 / 第 6 课 / 下一课 7 / just_right / easyStreak 0 / 未冻结 / lessonNoAligned true"
+    },
+    {
+      "endpoint": "GET /api/lessons?size=6",
+      "purpose": "已完成课程清单与每课错误数、反馈",
+      "result": "6 课，Level 1×3 + Level 2×3"
+    },
+    {
+      "endpoint": "GET /api/lessons/latest",
+      "purpose": "最近一课与下一课号（断更不断号）",
+      "result": "latest=第 6 课；nextLessonNo=7"
+    },
+    {
+      "endpoint": "GET /api/lessons/error-trend?limit=6",
+      "purpose": "错误趋势，用于加速/巩固决策",
+      "result": "3, 4, 2, 6, 2, 5"
+    },
+    {
+      "endpoint": "GET /api/mistakes/pending?limit=20",
+      "purpose": "未过关错词与优先级，直接用于出复习题",
+      "result": "15 条（high 6 / medium 3 / low 6）"
+    },
+    {
+      "endpoint": "GET /api/mistakes/stats",
+      "purpose": "错词类型分布",
+      "result": "grammar 9 / word_choice 4 / capitalization 3 / punctuation 2 / spelling 1 / other 1"
+    },
+    {
+      "endpoint": "GET /api/vocabulary/stats",
+      "purpose": "词汇量与首字母分布",
+      "result": "total 51"
+    },
+    {
+      "endpoint": "GET /api/study-records?size=6",
+      "purpose": "最近学习记录（上课/批改/反馈）",
+      "result": "第 6 课 attend + grade(errorCount 5) + feedback(just_right)"
+    }
+  ],
+  "missingEndpoints": [
+    "GET /api/agent/snapshot（404 接口不存在）—— 本次用 5 个 GET 接口手工拼接替代",
+    "GET /api/knowledge-points（404）—— 待补知识点/补漏队列无法从 API 取，本次沿用 progress.md",
+    "GET /api/readings（404）—— 阅读目录无法从 API 取",
+    "全部写接口（POST/PUT）—— 无法回写复习结果、反馈与新课件"
+  ],
+  "dataQualityWarnings": [
+    {
+      "id": "DQ1",
+      "level": "blocking-for-accuracy",
+      "detail": "库内 mistakes 共 20 条（pending 15 / passed 5），错词本 Markdown 为 19 条（15 / 4），且 byType 多出 other 1 条 —— 迁移快照早于错词本整理（迁移时间 2026-09-29 14:08）",
+      "action": "请后端重跑 md→DB 迁移（幂等 upsert），使库内 19 条与本地一致"
+    },
+    {
+      "id": "DQ2",
+      "level": "medium",
+      "detail": "mistakes.wrong_text 混入了人工批注，如 id12「play game（第 3 次犯：第 6 课写 were playing game）」、id8「Do you like coffee.（句号结尾）」、id16「at yesterday（I was busy at yesterday）」",
+      "action": "wrong_text 只存错误形式本身，批注建议移入 error_reason 或新增 note 字段"
+    },
+    {
+      "id": "DQ3",
+      "level": "low",
+      "detail": "vocabulary 口径两套：API total=51（按 word 去重），静态看板显示 52（按课累计）",
+      "action": "在 API 文档中明确口径，前端/看板对齐为同一口径"
+    },
+    {
+      "id": "DQ4",
+      "level": "low",
+      "detail": "id8、id9 的 firstLessonNo / lastLessonNo 为 null（来源课号为「诊断」，非课程）",
+      "action": "建议支持 sourceType='diagnostic'，或允许 null 并在快照标注来源"
+    },
+    {
+      "id": "DQ5",
+      "level": "low",
+      "detail": "mistakes.lastReviewedAt 全部为 null（写接口未实现，复习结果无法回写）",
+      "action": "实现 POST /api/mistakes/:id/review 后即可回填"
+    }
+  ],
+  "student": {
+    "studentId": 1,
+    "name": "Zane",
+    "currentLevel": "Level 2",
+    "currentLessonNo": 6,
+    "nextLessonNo": 7,
+    "lastFeedback": "just_right",
+    "easyStreak": 0,
+    "upgradeFrozen": false,
+    "lastClassDate": "2026-09-29",
+    "progressNote": "第 5、6 课错误未持续下降且老错复发，暂停加速，先做巩固纠错"
+  },
+  "analysis": {
+    "levelAssessment": {
+      "understanding": "Level 2 中段",
+      "production": "Level 1 末段",
+      "evidence": [
+        "三个时态（一般现在 / 现在进行 / 一般过去）的结构辨认在选择题中全部正确（第 5、6 课）",
+        "同一批规则在书面产出中仍出错：漏 be 动词、可数名词裸用、不规则过去式",
+        "19 条错词中仅 4 条属理解误判（word_choice），其余 15 条为「知道规则但写错」"
+      ]
+    },
+    "errorTrend": {
+      "byLesson": [
+        { "lessonNo": 1, "errorCount": 3 },
+        { "lessonNo": 2, "errorCount": 4 },
+        { "lessonNo": 3, "errorCount": 2 },
+        { "lessonNo": 4, "errorCount": 6 },
+        { "lessonNo": 5, "errorCount": 2 },
+        { "lessonNo": 6, "errorCount": 5 }
+      ],
+      "verdict": "未呈下降趋势，且第 6 课出现老错复发，维持「巩固优先」，不启用每课 2 个知识点"
+    },
+    "errorProfile": {
+      "byOrder": [
+        { "errorType": "grammar", "count": 9 },
+        { "errorType": "word_choice", "count": 4 },
+        { "errorType": "capitalization", "count": 3 },
+        { "errorType": "punctuation", "count": 2 },
+        { "errorType": "spelling", "count": 1 }
+      ],
+      "highFrequency": [
+        { "pattern": "可数名词单数裸用", "occurrences": 3, "example": "play game" },
+        { "pattern": "疑问句结尾漏问号 / 问号前留空格", "occurrences": 3, "example": "Do you like coffee." },
+        { "pattern": "句首字母不大写", "occurrences": 2, "example": "those are their bags." },
+        { "pattern": "拼写字母顺序颠倒", "occurrences": 2, "example": "Theri → Their" }
+      ]
+    },
+    "masterySummary": {
+      "stable": [
+        "主谓宾语序",
+        "be 动词 am / is / are 与主语匹配",
+        "主格与物主代词 I/my、he/his、she/her",
+        "现在进行时结构 am/is/are + -ing 与 -ing 拼写规则",
+        "时态标志词判断（every day vs now）",
+        "there is / there are、a / an",
+        "this / that / these / those",
+        "疑问词 what / who / where"
+      ],
+      "unstable": [
+        "可数名词复数（play game）",
+        "疑问句问号与句首大写",
+        "不规则动词过去式（teach → taught）",
+        "物主代词拼写（their）",
+        "时间状语前不加介词（at yesterday）"
+      ]
+    }
+  },
+  "todayPlan": {
+    "lessonNo": 7,
+    "lessonDate": "2026-09-30",
+    "level": "Level 2",
+    "estimatedMinutes": 28,
+    "objective": "学会规则动词过去式 -ed，能写出 5 句「上周做了什么」，且不再犯可数名词与标点两类老错",
+    "review": {
+      "durationMinutes": 6,
+      "items": [
+        {
+          "no": 1,
+          "source": "N-1 第 6 课（was / were）",
+          "prompt": "翻译：他们昨天在办公室。",
+          "expectedAnswer": "They were in the office yesterday.",
+          "mistakeId": null
+        },
+        {
+          "no": 2,
+          "source": "N-3 第 4 课（现在进行时）",
+          "prompt": "改错：He reading a book now.",
+          "expectedAnswer": "He is reading a book now.",
+          "mistakeId": 10
+        },
+        {
+          "no": 3,
+          "source": "错词本 priority=high",
+          "prompt": "翻译：我们昨天打游戏。",
+          "expectedAnswer": "We played games yesterday.",
+          "mistakeId": 12,
+          "why": "可数名词裸用，累计 3 次；本题同时覆盖今日新语法 -ed"
+        },
+        {
+          "no": 4,
+          "source": "错词本 priority=high，streak=1（再答对一次即过关）",
+          "prompt": "改错：I drink water every day, I need sleep every night.",
+          "expectedAnswer": "I drink water every day. I need sleep every night.",
+          "mistakeId": 5
+        },
+        {
+          "no": 5,
+          "source": "错词本 priority=high，streak=1（再答对一次即过关）",
+          "prompt": "改错：She always is busy.",
+          "expectedAnswer": "She is always busy.",
+          "mistakeId": 6
+        }
+      ]
+    },
+    "newKnowledge": {
+      "code": "L2-04",
+      "name": "规则动词过去式 -ed",
+      "points": [
+        "一般情况直接加 -ed：played / worked / watched",
+        "以 e 结尾只加 -d：liked",
+        "辅音字母 + y 结尾，改 y 为 i 再加 -ed：studied",
+        "重读闭音节，双写末尾辅音字母再加 -ed：stopped",
+        "搭配时间标志词：yesterday / last week / last month / two days ago"
+      ],
+      "contrast": "be 动词用 was / were（第 6 课已学），实义动词用 -ed —— 两者不能混用"
+    },
+    "vocabulary": [
+      { "word": "played", "phonetic": "/pleɪd/", "meaning": "玩（过去式）", "example": "I played games yesterday." },
+      { "word": "worked", "phonetic": "/wɜːrkt/", "meaning": "工作（过去式）", "example": "I worked in the office last week." },
+      { "word": "watched", "phonetic": "/wɑːtʃt/", "meaning": "看（过去式）", "example": "We watched TV last night." },
+      { "word": "studied", "phonetic": "/ˈstʌdid/", "meaning": "学习（过去式）", "example": "She studied English last night." },
+      { "word": "cooked", "phonetic": "/kʊkt/", "meaning": "做饭（过去式）", "example": "My mother cooked dinner yesterday." },
+      { "word": "cleaned", "phonetic": "/kliːnd/", "meaning": "打扫（过去式）", "example": "I cleaned my room last Sunday." },
+      { "word": "visited", "phonetic": "/ˈvɪzɪtɪd/", "meaning": "拜访（过去式）", "example": "We visited my grandpa last week." },
+      { "word": "stopped", "phonetic": "/stɑːpt/", "meaning": "停下（过去式）", "example": "The bus stopped here." },
+      { "word": "last week", "phonetic": "/læst wiːk/", "meaning": "上周", "example": "I was busy last week." },
+      { "word": "last month", "phonetic": "/læst mʌnθ/", "meaning": "上个月", "example": "They worked here last month." }
+    ],
+    "exercises": [
+      {
+        "no": 1,
+        "type": "fill_blank",
+        "prompt": "写出过去式：watch / study / stop",
+        "referenceAnswer": "watched / studied / stopped"
+      },
+      {
+        "no": 2,
+        "type": "choice",
+        "prompt": "We ___ football last Sunday.（play / played）",
+        "referenceAnswer": "played"
+      },
+      {
+        "no": 3,
+        "type": "error_correction",
+        "prompt": "改错：I studyed English yesterday.",
+        "referenceAnswer": "I studied English yesterday."
+      },
+      {
+        "no": 4,
+        "type": "open",
+        "prompt": "写 5 句讲你上周末做了什么，每句都要用 -ed 过去式，至少 1 句否定（didn't）",
+        "referenceAnswer": null
+      }
+    ],
+    "backfillBlock": {
+      "no": 4,
+      "topic": "介词 on / at",
+      "items": [
+        { "prompt": "填词：I get up ___ seven o'clock.", "referenceAnswer": "at" },
+        { "prompt": "填词：We play football ___ Sundays.", "referenceAnswer": "on" },
+        { "prompt": "翻译：我上周日在办公室。", "referenceAnswer": "I was in the office on Sunday." }
+      ]
+    },
+    "reading": {
+      "targetFile": "read/2026-09-30-read.md",
+      "pieces": 3,
+      "level": "Level 2",
+      "theme": "上周的一天 / 周末做了什么（-ed 过去式）",
+      "rule": "当天文件已存在则跳过，不覆盖"
+    },
+    "selfCheckRules": [
+      "句尾标点：陈述句用 . 疑问句用 ?（问号前不留空格）",
+      "可数名词：不能裸用，加 s 或用 a + 单数",
+      "过去式：规则动词加 -ed；不规则动词单独记（teach → taught）",
+      "书写：句首大写、人名大写、逗号不连句"
+    ]
+  },
+  "strengthen": [
+    {
+      "item": "可数名词单数裸用（play game）",
+      "priority": "P0",
+      "reason": "累计 3 次，且 4—6 课连续出现",
+      "method": "作业强制自查 + 复习题覆盖；本课作业第 4 题必须出现 games / books 这类复数"
+    },
+    {
+      "item": "疑问句问号与句首大写",
+      "priority": "P0",
+      "reason": "问号类复发 ≥3 次，大小写 2 次，属习惯类错误",
+      "method": "每课开场 5 条自查 + 批改时逐条点名，连续 2 课零犯即降级处理"
+    },
+    {
+      "item": "不规则动词过去式（teach → taught）",
+      "priority": "P1",
+      "reason": "第 6 课新错，且今日新课只讲规则动词，容易误推 -ed",
+      "method": "第 8 课专讲常用不规则过去式；本课在批改中先建立「不规则要单独记」的意识"
+    },
+    {
+      "item": "物主代词拼写（their）",
+      "priority": "P2",
+      "reason": "拼写错误 1 次，属低频",
+      "method": "并入词汇卡，随每日复习抽查"
+    },
+    {
+      "item": "时间状语前不加介词（at yesterday）",
+      "priority": "P1",
+      "reason": "第 6 课同一作业内犯 2 次",
+      "method": "并入补漏块 4（介词 on / at），与时间表达一起练"
+    }
+  ],
+  "nextLessonPreview": {
+    "lessonNo": 8,
+    "file": "notes/day-08-14.md",
+    "level": "Level 2",
+    "topic": "常用不规则过去式 go-went / eat-ate / see-saw / have-had",
+    "dependsOn": "第 7 课规则动词过去式"
+  },
+  "writeBackIntents": [
+    {
+      "endpoint": "POST /api/mistakes/{id}/review",
+      "status": "missing",
+      "payload": { "mistakeId": [12, 5, 6, 10], "result": "correct|wrong", "lessonNo": 7 },
+      "purpose": "更新 streak / wrong_count / status"
+    },
+    {
+      "endpoint": "POST /api/progress/feedback",
+      "status": "missing",
+      "payload": { "lessonNo": 7, "feedback": "too_easy|just_right|too_hard" },
+      "purpose": "按规则触发升降级与冻结"
+    },
+    {
+      "endpoint": "POST /api/lessons",
+      "status": "missing",
+      "payload": { "lessonNo": 7, "summary": "…", "sections": {}, "vocabulary": [] },
+      "purpose": "归档第 7 课（含批改回填）"
+    },
+    {
+      "endpoint": "POST /api/study-records",
+      "status": "missing",
+      "payload": { "recordType": "grade|feedback", "payload": {} },
+      "purpose": "写入本课错误数、反馈与下一课建议"
+    }
+  ]
+}

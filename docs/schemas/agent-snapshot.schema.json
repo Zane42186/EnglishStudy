@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://english-study.local/schemas/v1/agent-snapshot.schema.json",
+  "title": "AgentSnapshot 教学快照",
+  "description": "九个 Skill 的统一输入契约。形状对齐 backend GET /agent/snapshot。后端就绪前由 markdown 适配层从 digest.md / progress.md / wrong-words.md / notes 合成等价对象。Skill 只读本对象，不读任何文件路径；后端新增字段时 Skill 必须忽略未知字段而不是报错。",
+  "type": "object",
+  "required": ["deploymentMode", "progress", "courseCatalog", "recentLessons", "pendingMistakes"],
+  "properties": {
+    "deploymentMode": { "$ref": "common.schema.json#/$defs/DeploymentMode" },
+    "progress": {
+      "description": "对应 user_progress 单行。",
+      "type": "object",
+      "required": ["currentLevel", "currentCourseNo"],
+      "properties": {
+        "currentLevel": { "$ref": "common.schema.json#/$defs/LevelCode" },
+        "currentCourseNo": { "type": "integer", "minimum": 0 },
+        "lastFeedback": {
+          "anyOf": [{ "$ref": "common.schema.json#/$defs/Feedback" }, { "type": "null" }]
+        },
+        "easyStreak": { "type": "integer", "minimum": 0 },
+        "upgradeFrozenUntil": { "type": "integer", "minimum": 0 },
+        "lastClassDate": {
+          "anyOf": [{ "$ref": "common.schema.json#/$defs/DateOnly" }, { "type": "null" }]
+        }
+      }
+    },
+    "courseCatalog": {
+      "description": "全部课号一览。定课号与回答「上次学到哪了」都以此为准，课号不连续时按最大值推断。",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["lessonNo"],
+        "properties": {
+          "lessonNo": { "type": "integer", "minimum": 1 },
+          "lessonDate": { "type": ["string", "null"] },
+          "levelCode": { "type": ["string", "null"] },
+          "summary": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "recentLessons": {
+      "description": "最近 N 课明细，默认 N=3。写复习题与讲新课时参考。",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["lessonNo"],
+        "properties": {
+          "lessonNo": { "type": "integer", "minimum": 1 },
+          "lessonDate": { "type": ["string", "null"] },
+          "levelCode": { "type": ["string", "null"] },
+          "summary": { "type": ["string", "null"] },
+          "grammarPoint": { "type": ["string", "null"] },
+          "vocabulary": { "type": "array", "items": { "type": "string" } },
+          "feedback": {
+            "anyOf": [{ "$ref": "common.schema.json#/$defs/Feedback" }, { "type": "null" }]
+          },
+          "mistakeCount": { "type": "integer", "minimum": 0 },
+          "errorCount": {
+            "description": "本课作业错误处数。对应文档缺口 G1，后端补上前该字段可缺省。",
+            "type": ["integer", "null"]
+          }
+        }
+      }
+    },
+    "pendingMistakes": {
+      "description": "未过关错词，等价 v_pending_mistakes 视图，按出题优先级排列。出复习题的取词池。",
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/MistakeItem" }
+    },
+    "readingCatalog": {
+      "description": "阅读日清单，用作「当天是否已生成阅读」的判断依据。",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["date"],
+        "properties": {
+          "date": { "$ref": "common.schema.json#/$defs/DateOnly" },
+          "pieceCount": { "type": "integer", "minimum": 0 },
+          "titles": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "errorTrend": {
+      "description": "逐课错误趋势。对应文档缺口 G1，用于判断是否加速（教学规则 R3）。后端补上前由适配层从错词与笔记推算。",
+      "type": "object",
+      "properties": {
+        "windowSize": { "type": "integer", "minimum": 1 },
+        "byLesson": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["lessonNo"],
+            "properties": {
+              "lessonNo": { "type": "integer", "minimum": 1 },
+              "exerciseCount": { "type": ["integer", "null"] },
+              "errorCount": { "type": ["integer", "null"] },
+              "byType": {
+                "type": "object",
+                "additionalProperties": { "type": "integer", "minimum": 0 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "backlog": {
+      "description": "待补知识点与补漏队列。对应文档缺口 G3，支撑教学规则 R2。",
+      "type": "object",
+      "properties": {
+        "pendingKnowledgePoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "title"],
+            "properties": {
+              "code": { "type": "string" },
+              "title": { "type": "string" },
+              "levelCode": { "anyOf": [{ "$ref": "common.schema.json#/$defs/LevelCode" }, { "type": "null" }] },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "backfillQueue": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["seq", "title", "status"],
+            "properties": {
+              "seq": { "type": "integer", "minimum": 1 },
+              "title": { "type": "string" },
+              "status": { "type": "string", "enum": ["next", "queued", "done", "untested"] }
+            }
+          }
+        }
+      }
+    },
+    "lastIncomplete": {
+      "description": "上次中断时未完成的教学动作。对应文档缺口 G4，用于断更补课。",
+      "type": "object",
+      "properties": {
+        "lessonNo": { "type": "integer", "minimum": 1 },
+        "nextRecommendation": { "type": "string" },
+        "incompleteStep": { "type": "string" }
+      }
+    },
+    "degradation": { "$ref": "common.schema.json#/$defs/Degradation" }
+  }
+}

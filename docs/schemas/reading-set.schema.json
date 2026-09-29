@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://english-study.local/schemas/v1/reading-set.schema.json",
+  "title": "ReadingSet 当日阅读集",
+  "description": "一天一档的阅读材料，对应 readings + reading_pieces + reading_questions 三张表。同一日期已存在即不覆盖，唯一例外是学生明确要求重出。",
+  "type": "object",
+  "required": ["date", "levelCode", "pieces"],
+  "$defs": {
+    "Paragraph": {
+      "description": "英中对照的一段。zh 可以为空（视为未提供翻译），但 en 不得为空。",
+      "type": "object",
+      "required": ["en"],
+      "properties": {
+        "en": { "type": "string", "minLength": 1 },
+        "zh": { "type": ["string", "null"] }
+      }
+    },
+    "ReadingQuestion": {
+      "type": "object",
+      "required": ["questionNo", "question", "answer"],
+      "properties": {
+        "questionNo": { "type": "integer", "minimum": 1 },
+        "question": { "type": "string", "minLength": 1 },
+        "answer": { "type": "string", "minLength": 1 }
+      }
+    },
+    "ReadingPiece": {
+      "type": "object",
+      "required": ["pieceNo", "source", "title", "paragraphs", "questions"],
+      "properties": {
+        "pieceNo": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "levelCode": { "$ref": "common.schema.json#/$defs/LevelCode" },
+        "source": {
+          "description": "取材说明。自编时写「自编」；新闻改写时写来源机构名。取新闻失败时必须写「自编（当日新闻获取失败）」，不得用旧新闻冒充当日新闻。",
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceUrl": {
+          "description": "原文链接。来源为新闻时必填，供学生日后读原文；自编时为空。",
+          "type": ["string", "null"]
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "paragraphs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/Paragraph" }
+        },
+        "vocabularyNotes": {
+          "description": "本篇生词注释，3—6 条。出现学生未学过的词必须在此给出中文。",
+          "type": "string"
+        },
+        "wordCount": { "type": ["integer", "null"], "minimum": 1 },
+        "questions": {
+          "description": "理解题，2 道。答案由前端折叠，不直接展示。",
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/ReadingQuestion" }
+        }
+      }
+    }
+  },
+  "properties": {
+    "date": { "$ref": "common.schema.json#/$defs/DateOnly" },
+    "levelCode": { "$ref": "common.schema.json#/$defs/LevelCode" },
+    "sourceFile": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-read\\.md$"
+    },
+    "pieces": {
+      "description": "当天 1—3 篇。学生额外要求时可追加，但仍是同一天同一文件。",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/ReadingPiece" }
+    },
+    "degradation": { "$ref": "common.schema.json#/$defs/Degradation" }
+  }
+}

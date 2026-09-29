@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://english-study.local/schemas/v1/lesson-plan.schema.json",
+  "title": "LessonPlan 备课计划",
+  "description": "next-lesson-planning 的输出，同时是 daily-lesson 的输入与 grammar-teaching / vocabulary-teaching / exercise-generation 的上游。一节课在讲之前必须先有本对象；本对象一旦确定，内容量与复习来源都不再临时改动。",
+  "type": "object",
+  "required": ["lessonNo", "levelCode", "summary", "grammarPoint", "vocabularySize", "reviewSources", "selfChecks"],
+  "$defs": {
+    "KnowledgePointRef": {
+      "type": "object",
+      "required": ["code", "title"],
+      "properties": {
+        "code": { "type": "string", "description": "知识点代码，对应 knowledge_points.code。" },
+        "title": { "type": "string" },
+        "role": { "$ref": "common.schema.json#/$defs/KnowledgeRole" }
+      }
+    },
+    "ReviewSource": {
+      "description": "复习题的取题来源。source 为 N-1 / N-3 / N-7 时按课号回看，为 mistake 时从错词池取。",
+      "type": "object",
+      "required": ["source", "count"],
+      "properties": {
+        "source": { "type": "string", "enum": ["N-1", "N-3", "N-7", "mistake"] },
+        "detail": { "type": "string" },
+        "count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "ExpectedMistake": {
+      "description": "备课时预判的易错点，用于批改时回答「为什么不是另一种写法」。对应 course_sections.section_type='expected_mistakes'，后端确认前写在 grammar 小节正文内。",
+      "type": "object",
+      "required": ["wrong", "correct", "reason"],
+      "properties": {
+        "wrong": { "type": "string" },
+        "correct": { "type": "string" },
+        "reason": { "type": "string" },
+        "fromMistakeId": { "type": "integer", "minimum": 1 }
+      }
+    }
+  },
+  "properties": {
+    "lessonNo": { "type": "integer", "minimum": 1 },
+    "lessonDate": {
+      "anyOf": [{ "$ref": "common.schema.json#/$defs/DateOnly" }, { "type": "null" }]
+    },
+    "levelCode": { "$ref": "common.schema.json#/$defs/LevelCode" },
+    "summary": { "type": "string", "maxLength": 255 },
+    "objectives": {
+      "description": "本课目标，1—3 条，可判定。对应 course_sections.section_type='objectives'，该枚举值待后端确认。",
+      "type": "array",
+      "maxItems": 3,
+      "items": { "type": "string" }
+    },
+    "grammarPoint": { "$ref": "#/$defs/KnowledgePointRef" },
+    "backfill": {
+      "description": "本课补漏块，从 backlog.backfillQueue 队首取。为空表示本课不排补漏。补漏不占新语法点额度。",
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["seq", "title"],
+          "properties": {
+            "seq": { "type": "integer", "minimum": 1 },
+            "title": { "type": "string" }
+          }
+        },
+        { "type": "null" }
+      ]
+    },
+    "vocabularySize": {
+      "description": "本课生词数量，按级别取值：Level 1—2 为 5—8，Level 3 及以上为 8—12。",
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 12
+    },
+    "reviewSources": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/ReviewSource" }
+    },
+    "selfChecks": {
+      "description": "本课作业的强制自查项，逐条写在作业说明里，学生提交前自行核对。由高频复发错词触发。",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "expectedMistakes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ExpectedMistake" }
+    },
+    "sourceFile": {
+      "description": "本课笔记的归档文件，如 day-08-14.md。由课号推导，不由 Skill 自由指定。",
+      "type": "string",
+      "pattern": "^day-[0-9]{2}-[0-9]{2}\\.md$"
+    },
+    "topicOverride": {
+      "description": "学生指定当日主题时填写。填写后 grammarPoint 由学生主题决定，但 backfill 与 selfChecks 不变。",
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["text"],
+          "properties": { "text": { "type": "string" } }
+        },
+        { "type": "null" }
+      ]
+    },
+    "degradation": { "$ref": "common.schema.json#/$defs/Degradation" }
+  }
+}

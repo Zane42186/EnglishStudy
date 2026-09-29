@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://english-study.local/schemas/v1/review-session.schema.json",
+  "title": "ReviewSession 复习场次",
+  "description": "lesson-review 的输入与输出。可作为独立 Skill 单独触发（用户说「复习」），也可由 daily-lesson 在教学流程第 3—4 步调用。两种入口走同一份契约，结果一致。",
+  "type": "object",
+  "required": ["lessonNo", "questions", "source"],
+  "$defs": {
+    "ReviewSourceTag": {
+      "description": "本题的来源标签，必须能追溯到具体来源，不允许出现「临时编的题」。",
+      "type": "string",
+      "enum": ["N-1", "N-3", "N-7", "mistake"]
+    },
+    "ReviewQuestion": {
+      "type": "object",
+      "required": ["exerciseNo", "prompt", "referenceAnswer", "sourceTag"],
+      "properties": {
+        "exerciseNo": { "type": "integer", "minimum": 1 },
+        "exerciseType": { "$ref": "common.schema.json#/$defs/ExerciseType" },
+        "prompt": { "type": "string" },
+        "referenceAnswer": { "type": "string", "minLength": 1 },
+        "sourceTag": { "$ref": "#/$defs/ReviewSourceTag" },
+        "sourceLessonNo": {
+          "description": "sourceTag 为 N-1 / N-3 / N-7 时必填。",
+          "type": "integer",
+          "minimum": 1
+        },
+        "sourceMistakeId": {
+          "description": "sourceTag 为 mistake 时必填，对应 mistakes.id。",
+          "type": "integer",
+          "minimum": 1
+        },
+        "answered": { "type": ["boolean", "null"] }
+      }
+    },
+    "ReviewOutcome": {
+      "description": "单条错词的判定结果，交给 POST /mistakes/:id/review 落库。连击与过关由服务端判定，Skill 只报对错。",
+      "type": "object",
+      "required": ["mistakeId", "result"],
+      "properties": {
+        "mistakeId": { "type": "integer", "minimum": 1 },
+        "result": { "type": "string", "enum": ["correct", "wrong"] },
+        "newStreak": { "type": "integer", "minimum": 0 },
+        "newStatus": { "$ref": "common.schema.json#/$defs/MistakeStatus" }
+      }
+    }
+  },
+  "properties": {
+    "lessonNo": {
+      "description": "本次复习挂在哪一课编号下。独立触发且当日未上课时填上一课号。",
+      "type": "integer",
+      "minimum": 1
+    },
+    "source": {
+      "description": "入口来源。embedded=由 daily-lesson 调用；standalone=用户直接说「复习」触发。",
+      "type": "string",
+      "enum": ["embedded", "standalone"]
+    },
+    "questions": {
+      "description": "3—5 题，且必须同时覆盖至少两类来源。",
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/ReviewQuestion" }
+    },
+    "outcomes": {
+      "description": "作答并批改后产生，未作答时为空数组。",
+      "type": "array",
+      "items": { "$ref": "#/$defs/ReviewOutcome" }
+    },
+    "abandoned": {
+      "description": "用户中途放弃时置 true。已判定的结果照常回写，未判定的题目不入 outcomes，也不计入错误。",
+      "type": "boolean"
+    },
+    "degradation": { "$ref": "common.schema.json#/$defs/Degradation" }
+  }
+}
