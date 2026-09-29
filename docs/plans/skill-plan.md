@@ -12,7 +12,7 @@
 | 结论 | 内容 |
 |---|---|
 | **体系** | 3 个独立 Skill + 6 个内嵌能力，共用同一套契约。判据只有一个：用户会不会单独说一句话来要它。 |
-| **契约** | `docs/schemas/` 12 个 JSON Schema（v1），枚举与 `schema.sql` 严格同源；加字段兼容、Skill 必须忽略未知字段。已实测 `SCHEMA_CHECK files=12 refs=84 objects=68` → `SCHEMA_OK`【已实测，见 `docs/skills.md` 6.3】 |
+| **契约** | `docs/schemas/` 12 个 JSON Schema（v1），枚举与 `schema.sql` 严格同源；加字段兼容、Skill 必须忽略未知字段。已实测 `SCHEMA_CHECK files=12 refs=84 objects=71` → `SCHEMA_OK`（objects 68→71 为增补 `pendingMistakeStats`/`lastRecommendation` 两次；后续仅改描述文本，objects 不变）【已实测，见 `docs/skills.md` 6.3】 |
 | **数据源** | 三态而不是两态：**A0 纯 md → A1 md + 只读 API（当前实际所处）→ B 全 API**。切换只改 `AgentSnapshot.deploymentMode` 一个字段，Skill 零改动。 |
 | **适配层** | 全项目**唯一**允许接触 md 的地方，且必须复用 `build_board.py` 已有的解析函数，禁止写第二套正则。 |
 | **阻塞项（需他人决策/交付）** | ① 无聚合快照接口（`/api/agent/snapshot` 实测 404）；② 无任何写接口，闭环断裂；③ ~~接口命名两套~~ **已与 be-dev 确认：一律以 `05-api-reference.md` 为准（`/api` 前缀 + 资源名 `lessons`，`03-api-contract.md` 与 `docs/backend-analysis.md` 作废）**；④ 阶段一 8 表缺 6 张表（be-dev 已给补表顺序）；⑤ `build_board.py` 5 份副本、权威副本不在版本库。 |
@@ -122,14 +122,14 @@
 | `MistakeStatus` | pending / passed | `mistakes.status` ENUM | ✅ |
 | `ExerciseType` | fill_blank / translate / error_correction / reorder / open / choice | `exercises.exercise_type`（**阶段一无表**） | ⚠️ 无落点，仅契约内部 |
 | `ExerciseSetKind` | homework / review / backfill / diagnostic | — | 契约内部 |
-| `SectionType` | objectives, review, grammar, vocab_table, examples, homework, my_answer, grading, feedback, expected_mistakes | `lesson_sections.section_type` ENUM **仅 8 值** | ❌ **不一致**：多 `objectives`、`expected_mistakes`（= S1，待后端确认） |
+| `SectionType` | review, grammar, vocab_table, examples, homework, my_answer, grading, feedback, **objectives, expected_mistakes** | `lesson_sections.section_type` ENUM **10 值**（S1 已落库，2026-09-29） | ✅ **已一致**（契约枚举顺序与库内 ENUM 逐字一致） |
 | `StudyRecordType` | attend / homework_submit / grade / review / feedback / reading | `study_records.record_type` ENUM | ✅ |
 | `KnowledgeRole` | new / review / backfill | `course_knowledge_points.role`（完整设计，阶段一无表） | ✅ 语义一致 |
 | `SkillName` | 9 个机器名 | `skills.name`（完整设计，阶段一无表） | ✅ 语义一致 |
 | `SkillRunStatus` | success / failed / partial | `skill_runs.status`（完整设计） | ✅ |
 | `DeploymentMode` / `Degradation` / `MistakeItem.priority` / `PatternHit.pattern` / `Bottleneck.kind` / `LevelRecommendation.action` / `Dimension.name` / `ReviewSourceTag` | — | — | 契约内部，无 DB 落点。**其中 `priority` 已由服务端推导**（G2 已关闭）【已实测：`05-api-reference.md` 第 10 条】 |
 
-**规则**：新增/修改枚举取值必须先改 `schema.sql`（或完整设计）与 `common.schema.json`，Skill 侧不得先行使用。
+**规则**：新增/修改枚举取值必须先改 `schema.sql`（或完整设计）与 `common.schema.json`，Skill 侧不得先行使用。**且新增 ENUM 值一律追加在末尾，不得插入中间**——MySQL 的 ENUM 按内部索引存储，插在中间会让既有行的枚举值**静默错位**（追加可走 `INSTANT`）。S1 落地时即按此执行（`28d4732`），实测 `grammar`/`feedback` 行数与取值均未变【be-dev 实测】。
 
 ### 2.4 `deploymentMode` 切换机制
 
@@ -181,11 +181,13 @@
 | **G7** | 无任何写接口 | — | ⏳ 需求 R2—R5（P0/P1），实测全部 404【已实测】 | ①②⑧⑨ | 复习/反馈/归档结果全部回写 md，**不写库** |
 | **G8**（新增） | md 侧错词缺 `wrongCount` / `errorType` / 稳定 `id` | — | 🆕 `wrong-words.md` 表仅 6 列（课号/错误点/正确形式/错因/连续答对/状态）【静态证据】，无类型、无累计次数、无主键 | ②⑦⑨ | 适配层合成（见 3.2），并在 `degradation.affected` 标注 |
 | **DQ1** | 库内 20 条 vs md 19 条、`byType` 多 `other=1` | 未定位 | ✅ **根因已由 be-dev 实测定位**：差异全在 passed，多出 `id=19`（wrong_text 是「正确」的翻译题记录、correct_text 为占位符、`wrong_count=0`、`error_type=other`），正是 Amy 在 md 里已删除的那行非错题记录；**非重复插入**。另：判重校验（`GROUP BY lower(trim(correct_text)), error_type HAVING count>1`）返回**空**，唯一索引可直接建 | 全部 | 待 Amy 确认后删 `id=19`；迁移脚本加「correct_text 为占位符或 wrong_count=0 的行不导入」 |
-| **S1** | `section_type` 增 `objectives`、`expected_mistakes` | 待确认 | ⏳ 未实施，阶段一 `lesson_sections` 枚举仍为 8 值 | ①⑤ | 两者写进 `grammar` 小节正文，平台化后无法结构化统计 |
+| ~~S1~~ | `section_type` 增 `objectives`、`expected_mistakes` | 待确认 | ✅ **已落库（2026-09-29，commit `28d4732`）**：`db/schema.sql` + 库内 ENUM + `backend/src/constants.js` 三处同源；新值**追加在末尾**（避免既有行索引错位），实测 `grammar`/`feedback` 行数与值未变、`information_schema` 的 `COLUMN_TYPE` 与 `schema.sql` 一致【be-dev 实测】 | ①⑤ | 无缺口：契约 `SectionType` 已同步为 10 值 |
 | **S2** | `skill_runs` 缺父子关系 | 待确认 | ⏳ `schema.full.design.sql` 的 `skill_runs` 无 `parent_skill_run_id`【静态证据】 | 全部 | 退化为按 `course_id` + `created_at` 时序推断 |
 | **S3**（新增） | `skill_runs` 字段不足以承载 `SkillRun` | — | 🆕 完整设计仅 `id/skill_id/user_id/course_id/input/output/status/created_at`，**缺 `started_at`/`finished_at`/`duration_ms`/`degraded`/`notes`/`error`**【静态证据】 | 全部 | 阶段一不落盘，仅在对话留痕 |
 | **S4**（新增） | 阶段一缺 6 张表 | — | 🆕 `schema.sql` 仅 8 表，缺 `exercises`、`readings`+`reading_pieces`+`reading_questions`、`knowledge_points`+`course_knowledge_points`、`mistake_events`、`progress_feedback`、`skills`+`skill_runs`【静态证据】 | ①⑦⑧⑨② | 相应契约对象**只进 md / 只存在于对话**，不落库 |
-| **G10**（新增） | 补漏块错误 / 阅读理解题错误的**单独计数**无契约落点 | — | 🆕 Amy `amy-teaching-plan.md` §3.1 定了「不计入 `errorCount`、但单独计数」两类：补漏块作答错误（`backfillErrorCount`）、阅读理解题作答（`comprehensionErrorCount`）。`GradingResult.summary` 现只有 `exerciseCount/errorCount/blankCount/byType`，**无字段承载这两类**，且 `GradedItem` 无法标记「该题属于补漏块 / 阅读理解」 | ⑧⑨ | 暂不落：`errorCount` 已按 §3.1 明确只计 `verdict=wrong`（blank 与 correct_with_note 不计入，见 schema 描述）；两类细分计数**待与 amy / be-dev 定形后再加 optional 字段**（加字段兼容，不升版本） |
+| ~~G10~~（新增，**已关闭**） | 补漏块错误 / 阅读理解题错误的**单独计数**无契约落点 | — | ✅ **已定形（amy，`docs/ai-teacher.md` §6.5）**：**契约无需新增字段**。① 补漏块**永远独立成一套 `kind='backfill'`**，该套 `summary.errorCount` 即 `backfillErrorCount`，由 `kind` 区分即可 → 不加 `sourceScope`；② 阅读理解题作答**不进 `GradingResult`**（走阅读模块）→ `comprehensionErrorCount` 不在本契约；③ 若将来出现「一套里混多来源」再评估 `sourceScope`。`errorCount` 已写死只计 `verdict=wrong`（blank / correct_with_note / 任务完成度问题不计入，见 schema 描述与 ai-teacher §6.5） | ⑧⑨ | 无需降级 |
+| **G11**（新增） | 快照 `pendingMistakes[]` 的课号字段名未按契约映射 | — | 🆕 **实测发现**：真实 `GET /api/agent/snapshot` 返回 `firstLessonNo` / `lastLessonNo`（接口原名），未按 §5.5 映射为契约名 `firstCourseNo` / `lastCourseNo`。因契约里这两个字段**非必填**，schema 校验**不会报错**，Skill 按 `firstCourseNo` 取值会**静默拿到 undefined**。同批实测：`progress` 的 `currentCourseNo` 映射正确、`recentLessons[].levelCode` 映射正确，**仅此一处漏映射** | ②⑦⑨ | 已在 schema 的 `pendingMistakes` 描述里写明映射要求；待 be-dev 修快照映射 |
+| **G12**（新增，**已关闭**） | `backlog` / `lastIncomplete` 返回 `null` 时契约不接受 | — | ✅ **本轮已修**：契约原写 `type: object`（不可空），而 §5.5 约定的缺值行为是「返回 `null` / `[]` + `degradation`」。已改为 `anyOf[{object},{null}]`。实测：改后真实快照 `SNAPSHOT_OK` 通过校验 | 全部 | 无缺口 |
 
 > G3/G4/G6/G7 与 S4 是**当前的实际阻塞点**：没有写接口，Skill 产出的 `ReviewSession`、`GradingResult`、`MistakeAnalysisResult`、`LessonRecord`、`ReadingSet` 全部只能落到 md。
 
@@ -241,7 +243,7 @@
 
 | 契约对象 | 落点 | 规则 |
 |---|---|---|
-| `LessonRecord.sections[]` | `notes/day-XX-YY.md` **追加** | `sectionType` → md 标题映射：`review`→`### 复习`、`grammar`→`### 今日语法`、`vocab_table`→`### 词汇`、`examples`→`### 例句`、`homework`→`### 作业`、`my_answer`→`### 我的作答`、`grading`→`### 批改`、`feedback`→`### 难度反馈`；**`objectives`、`expected_mistakes` 无对应标题 → 降级写进 `grammar` 小节前缀**（与 `ai-teacher.md` 5.4 的零风险退化方案一致，待 S1） |
+| `LessonRecord.sections[]` | `notes/day-XX-YY.md` **追加** | `sectionType` → md 标题映射：`review`→`### 复习`、`grammar`→`### 今日语法`、`vocab_table`→`### 词汇`、`examples`→`### 例句`、`homework`→`### 作业`、`my_answer`→`### 我的作答`、`grading`→`### 批改`、`feedback`→`### 难度反馈`；**`objectives`、`expected_mistakes` 目前无对应 md 标题 → 仍降级写进 `grammar` 小节前缀**。虽然 S1 已让库端可存这两类，但**落地切换还差两步**：① `SKILL.md` 的笔记格式仍是 8 个小节标题、`references/course-template.md` 未含这两节；② `build_board.py` 的 `parse_notes` 只映射 8 个小节，写新标题脚本解析不到（`LessonRecord.sections` 会丢节）。故**先降级写入，待模板 + 解析器同步后再切**（切换属 Skill 源代码改动，走 6.3 流程）。 |
 | `LessonRecord.vocabulary[]` | `### 词汇` 表格 | `word/phonetic/meaning/example` 四列 |
 | `LessonRecord.exercises[]` | `### 作业` 编号题 + `<details>` 答案 | 阶段一无 `exercises` 表 |
 | `LessonRecord.gradeSummary` | `### 批改` + `study_records(grade).payload` | 口径 = 错误处数 |
@@ -456,7 +458,7 @@ python adapter.py check --root E:\English      # 只校验不写入，退出码 
 | **P1** | `POST /api/skill-runs`（新增） | be-dev **已采纳** S2+S3 全部字段：`parent_skill_run_id`、`started_at`、`finished_at`、`duration_ms`、`degraded`、`notes`、`error` | 全部可观测性 |
 | **P2** | `GET/POST /api/readings`（R7） | 阅读目录与当日不覆盖（同日期 POST 返回 409） | ① / 前端 |
 | **P2** | `lessons` 增 `study_minutes`（G5） | 唯一可能动 schema 的字段之一 | ① |
-| **P2** | `lesson_sections.section_type` 增 `objectives`、`expected_mistakes`（S1） | 可选增强，不做不影响上课 | ①⑤ |
+| ~~P2~~ | ~~`lesson_sections.section_type` 增 `objectives`、`expected_mistakes`（S1）~~ **✅ 已完成（2026-09-29，`28d4732`）** | 已落库，契约已同步 | ①⑤ |
 | **P2** | DQ2—DQ5 | `wrong_text` 混入批注、词汇口径两套、`firstLessonNo` 为 null、`lastReviewedAt` 全 null（DQ5 随 R2 自然修复） | 数据可信度 |
 
 **DQ1 修法（be-dev 实测结论）**：`id=19` 是 `wrong_text` 为「正确」的翻译题记录、`correct_text` 为占位符、`wrong_count=0`、`error_type=other` 的非错题行 —— 即 Amy 已在 md 里删除、而 DB 种子未同步的那行；无外键依赖。修法两条：① Amy 确认后删 `id=19`；② 迁移脚本加规则「`correct_text` 为占位符或 `wrong_count=0` 的行不导入」。
@@ -724,10 +726,13 @@ Amy 已将三条教学决策写入 `amy-teaching-plan.md` §2.7 与附录 B.1，
 | # | Amy 裁定 | 内容 | Skill / 契约侧落地 |
 |---|---|---|---|
 | 1 | **`expectedMistakes` 学生端不展示**（前端 F10 取消） | 它是 `wrong→correct` 成对的**答案清单**，提交前展示等于提前给答案（违反 `ai-teacher.md` 1.3 硬规则 2）；课后展示又与批改视图重复 | 字段**仍按 D-10 入库**（供批改生成「为什么不是 Y」的文案），**前端不渲染**。契约 `TeachingBlock.expectedMistakes` / `lesson_sections(section_type='expected_mistakes')` 保留，仅约定「不出现在学生作答前的界面」 |
-| 2 | **降载判据给全**（`amy-teaching-plan.md` §2.7） | 触发 T-1 单课 `E>=5`；T-2 连续 2 课 `E>=5`；T-3 `too_hard`；T-4 断更 `D>=7`；T-5 复发阻断（`wrongCount>=4` 且 `error_type∈{grammar,word_choice}`）；T-6 拟排生词 >12。档位 L0 常规（生词 10 / 复习 5 / 1 新点讲全）、L1 轻度（生词 6—8）、L2 中度（生词 0—6、不讲新点改同点变式）、LX 阻断（生词 0）。退出：降载后连续 2 课同时 `E<=2` 且 `R=0` 且 `F∈{too_easy,just_right}` → 回 L0；任一课 `E>=5` 回退一档重算 | 详情页「降载缺触发条件」缺口关闭。**本轮只落生词量口径（见 3）**；T-x / L-x 判据是否写入 `level-map.md` 与 `SKILL.md` 第 5 步，待定（见下方 TODO） |
+| 2 | **降载判据给全**（正式版 `docs/ai-teacher.md` §7.4；过程稿 `amy-teaching-plan.md` §2.7） | 触发 T-1 单课 `E>=5`；T-2 连续 2 课 `E>=5`；T-3 `too_hard`；T-4 断更 `D>=7`；T-5 复发阻断（`wrongCount>=4` 且 `error_type∈{grammar,word_choice}`）；T-6 拟排生词 >12。档位 L0 常规（生词 10 / 复习 5 / 1 新点讲全）、L1 轻度（生词 6—8）、L2 中度（生词 0—6、不讲新点改同点变式）、LX 阻断（生词 0）。退出：降载后连续 2 课同时 `E<=2` 且 `R=0` 且 `F∈{too_easy,just_right}` → 回 L0；任一课 `E>=5` 回退一档重算 | ✅ 可执行部分已落进 Skill：`SKILL.md` 新增「降载判定」小节（T-1—T-6 + 档位摘要 + 上限保护 / D1 例外 / 退出），引用指向 `docs/ai-teacher.md` §7.4；「同点变式」等教学判断项显式留白给 Amy |
 | 3 | **生词量口径** | 以「**Level 2 常规 10（8—12）、降载 6—8**」为准；`SKILL.md` 第 5 步的「5—8」**作废**（那是 Level 1 的旧默认） | ✅ 已改两处：`skills/english-daily/SKILL.md` 第 5 步去掉写死的「5—8」，改为「数量按 `level-map.md` 当前级别的『每课词汇』行取」；`skills/english-daily/references/level-map.md` Level 2「每课词汇」由 6—8 改为「8—12（常规 10），降载档 6—8」【已实测：两处文本已核对，`diff -r` 与运行副本一致】 |
 
-**TODO（不阻塞，属 Skill 源码改动）**：T-1—T-6 与 L0/L1/L2/LX 这组降载判据目前只存在于 `amy-teaching-plan.md`，`SKILL.md` 与 `level-map.md` 只写了结果（生词 6—8），未写触发条件与档位流转。若要在上课时真正按档位降载，须把这组判据落到 `SKILL.md` 第 5 步与 `references/level-map.md`（或 `references/` 增一份降载规则），并走 6.3 的改版流程。**另**：`SKILL.md` 第 5 步现引用 `docs/plans/amy-teaching-plan.md` §2.7，待 Amy 按 6.4 流程把该判据同步进 `docs/ai-teacher.md` 后，引用应改指 `ai-teacher.md`（避免 Skill 长期依赖一份会归档的方案文档）。
+**已落地（本轮，关闭上轮 TODO）**：降载判据的**可执行部分**已补进 Skill——
+- `skills/english-daily/SKILL.md` 新增「降载判定（第 5 步前置，规则见 `docs/ai-teacher.md` §7.4）」小节：可自动算的量（`E` / `D` / `F` / `W` / 拟排生词数）、T-1—T-6 触发、L0/L1/L2/LX 档位摘要、三条边界（上限保护 / D1 例外 / 退出条件），并显式列出**不由 Skill 自动决定**的项（`R` 的认定、L2/LX「同点变式」出题、L1 复习题量上限、书写规范类错误的题型拆分）。
+- **引用已从方案目录移出**：`SKILL.md` 与 `references/level-map.md` 改指**正式规则文档 `docs/ai-teacher.md` §7.4**；`SKILL.md` 增「仓库内依赖」声明（该 Skill 只能在含 `docs/ai-teacher.md` 的仓库内运行，缺失时应提示并停止）。
+- `references/level-map.md` 顶部增「常规档区间 × 档位下调」说明，各级「每课词汇」行保持分级取数（Level 1 的 5—8 未动）。
 
 ---
 
@@ -750,4 +755,8 @@ Amy 已将三条教学决策写入 `amy-teaching-plan.md` §2.7 与附录 B.1，
 | `skills/english-daily/` 入库目录就绪（8 文件、`build_board.py` md5 = `50aca14b…`、`diff -r` 与运行副本一致、`git check-ignore` 未忽略） | ✅ 本轮已实测 |
 | `SKILL.md` 第 5 步与 `references/level-map.md` 生词量口径按 Amy 裁定改正并同步运行副本 | ✅ 本轮已实测（两处文本已核对） |
 | `grading-result` / `lesson-record` 增 optional `revisedAnswer`、`agent-snapshot` 四个字段说明改写后复跑校验 | ✅ 本轮已实测：`SCHEMA_OK`，objects 71（未增对象，仅增属性与描述） |
-| S1 两个枚举值在 `common.schema.json` 中**已存在**（描述仍标「待后端确认」），描述回改**等 be-dev DDL + `constants.js` 完成后进行**（反序不做） | ⏳ 待 be-dev |
+| ~~S1~~ 两个枚举值已**落库并回改描述**（`db/schema.sql` + 库内 ENUM + `constants.js` + `common.schema.json` 四处同源，新值追加末尾） | ✅ 本轮已实测（`docs/schemas/` 内已无「待确认」残留；`SCHEMA_OK` objects=71） |
+| ⚠️ 待续：`SKILL.md` 笔记格式仍是 8 小节、`course-template.md` 与 `build_board.py` 的 `parse_notes` 也只认 8 节，故 `objectives`/`expected_mistakes` **暂不写为独立 md 小节**（仍降级并入 `grammar` 前缀） | ⏳ 未闭环（属 Skill 源码改动，走 6.3 流程） |
+| 降载判据可执行部分落进 `SKILL.md`（T-1—T-6 + 档位 + 上限保护 / D1 例外 / 退出），引用改指 `docs/ai-teacher.md` §7.4 并加「仓库内依赖」声明；`level-map.md` 增档位说明 | ✅ 本轮已实测（`SKILL.md` / `references/*.md` 已无 `docs/plans/` 引用；与运行副本同步一致） |
+| G10 关闭：`grading-result.schema.json` **不加字段**（补漏块用 `kind='backfill'` 区分、阅读理解题不在本契约） | ✅ 本轮已实测（amy 定形 `docs/ai-teacher.md` §6.5；schema 描述已改为终态并复跑校验） |
+| ⚠️ **运行副本漂移（本轮发现）**：`.workbuddy/skills/english-daily/scripts/build_board.py` 被直接改动（退役 HTML 生成，43712B/1029 行/md5 `07db49fd…`），与受控源 `skills/english-daily/scripts/build_board.py`（44415B/1040 行/md5 `50aca14b…`）**不一致**。违反 4.3 防线③「同步方向唯一」，**未擅自覆盖**，已上报 git-manager / team-lead 决策 | ❌ 未闭环（待决策） |

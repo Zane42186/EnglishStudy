@@ -412,3 +412,83 @@ F4 是 F1—F10 里**唯一不属于「把现有页面改成 API 驱动」**的�
 - 第 1 节的页面数据来源结论来自**逐文件读代码**（`fetch` 全库检索仅 `index.html` 命中），非抽样推断。
 - 第 4 节中标注 ⏳ 的条目**尚无后端答复**，P3/P4 在答复到达前不得开工。
 - 第 3 节的验证方式沿用联调报告已验证可用的两套手段；**尚未为本方案新建任何测试脚本**【未验证】。
+
+---
+
+## 10. 实施记录（2026-09-29，P1/P2 落地）
+
+> 本节记录**已实施**的内容与**已裁决**的决策，作为 §9 的后续。证据标注沿用第 0 节。
+
+### 10.1 已交付（真机验证通过）
+
+共享层与四个页面已落地，并用 `playwright-core + msedge headless` 真机断言：
+`backend/scripts/verify-frontend-shared.js` **35/35 通过**、`backend/scripts/verify-frontend-pages.js` **47/47 通过**（可见性一律 `getComputedStyle(el).display`，含 F5 陷阱复现测试）【实测；数字以 2026-09-29 18:47 team-lead 独立复跑为准，本轮因新增 P3 题量/答对/答错文案断言由 43 增至 47】。
+
+| 项 | 文件 | 说明 |
+|---|---|---|
+| 共享层 | `review/assets/{api.js,ui.js,board.css}` | `api.js` 增 `lessonIndex()`（优先 `/lessons/all`，失败回退分页全量）；`ui.js` 错词卡来源 null 显示 `—`（不再打「诊断」标记，Amy 裁定）|
+| P1 词汇 | `review/words.html` | API 驱动，口径 **51**（顶部标注「按单词去重」），byLetter 分组 |
+| P1 错词 | `review/wrong.html` | F2 四项硬指标 + 状态/类型筛选；**P3 复习打卡**（`/mistakes/pending` 默认序、`POST /mistakes/:id/review` 带 `clientEventId`）|
+| F6 | `review/index.html` | `/lessons/error-trend?limit=6` 迷你图 + 目标带 2—4 |
+| P2 | `review/lessons/lesson.html`（新增） | `?no=N` 参数化；8 节按契约顺序渲染；折叠按 Amy（桌面展开 语法/例句/作业/批改，移动端只展开批改；一键全展开 + `#sec-*`/`?open=all` 深链）；**F10 `expected_mistakes` 不渲染、不留不可见占位** |
+
+### 10.2 Q5 裁决：旧 URL 保留静态兜底，不收成跳转【已裁决，team-lead 批准】
+
+`lesson-1..6.html` **保持静态页，不改成跳转**。理由【推断，基于实测】：
+- 库内 `lesson_sections` 目前只有 `grammar`+`feedback` 两类（缺口 G-2），`lesson.html` 其余 6 节渲染为 `.missing` 占位，占位内提供「查看静态版全文」链回 `lesson-N.html` 兜底。
+- 若把 `lesson-N.html` 改成跳转，该兜底链会**指回自身形成死循环**，且 6 节正文（复习/词汇/例句/作业/我的作答/批改）**彻底不可达**。
+- 待 be-dev 回填 `lesson_sections` 正文后，再决定是否收成一行跳转（届时改动极小）。
+
+### 10.3 已修正的错误前提：F4-a 的数据源
+
+原方案 §8.3 认为 F4-a 可走「现有 `GET /api/lessons/:id` 的 `exercises[].selfCheck`，不需要新接口」。**该前提实测不成立**【实测】：
+- `GET /api/lessons/:id` 返回字段不含 `exercises`（仅 `sections` + `vocabulary`）；
+- `GET /api/lessons/1/exercises` 返回 404；
+- `backend/docs/05-api-reference.md` 全文无 `selfCheck`。
+
+**正确落点**：`selfCheck` 属 `lesson_exercises.self_check`（be-dev 方案的 P0 表）。故 F4-a 的真实阻塞是**建表 + M2 数据导入**，不是缺接口。
+**处置**：`lesson.html` 的「提交前自查清单」区块**保留并显式标注**「自查清单数据未入库」，**不编造数据、不隐藏**（Amy 约束 3 与 §5.2 无静默失败）。
+
+**⚠️ 复核实测（2026-09-29 第二批 DDL 落地后）：`selfCheck` 目前仍无持久化路径。**
+- Skill 契约 `docs/schemas/exercise-set.schema.json`：每题带 `selfCheck`（string）【实测】。
+- 落库契约 `docs/schemas/lesson-record.schema.json` 的 `ExerciseRecord`：**无 `selfCheck`**（properties 仅 exerciseNo/exerciseType/prompt/referenceAnswer/userAnswer/isCorrect/revisedAnswer/errorNote/targetPoint）【实测】。
+- DB `backend/db/schema.sql` 的 `lesson_exercises`：**无 `self_check` 列**；`GET /api/lessons/:id/exercises` 的 SELECT 亦不含该列【实测】。
+- 结论：`selfCheck` 只在 Skill 侧 `ExerciseSet` 中存活，**转成 `LessonRecord` 落库时被丢弃**，库里存不下、接口取不到 → F4-a 链路在「产出 → 落库」之间断裂。
+- 需补：① skill-designer 给 `ExerciseRecord` 增 `selfCheck`（optional，按「加 optional 不升版本」）；② be-dev 给 `lesson_exercises` 增 `self_check` 列（DDL 顺序 `schema.sql`→`constants.js`→schema JSON）+ 接口 SELECT 补列 + M2 导入写入。
+- 前端已**前瞻适配**：`lesson.html` 会顺带请求 `/lessons/:id/exercises`，一旦该字段落库即自动渲染真实自查清单，无需再改前端【实测：当前返回空 `list`，仍走占位】。
+
+### 10.4 已接入：`lastRecommendation`（替代 `progress.note`）
+
+`review/index.html` 的「为什么今天学这个」改读 `GET /api/agent/snapshot` 的 `lastRecommendation`（形状 `{lessonNo, text}` 或 `null`）：
+- 文案标注「出自第 N 课的课后反馈（当时的建议，非当前实时判断）」——该字段是**快照语义**（缺口 G4），不得当作当前建议；
+- **无数据（`null`）或请求失败时整块不渲染，不留空白框**（不打扰主流程）【实测：当前 `lastRecommendation` 恒为 `null`，故 `#whyBlock` 为空】；
+- 不再展示 `progress.note` 原文（符合 Amy 裁定）。
+
+### 10.5 P3 复议文案与题量：已按 Amy 原文实现【已办，实测】
+
+文案取自 `docs/plans/amy-teaching-plan.md §B.3.1 L616—618`（非我自拟），已在 `review/wrong.html` 落地并真机断言（用 `page.route` 打桩拦截 `POST /mistakes/:id/review`，**不触碰数据库**）：
+
+- 答对：`✅ 答对了 · 连续答对 {streak}/2`；`streak ≥ 2` 追加 `—— 已过关，退出复习队列`。
+- 答错：`❌ 又错了 · 连续答对清零`；必须追加 `这是第 {wrongCount} 次犯，上次在第 {lastLessonNo} 课`。
+- 题量（§B.3.1 / §2.5）：`D = 距上次上课天数`（由 `/progress.lastClassDate` 现算）；`D ≤ 2 → 5 题`、`D = 3—6 → 7 题`、`D ≥ 7 → 8—10 题`。**`D ≥ 7` 是区间，前端暂取区间下限 8**，待 Amy 定死具体值。
+
+**⚠️ 一处需团队核对的口径冲突（已上报）**：
+team-lead 转述为「**不展示「是否有诊断」标记**」，而 Amy 原文 `§B.3.1 L619` 明确「展示『来源』时为空显示 **`诊断`**，不显示 `—`」。二者对「来源为空时如何显示」冲突。
+**处置**：按「教学呈现以 Amy 判断为准」（§8 前言），`ui.js` 回到 **null → `诊断`**（`来源 诊断`），并已请 team-lead 复核。
+
+### 10.5.1 后端进展（本轮实测复核）
+
+- `/mistakes/stats` 已为 **19/15/4**（D-7 删 `id=19` 已执行，且我此前的探针事件已回滚）【实测】。
+- `/lessons/:id/exercises` **已上线（200）**，但当前返回空 `list`（表已建、M2 数据未导入）【实测】—— F4-a 仍无数据，占位保留。
+- `lesson_sections` 仍只有 `grammar`+`feedback`（G-2 未回填）【实测】。
+
+### 10.6 生成脚本处置（§D-1 落地）
+
+`build_board.py` **退役 HTML 生成**：`main()` 的 `outputs` 只保留 `INDEX.md` / `digest.md`，删除 `review/*.html` 输出与「unlink 后重写 lesson-N」逻辑（否则下次 Skill 重建会静默覆盖前端改造，即 §1 F-A / R-1）。
+两份副本已同步且 md5 一致（`07db49fd082212734ce5d4f22441f385`）：运行时 `.workbuddy/skills/english-daily/scripts/` 与受控 `skills/english-daily/scripts/`。
+
+### 10.7 本轮未做（明确声明）
+
+- `reading.html` / `readIndex.html` **未迁移**：`GET /api/readings` 仍 404（P4 阻塞）；Amy 关于阅读的裁定（去掉 iframe、中文默认隐藏、先答再看答案、生词注释不跳转）**尚未实施**。
+- 课程详情 6 节正文仍为占位（G-2）。
+- F4-a 真实数据（待建表 + M2 导入）。

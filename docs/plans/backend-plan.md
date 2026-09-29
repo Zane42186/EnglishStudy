@@ -447,6 +447,60 @@ CREATE FULLTEXT INDEX ft_section_content ON lesson_sections (content_md) WITH PA
 
 **取舍说明**：N2 同时提了「在 `pendingMistakes[]` 里直接带 `events`」的做法，**本方案不采用** —— 快照的 `pendingMistakes` 常有 15+ 条，每条内嵌事件数组会让 payload 膨胀且难以缓存；改为独立接口按需取，快照保持轻量。若 Amy 确实需要在快照里看到复发次数，`wrongCount` 已经是现成的聚合值；需要明细时再按 `mistakeId` 单独查。
 
+### 2.13 前端侧需求 FE-1—FE-4 与遗留问题 D1—D3 的答复（2026-09-29 收到）
+
+#### FE-1 · `GET /api/lessons/:id/exercises` 的字段定名
+
+**接口已排（P0，见 2.12）**。字段名与 fe-dev 提议的差异如下 —— **以契约已有名为准，不改契约**：
+
+| fe-dev 提议 | 本方案采用 | 理由 |
+|---|---|---|
+| `verdict` | **`isCorrect`**（`boolean \| null`，null=未批改） | `lesson-record.schema.json` 的 `ExerciseRecord.isCorrect` 已是此名 |
+| `errorNote` | `errorNote` ✅ 同名 | 契约已有 |
+| `errorType` | **采纳，新增列** `lesson_exercises.error_type` | 契约 `ExerciseRecord` 里没有，但批改归因确实需要；**复用 `mistakes.error_type` 同一套 ENUM**（`constants.js` 已定义，同源不漂移） |
+| `revisedFull`（开放题完整改后版） | **采纳为 `revisedAnswer TEXT NULL`** | 契约里没有，**需 skill-designer 在 `lesson-record.schema.json` 加该 optional 字段**（加字段不升版本）。若他不采纳，退化为把改后版放入 `referenceAnswer` |
+
+其余沿用 2.12 已定：`exerciseNo / exerciseType / prompt / referenceAnswer / userAnswer / targetPoint`。
+
+#### FE-2 · `selfChecks` 与 `expectedMistakes` 落哪
+
+**`selfChecks`：建议不建存储（[静态证据]）**。`progress.md` 的「每课开场固定检查（书写规范）」五条是**全局固定常量**（句首字母大写 / 句号后空一格 / 人名地名大写 / 逗号不能直接连接两个完整句子 / 疑问句结尾打问号），**不是每课变化的内容**。放 `constants.js` 或一个只读配置接口即可，不必进 `lesson_sections`。若 Amy 确认将来要每课定制，再走新增 `section_type`。
+
+**`expectedMistakes`：与已讨论的 S1 `expected_mistakes` 是同一个东西**，可合并处理。两个方案：
+
+| 方案 | 做法 | 代价 |
+|---|---|---|
+| A（推荐） | 新增 `section_type` 枚举值 `expected_mistakes` + `objectives`，正文存 `lesson_sections.content_md` | 一次 ENUM 变更（**顺序：先改表 → 再改 `constants.js` → 最后同步 `common.schema.json`**，见 5.4） |
+| B | 新建 `lesson_expected_mistakes` 结构化表 | 多一张表；但可结构化关联 `mistakes.id`，便于「预判是否命中」的统计 |
+
+**倾向 A**：与既有小节机制一致、改动面小；结构性需求（如统计预判命中率）出现时再升级为 B。
+
+#### FE-3 · `/api/vocabulary` 增 `wasMistake` —— **首版不给**
+
+**[已实测]** 用「错词文本 ↔ 词汇 word」做匹配的验证结果：**20 条错词有 15 条能文本匹配到某个词，但语义错误率高**，例如：
+
+- `Tom plays soccer`（错在第三人称单数 -s）→ 匹配到单词 **play** ❌
+- `Do you like coffee?`（错在疑问句缺问号）→ 匹配到单词 **like** ❌
+
+即：**文本匹配给出的 `wasMistake` 会是假数据**，会误导学生。因此首版**不提供该字段**，前端按 fe-dev 所说留占位、不报错。
+
+可行路径（待 Amy 决定）：给 `mistakes` 加可空 `vocabulary_id`，由批改时**显式关联**；历史 20 条需 Amy 补标注，未标注的不显示。属 P2 增强，不阻塞。
+
+#### FE-4 · `/api/readings` 判断「当天是否已生成」 —— **够用，无需新增接口**
+
+- `GET /api/readings` 按日期**倒序**，取首条 `date` 比对今天 —— **可行** ✅
+- 更直接的做法：`/api/readings/stats` 已含 **`lastReadDate`**，前端比 `lastReadDate === 今天` 即可，**零新增接口**
+- 后端**不加** `hasToday` 之类的显式字段（那是派生值，与「看板统计实时算、不存冗余副本」的既定原则一致）
+- `POST /api/readings` 同日返回 **409** 的语义确认成立：它是**兜底**，前端提交前先查列表避免 409 的用法正确
+
+#### 遗留问题 D1—D3
+
+| # | 问题 | 答复 |
+|---|---|---|
+| **D1** | `levelCode` vs `level` | `/api/lessons`（含 `/lessons/all`）继续用 **`level`**；**只有 `GET /api/agent/snapshot` 按 schema 输出 `levelCode`**。现有 16 个接口字段名不动 |
+| **D2** | `/lessons/all` 缺 `grammarPoint` | **采纳，补上**。`GET /api/lessons/all` 字段调整为：`id / lessonNo / lessonDate / level / summary / grammarPoint / vocabCount / exerciseCount / errorCount / feedback`（即与 `/api/lessons` 列表字段一致，仅不受 `size` 上限约束） |
+| **D3** | 阅读篇数取 `pieceCount` 还是 `totalDays` | 看板「阅读篇数」取 **`GET /api/readings/stats` 的 `pieceCount`**（累计篇数）；`totalDays` 是阅读天数，语义不同 |
+
 ---
 
 ## 三、Skill / 前端契约对齐（字段级映射）
@@ -702,6 +756,19 @@ DB（mistakes）          20 行 = passed   5 + pending 15
 5. **`size` 上限放宽到 500 是否需要与 fe-dev 对齐**？→ 前端 F2 修复与本方案 2.9 需同步。
 6. **是否建 `levels` 字典表**？→ 本方案建议**不建**（用 `constants.js`），需确认。
 7. **是否保留单用户**？→ 现有全部接口支持 `?studentId=`，多用户已预留；若确认永久单用户，可简化但**不建议现在动**。
+
+### 6.2.1 项目负责人裁决记录（2026-09-29，已批复）
+
+| # | 事项 | 裁决 | 对方案的影响 |
+|---|---|---|---|
+| ③ | S1：`section_type` 增 `objectives` / `expected_mistakes` | **批准执行** | 与 FE-2 的 `expectedMistakes` 合并为**一次 ENUM 变更**。顺序：先改 `schema.sql` 与库内 ENUM → 再改 `src/constants.js` → 最后通知 skill-designer 同步 `common.schema.json`（反序会造成「代码接受、库拒绝」的 500） |
+| ③b | 「每课开场固定检查」是否建存储 | **采纳不建存储**，放后端常量 | 确认其为全局常量而非每课内容（2.13 FE-2） |
+| ④ | `revisedAnswer`（开放题完整改后版） | **批准入契约** | `lesson_exercises` 加 `revised_answer TEXT NULL`；由 skill-designer 补进 `grading-result.schema.json` 的 optional 字段，不升版本。理由：`referenceAnswer` 是标准答案、`revisedAnswer` 是学生作答的修正版，语义不同，不可合并 |
+| ⑤ | 2026-09-27 诊断结果表是否入库 | **不入库**，保留在 `progress.md` | 一次性快照会与错词本冲突（诊断判「三单 -s 通过」但 `Tom plays soccer` 至今未过关）。将来若要结构化，只能建独立 `diagnostics` 表带 `diagnosed_at` / `superseded`，**冲突时以错词本为准** |
+| — | FE-3 `wasMistake` | **采纳拒绝** | 首版不提供。**约束：`vocabulary_id` 关联必须由 Amy 在批改时判定，不得用文本匹配自动生成** |
+| — | 字段名 | **采纳** | 批改结论用 `isCorrect`（驳回新造字段）；`errorType` 复用 `mistakes` 同一套 ENUM |
+
+**DDL 执行时机**：删 `mistakes.id=19` 与建表，均**等 git-manager 报告 push 完成后**执行。S1 的 ENUM 变更属同类 DDL，**同批执行**（已向 team-lead 确认此理解；若要求立即执行则另行通知）。
 
 ### 6.3 对其他 Agent 的影响
 

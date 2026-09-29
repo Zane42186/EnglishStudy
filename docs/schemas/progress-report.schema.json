@@ -64,7 +64,7 @@
       }
     },
     "LevelRecommendation": {
-      "description": "级别建议。hold=维持，upgrade=升级，downgrade=降级，freeze=冻结升级。执行动作仍由 POST /progress/feedback 落库。",
+      "description": "级别建议。hold=维持，upgrade=升级，downgrade=降级，freeze=冻结升级。执行动作仍由 POST /api/progress/feedback 落库。",
       "type": "object",
       "required": ["action", "targetLevel", "reason"],
       "properties": {

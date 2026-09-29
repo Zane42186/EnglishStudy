@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://english-study.local/schemas/v1/lesson-record.schema.json",
   "title": "LessonRecord 课程归档记录",
-  "description": "daily-lesson 归档一步的产物，对应 backend POST /courses（新建）与 PUT /courses/:id（回填批改与反馈）。一节课只产出一个本对象；笔记 md 是本对象的一种落地形式，不是真相源。",
+  "description": "daily-lesson 归档一步的产物，对应 backend POST /api/lessons（新建）与 PUT /api/lessons/:id（回填批改与反馈）。一节课只产出一个本对象；笔记 md 是本对象的一种落地形式，不是真相源。",
   "type": "object",
   "required": ["lessonNo", "levelCode", "summary", "sections"],
   "$defs": {
@@ -17,7 +17,7 @@
       }
     },
     "VocabularyEntry": {
-      "description": "本课词表条目，对应 vocabulary + course_vocabulary。word 在用户内唯一，已出现过的词只更新例句。",
+      "description": "本课词表条目，对应 vocabulary + lesson_vocabulary。word 在用户内唯一，已出现过的词只更新例句。",
       "type": "object",
       "required": ["word", "isNew"],
       "properties": {
@@ -25,7 +25,7 @@
         "phonetic": { "type": "string" },
         "meaning": { "type": "string" },
         "example": { "type": "string", "description": "本课例句，用本课语法点写。" },
-        "isNew": { "type": "boolean", "description": "本课是否首次出现，对应 course_vocabulary.is_new。" },
+        "isNew": { "type": "boolean", "description": "本课是否首次出现，对应 lesson_vocabulary.is_new。" },
         "orderIndex": { "type": "integer", "minimum": 0 }
       }
     },
@@ -71,7 +71,7 @@
     },
     "status": { "type": "string", "enum": ["planned", "taught", "archived"] },
     "sections": {
-      "description": "小节集合。review / grammar / examples / homework / my_answer / grading / feedback 为必填；objectives 与 expected_mistakes 可选，其枚举值待后端确认。",
+      "description": "小节集合。review / grammar / examples / homework / my_answer / grading / feedback 为必填；objectives 与 expected_mistakes 为 S1 已落库的可选小节（2026-09-29，D-10 批准），每个课次各最多一条。",
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "#/$defs/SectionContent" }
@@ -96,7 +96,7 @@
       }
     },
     "feedback": {
-      "description": "本课难度反馈结果，对应 POST /progress/feedback 的响应。",
+      "description": "本课难度反馈结果，对应 POST /api/progress/feedback 的响应。",
       "type": "object",
       "required": ["feedback", "levelBefore", "levelAfter"],
       "properties": {

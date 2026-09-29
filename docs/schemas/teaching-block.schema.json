@@ -30,7 +30,7 @@
           }
         },
         "bodyMd": {
-          "description": "语法正文 Markdown，含规则、形式变化、配用学生已学的词汇。写入 course_sections(section_type='grammar')。",
+          "description": "语法正文 Markdown，含规则、形式变化、配用学生已学的词汇。写入 lesson_sections(section_type='grammar')。",
           "type": "string",
           "minLength": 1
         },

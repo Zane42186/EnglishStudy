@@ -63,7 +63,7 @@
       "items": { "$ref": "#/$defs/MistakeCandidate" }
     },
     "summary": {
-      "description": "汇总口径固定为错误处数，不折算百分制，与 study_records(record_type='grade').payload 一致。errorCount 只统计 verdict=wrong 的处数（一处 = 一个可独立改正的点，填空题每空算一处；同句多错、跨句重复均分别计数），blank 与 correct_with_note 不计入（依据 docs/plans/amy-teaching-plan.md §3.1）。【已知缺口】§3.1 另有两类「不计入 errorCount 但要单独计数」的项——补漏块作答错误（backfillErrorCount）与阅读理解题作答（comprehensionErrorCount）——**当前契约无字段承载**，已在 skill-plan 登记，待与 amy / be-dev 定形后再加 optional 字段。",
+      "description": "汇总口径固定为错误处数，不折算百分制，与 study_records(record_type='grade').payload 一致。errorCount 只统计 verdict=wrong 的处数（一处 = 一个可独立改正的点，填空题每空算一处；同句多错、跨句重复均分别计数）；blank、correct_with_note、任务完成度问题均不计入，仅写在批改文案里。口径权威见 docs/ai-teacher.md §6.5（方案文档 amy-teaching-plan.md §3.1 为过程稿，冲突时以 ai-teacher.md 为准）。补漏块与阅读理解题不需要新字段（§6.5 已定形）：补漏块永远独立成一套 kind='backfill'，其 summary.errorCount 即 backfillErrorCount，由 kind 区分；阅读理解题作答不经 GradingResult（走阅读模块），故 comprehensionErrorCount 不在本契约。若将来出现「一套里混多来源」的真实需求，再评估新增逐题 sourceScope。",
       "type": "object",
       "required": ["exerciseCount", "errorCount"],
       "properties": {

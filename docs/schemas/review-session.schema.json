@@ -34,7 +34,7 @@
       }
     },
     "ReviewOutcome": {
-      "description": "单条错词的判定结果，交给 POST /mistakes/:id/review 落库。连击与过关由服务端判定，Skill 只报对错。",
+      "description": "单条错词的判定结果，交给 POST /api/mistakes/:id/review 落库。连击与过关由服务端判定，Skill 只报对错。",
       "type": "object",
       "required": ["mistakeId", "result"],
       "properties": {

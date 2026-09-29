@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://english-study.local/schemas/v1/agent-snapshot.schema.json",
   "title": "AgentSnapshot 教学快照",
-  "description": "九个 Skill 的统一输入契约。形状对齐 backend GET /agent/snapshot。后端就绪前由 markdown 适配层从 digest.md / progress.md / wrong-words.md / notes 合成等价对象。Skill 只读本对象，不读任何文件路径；后端新增字段时 Skill 必须忽略未知字段而不是报错。",
+  "description": "九个 Skill 的统一输入契约。形状对齐 backend GET /api/agent/snapshot。后端就绪前由 markdown 适配层从 digest.md / progress.md / wrong-words.md / notes 合成等价对象。Skill 只读本对象，不读任何文件路径；后端新增字段时 Skill 必须忽略未知字段而不是报错。",
   "type": "object",
   "required": ["deploymentMode", "progress", "courseCatalog", "recentLessons", "pendingMistakes"],
   "properties": {
@@ -63,7 +63,7 @@
       }
     },
     "pendingMistakes": {
-      "description": "未过关错词，即 mistakes.status='pending' 的条目（等价 v_pending_mistakes 视图），按出题优先级排列，是出复习题的唯一取词池。注意：已过关（status='passed'）的错词不得出现在此数组；诊断判「通过/免修」的知识点若其错词仍未过关，仍留在此数组（走复习通道，不进 backlog）。",
+      "description": "未过关错词，即 mistakes.status='pending' 的条目（等价 v_pending_mistakes 视图），按出题优先级排列，是出复习题的唯一取词池。注意：已过关（status='passed'）的错词不得出现在此数组；诊断判「通过/免修」的知识点若其错词仍未过关，仍留在此数组（走复习通道，不进 backlog）。**快照实现须把接口原名 firstLessonNo / lastLessonNo 映射为本契约的 firstCourseNo / lastCourseNo**（见 skill-plan §5.5，后端 16 个接口的字段名本身不改）——若直接透传原名，Skill 按 firstCourseNo 取值会静默拿到 undefined。",
       "type": "array",
       "items": { "$ref": "common.schema.json#/$defs/MistakeItem" }
     },
@@ -115,46 +115,56 @@
       }
     },
     "backlog": {
-      "description": "R2 升级不豁免欠账的唯一数据来源。含两类清单，语义不同、不得混用：pendingKnowledgePoints 是「待补的 Level 1 知识点」背景清单（当前 7 项），只作背景、绝不进补漏队列；backfillQueue 是 Amy 的编号补漏队列（当前 4 项，队首 next 为介词 on/at），才是每课补漏块的排期来源。borderline：planned 状态的主干新知识点（如 L2-04 规则动词过去式）不得进 backfillQueue（否则会一课讲两个语法点）。",
-      "type": "object",
-      "properties": {
-        "pendingKnowledgePoints": {
-          "description": "待补知识点背景清单。code/title 必填；levelCode 缺失可空；reason 非必填，缺失时 Skill 不得反向推断原因（不得猜「诊断未通过」或「已掌握」），须写 degradation。",
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": ["code", "title"],
-            "properties": {
-              "code": { "type": "string" },
-              "title": { "type": "string" },
-              "levelCode": { "anyOf": [{ "$ref": "common.schema.json#/$defs/LevelCode" }, { "type": "null" }] },
-              "reason": { "type": "string" }
+      "description": "R2 升级不豁免欠账的唯一数据来源。**无数据来源时后端返回 null（不是空对象）**，Skill 必须按 degradation 降级处理，不得把 null 当「无欠账」。含两类清单，语义不同、不得混用：pendingKnowledgePoints 是「待补的 Level 1 知识点」背景清单（当前 7 项），只作背景、绝不进补漏队列；backfillQueue 是 Amy 的编号补漏队列（当前 4 项，队首 next 为介词 on/at），才是每课补漏块的排期来源。边界：planned 状态的主干新知识点（如 L2-04 规则动词过去式）不得进 backfillQueue（否则会一课讲两个语法点）。",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "pendingKnowledgePoints": {
+              "description": "待补知识点背景清单。code/title 必填；levelCode 缺失可空；reason 非必填，缺失时 Skill 不得反向推断原因（不得猜「诊断未通过」或「已掌握」），须写 degradation。",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["code", "title"],
+                "properties": {
+                  "code": { "type": "string" },
+                  "title": { "type": "string" },
+                  "levelCode": { "anyOf": [{ "$ref": "common.schema.json#/$defs/LevelCode" }, { "type": "null" }] },
+                  "reason": { "type": "string" }
+                }
+              }
+            },
+            "backfillQueue": {
+              "description": "编号补漏队列。status：next=队首（order_index 最小且未完成）由 next-lesson-planning 排入本课补漏块；queued=其余未完成项；done=已出现在某课 lesson_knowledge_points(role='backfill')；untested 首版恒为空数组。seq 从 1 起（minimum=1），后端 order_index 从 0 起时映射须 +1。",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["seq", "title", "status"],
+                "properties": {
+                  "seq": { "type": "integer", "minimum": 1 },
+                  "title": { "type": "string" },
+                  "status": { "type": "string", "enum": ["next", "queued", "done", "untested"] }
+                }
+              }
             }
           }
         },
-        "backfillQueue": {
-          "description": "编号补漏队列。status：next=队首（order_index 最小且未完成）由 next-lesson-planning 排入本课补漏块；queued=其余未完成项；done=已出现在某课 lesson_knowledge_points(role='backfill')；untested 首版恒为空数组。seq 从 1 起（minimum=1），后端 order_index 从 0 起时映射须 +1。",
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": ["seq", "title", "status"],
-            "properties": {
-              "seq": { "type": "integer", "minimum": 1 },
-              "title": { "type": "string" },
-              "status": { "type": "string", "enum": ["next", "queued", "done", "untested"] }
-            }
-          }
-        }
-      }
+        { "type": "null" }
+      ]
     },
     "lastIncomplete": {
-      "description": "上次中断时未完成的教学动作。对应文档缺口 G4，用于断更补课。数据来源为 lastRecommendation，后端未回传时缺省。",
-      "type": "object",
-      "properties": {
-        "lessonNo": { "type": "integer", "minimum": 1 },
-        "nextRecommendation": { "type": "string" },
-        "incompleteStep": { "type": "string" }
-      }
+      "description": "上次中断时未完成的教学动作。对应文档缺口 G4，用于断更补课。数据来源为 lastRecommendation；**后端无数据时返回 null（不是空对象）**，Skill 必须按 degradation 降级、不得当成「上次没有中断」。",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "lessonNo": { "type": "integer", "minimum": 1 },
+            "nextRecommendation": { "type": "string" },
+            "incompleteStep": { "type": "string" }
+          }
+        },
+        { "type": "null" }
+      ]
     },
     "lastRecommendation": {
       "description": "最近一条 study_records(record_type='feedback').payload.next_recommendation，形状为对象 {lessonNo, text}（不是纯字符串），lessonNo 取该条记录课号。是 G4 断更接续与 lastIncomplete 的数据来源（需求 R5 + R1，写入路径 P-2）。注意：它是「当时的建议」而非「当前有效建议」，凡消费必须带时间/课号语义；当前库内尚无任何 payload 含 next_recommendation，故恒为 null，Skill 必须走 degradation 降级而不是报错，也不得据此编造建议。",

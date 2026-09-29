@@ -204,7 +204,7 @@
 | `grammar` | 同 `new_knowledge` | 与知识点表一一对应 |
 | `examples` | `course_sections.section_type='examples'` | 已有枚举 |
 | `exercises` | `exercises` 表（`exercise_no` / `exercise_type` / `prompt` / `reference_answer` / `user_answer` / `is_correct` / `error_note`） | 已有表，**每题一行**，批改回填 |
-| `expected_mistakes` | **`course_sections` 新增 `section_type='expected_mistakes'`（待确认）** | 备课时预判的易错点，用于批改时的「为什么不是 Y」 |
+| `expected_mistakes` | **`course_sections` 新增 `section_type='expected_mistakes'`（2026-09-29 已批准，见团队总纲 D-10）** | 备课时预判的易错点，用于批改时的「为什么不是 Y」；**不对学生展示**（它是答案清单，学生端的提交前自检只给 `selfChecks` 规则，规则可给、答案不可给） |
 | `homework` | `course_sections.section_type='homework'` + `exercises` | 题干入 section，题目入 exercises |
 
 补漏块（backfill）不入 `course_sections`，走 `course_knowledge_points(role='backfill')` —— **该枚举值已在 schema 中存在，无需扩展**。
@@ -301,6 +301,22 @@
 | 语法掌握 | 关联错词全部过关且连续 2 课无同类新错 → 稳定 | ✅ 可算 |
 | 综合阶段 | 由 `user_progress.current_level` + 错误趋势共同判断（理解与产出分开评估，见 2.5） | ⚠️ 错误趋势需按课统计，后端契约暂缺 |
 
+### 6.5 「错误处数」的不计入项与两个单列计数（2026-09-29 定形，关闭缺口 G10）
+
+`E_N`（唯一分数量口径）= **本课作业（`kind='homework'`）** 中 `verdict=wrong` 的错误处数。以下**不计入 `E_N`，但单独计数**：
+
+| 项 | 单列计数 | 承载位置 |
+|---|---|---|
+| 补漏块作答错误 | `backfillErrorCount` | `kind='backfill'` 那套 `GradingResult.summary.errorCount` |
+| 阅读理解题作答错误 | `comprehensionErrorCount` | 阅读模块（`readings` / 阅读理解作答记录），**不进 `GradingResult`** |
+| 空题 `blank`、正确但有更优表达 `correct_with_note`、任务完成度问题 | — | 不计错也不计对，仅在批改文案里提示 |
+
+**G10 结论（正式）**：`grading-result.schema.json` **无需新增字段** —— 不采用「逐题 `sourceScope`」方案。前提约束：
+
+1. **补漏块永远独立成一套 `kind='backfill'`**，不与今日语法作业混排；故 `backfillErrorCount` 由该套的 `kind` 区分即可得出，无需逐题标注来源，也无需在 `summary` 里重复加计数。
+2. **阅读理解题不属于 `GradingResult`**（走阅读模块），故 `comprehensionErrorCount` 不在本契约。
+3. 若将来出现「一套里混多来源」的真实需求，再评估新增 `sourceScope`；在此之前不加字段。
+
 ---
 
 ## 七、难度调整规则
@@ -331,6 +347,46 @@
 | `upgrade_frozen_until` 语义 | 契约定义为「太难触发冻结 3 课」；R1 的冻结是「准确度触发、无固定期限」 | 建议后端不要复用该字段表达 R1；R1 暂留在 `progress.md` 备注 |
 | `easy_streak` 语义 | 契约只统计反馈次数；R3 还要求错误数条件 | 建议保持后端单一职责（只数反馈），错误数条件由 Amy 上课时判断 |
 
+### 7.4 降载规则（Level 保持、只减负荷；2026-09-29 新增）
+
+> **降载 ≠ 降级**。降级（7.1 / 7.2 的 C 类）才改级别；**降载是保持级别、只减本课负荷**。
+> 本节为降载机制的**长期生效正式版**；方案文档 `docs/plans/amy-teaching-plan.md` §2.7 为同一规则的过程稿，**两者冲突时以本节为准**（方案会归档，本节不会）。
+
+**触发**（针对上一课 `N-1` 或错词池，任一命中即降载，命中多档取最高）
+
+| 判据 | 条件 | 数据来源（后端就绪后） |
+|---|---|---|
+| **T-1 单课超阈** | `E_{N-1} >= 5` | `lessons.error_count` / `study_records(grade).payload.errorCount` |
+| **T-2 连续超阈** | 最近 2 课均 `E >= 5` | 同上（取近 2 课） |
+| **T-3 反馈过难** | `F_{N-1} = too_hard` | `lessons.feedback` |
+| **T-4 断更** | `D >= 7` | `progress.lastClassDate` 现算 |
+| **T-5 复发阻断** | 存在 `wrongCount >= 4` 且 `error_type ∈ {grammar, word_choice}` 的未过关错词 | `/api/mistakes/pending` |
+| **T-6 超载上限** | 拟排生词 > 12 | `LessonPlan.vocabularySize`（schema `maximum:12`） |
+
+**档位表**（命中多档取最高；一次降载最多下调 1 档）
+
+| 档 | 名称 | 命中 | 生词数 | 练习量 | 新知识点 | 阅读 |
+|---|---|---|---|---|---|---|
+| **L0 常规** | — | 无触发 | 10（8—12） | 新课 3 小题 + 1 开放题；复习 5 题 | 1 个新点，家族一次讲全 | 1—3 篇 |
+| **L1 轻度** | 巩固模式 | T-1（E=5—6） / T-3（too_hard 且 E≤5） / T-4（D=3—6） | 6—8 | 新课 3 小题 + 1 开放题（开放题限 3 句）；复习 5—7 题 | 保留，但只讲「肯定 + 否定」 | 1 篇 |
+| **L2 中度** | 复现课 | T-1（E≥7 且非新点首课） / T-2 / T-4（D≥7） | 0—6 | 新课小题 2 道 + 开放题 3 句；复习 8—10 题 | 不讲新点，改「同点变式」 | 1 篇短（旧词旧语法） |
+| **LX 阻断** | 产出专项 | T-5 | 0（全复用） | 产出型 3—5 写句 + 复习 6—8 题 | 不讲新点，专项攻该错点 | 1 篇 |
+
+- **上限保护**：已在 L2 / LX 仍 `E >= 5` → **不再继续降载**，转 7.2 的诊断 / 降级评估（避免无限降载把课变成纯复习）。
+- **D1 例外（防误伤）**：新语法点首课 `E >= 6` 属「新点首课冲高」，**归因新点、不降载**，下一课用同点变式复练（第 4 课 E=6 → 第 5 课回落 2 即此例）。
+- **退出条件**：降载后**连续 2 课**同时满足 `E <= 2` 且 `R = 0`（无复发项）且 `F ∈ {too_easy, just_right}` → 退出降载、生词恢复 10；第 1 课先升半档，任一课 `E >= 5` 回退一档重算。降载 / 退出状态写入下一课 `next_recommendation`。
+
+**执行分工（Skill 可自动算 vs Amy 判断 —— 供 Skill 设计师落地，勿漏实现）**
+
+| 环节 | 谁做 | 说明 |
+|---|---|---|
+| T-1…T-6 的数值比较、档位与生词数查表、是否「新点首课」（看 `grammarPoint.role='new'`） | **Skill 直接算** | 输入全部来自 `snapshot` / `/progress` / `/lessons` / `/mistakes`，无需教学判断 |
+| `R`（本课复发项个数）的认定 | **Amy** | 依赖批改结果，Skill 备课时算不出 |
+| 「同点变式」的具体题目设计（L2 / LX） | **Amy** | 教学判断 |
+| L1 复习题量是否加上限（5→7） | **Amy** | 按当课巩固需要定 |
+| 双轨禁令的题型拆分（书写规范类错误不单独触发降级 / 降载） | **Amy（N4 接口未实现前人工）** | 依赖逐题题型数据 |
+| 退出条件的判定 | **Skill 算 + Amy 复核** | `E` / `F` 可自动算，`R` 需 Amy |
+
 ---
 
 ## 八、下一课规划规则
@@ -344,7 +400,7 @@
    N-1 一题、N-3 一题、N-7 一题（课号 ≤0 跳过），其余从未过关错词取
    取词优先级：wrong_count 高 → streak 低 → 最近犯错
 4. 批改复习：答对 streak+1，答错 wrong_count+1 且 streak=0；streak ≥2 → 已过关
-5. 讲新课：level-map 当前级别的下一个知识点；1 个语法点 / 8—12 个词 / 3—5 例句
+5. 讲新课：**先按 7.4 判定本课是否降载**（定生词数、是否讲新点）；取 level-map 当前级别的下一个知识点；1 个语法点 / 生词按 7.4 档位（Level 2 常规 10，区间 8—12，降载 6—8；Level 1 为 5—8）/ 3—5 例句
    （同一语法「家族」一次讲全，如进行时的肯定 + 否定 + 疑问）
 6. 补漏块：从补漏队列取 1 块（3 题，5—8 分钟），不计新语法点
 7. 作业：3 小题 + 1 道开放题 + 强制自查项（第 7 课起：句尾标点 + 可数名词）
@@ -369,7 +425,7 @@
 | 课号 / 文件 | 第 7 课 → `notes/day-01-07.md` 的最后一课（**第 8 课起开 `day-08-14.md`**） |
 | 级别 | Level 2 |
 | 新知识点 | 规则动词过去式 -ed（`play→played`、`study→studied`、`stop→stopped`） |
-| 词汇 | 8—12 个（含 worked / studied / watched / played 等过去式与时间词） |
+| 词汇 | **8 个**（`E_6 = 5` 命中 7.4 的 **T-1 → 轻度降载 L1**，取 6—8；原写 8—12 已按 7.4 下调）：played / watched / studied / cooked / cleaned / stopped + last week / last month |
 | 补漏块 | ④ 介词 on / at |
 | 复习题来源 | 第 6 课一题 + 第 4 课一题 + 错词 `play games`、`Do you like coffee?`、`at yesterday` |
 | 作业强制自查 | 句尾标点（`.` / `?`）+ 可数名词是否加 s |

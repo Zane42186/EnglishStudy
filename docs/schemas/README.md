@@ -19,7 +19,7 @@ AI Skill → 结构化 JSON → Backend API → Database → Frontend
 | 阶段 | 数据从哪来 | Skill 是否需要改动 |
 |---|---|---|
 | 现在（后端未就绪） | 适配层读 `digest.md` / `progress.md` / `wrong-words.md` / `notes/` / `read/`，合成契约对象 | — |
-| 后端就绪后 | `GET /agent/snapshot` 等接口返回同样的契约对象 | **不需要**，只换数据来源 |
+| 后端就绪后 | `GET /api/agent/snapshot` 等接口返回同样的契约对象 | **不需要**，只换数据来源 |
 
 判定标准很简单：**如果一个 Skill 的行为会因为 md 文件换了个排版而改变，说明设计错了。**
 
@@ -30,16 +30,16 @@ AI Skill → 结构化 JSON → Backend API → Database → Frontend
 | 文件 | 根对象 | 谁产出 | 谁消费 | 对应后端 |
 |---|---|---|---|---|
 | `common.schema.json` | 公共 `$defs` | — | 全部契约 | 枚举取值对齐 `schema.sql` |
-| `agent-snapshot.schema.json` | `AgentSnapshot` | 适配层 / 后端 | **全部 9 个 Skill** | `GET /agent/snapshot` |
+| `agent-snapshot.schema.json` | `AgentSnapshot` | 适配层 / 后端 | **全部 9 个 Skill** | `GET /api/agent/snapshot` |
 | `lesson-plan.schema.json` | `LessonPlan` | next-lesson-planning | daily-lesson、三个教学内容能力 | 无（合同内部对象） |
-| `lesson-record.schema.json` | `LessonRecord` | daily-lesson | 后端 | `POST /courses`、`PUT /courses/:id` |
-| `teaching-block.schema.json` | `TeachingBlock` | grammar-teaching、vocabulary-teaching | daily-lesson | `course_sections`、`vocabulary` |
-| `exercise-set.schema.json` | `ExerciseSet` | exercise-generation | answer-grading | `exercises` |
-| `grading-result.schema.json` | `GradingResult` | answer-grading | mistake-analysis、daily-lesson | `exercises.is_correct / error_note` |
+| `lesson-record.schema.json` | `LessonRecord` | daily-lesson | 后端 | `POST /api/lessons`、`PUT /api/lessons/:id` |
+| `teaching-block.schema.json` | `TeachingBlock` | grammar-teaching、vocabulary-teaching | daily-lesson | `lesson_sections`、`vocabulary` / `lesson_vocabulary` |
+| `exercise-set.schema.json` | `ExerciseSet` | exercise-generation | answer-grading | `lesson_exercises` |
+| `grading-result.schema.json` | `GradingResult` | answer-grading | mistake-analysis、daily-lesson | `lesson_exercises.user_answer / is_correct / revised_answer / error_note` |
 | `mistake.schema.json` | `MistakeAnalysisResult` | mistake-analysis | daily-lesson、learning-progress-analysis | `mistakes`、`mistake_events` |
-| `review-session.schema.json` | `ReviewSession` | lesson-review | 后端 | `POST /mistakes/:id/review` |
+| `review-session.schema.json` | `ReviewSession` | lesson-review | 后端 | `POST /api/mistakes/:id/review` |
 | `progress-report.schema.json` | `ProgressReport` | learning-progress-analysis | next-lesson-planning、学生 | `study_records`（`grade`） |
-| `reading-set.schema.json` | `ReadingSet` | daily-lesson | 后端、前端 | `readings` 三表 |
+| `reading-set.schema.json` | `ReadingSet` | daily-lesson | 后端、前端 | `readings` / `reading_pieces` / `reading_questions` |
 | `skill-run.schema.json` | `SkillRun` | 全部 Skill | 后端 | `skill_runs` |
 
 ### 9 个 Skill 与契约的对应
