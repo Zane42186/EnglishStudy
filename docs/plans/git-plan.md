@@ -352,12 +352,39 @@ skills/english-daily/          ← 入库（唯一版本化源码）
    md5sum .workbuddy/skills/english-daily/scripts/build_board.py   # 期望 50aca14b1edf40cb20404a088e4e3d14
    ```
 
-### 6.4 同步纪律（待 skill-designer 确认方向后固化）
+**✅ 执行记录（2026-09-29 已实做）**
 
-建议：**`.workbuddy/skills/` 为运行副本，`skills/` 为版本副本**。
-- 改 Skill 时在 `.workbuddy/skills/` 改并实测；
-- 提交前由 skill-designer 同步到 `skills/`（`cp -r`），git-manager 校验 `diff -r` 无差异后提交打 tag。
-- 或者反向（以 `skills/` 为权威再拷回 `.workbuddy/`）——由 skill-designer 定。**无论哪种，提交时两份必须一致。**
+处置前核对权威副本：`md5 50aca14b1edf40cb20404a088e4e3d14` / `44415 B` / `1040 行`【实】——与期望一致，核对通过后开始重命名。
+
+采用**文件级 + 目录级双层隔离**（均只重命名、未删除，可逆）：
+
+| 隔离层 | 动作 | 覆盖的旧副本 |
+|---|---|---|
+| 文件级 | 4 份 `build_board.py` → `build_board.py.bak-20260929` | 4 份全覆盖 |
+| 目录级 | `.workbuddy/build`、`.workbuddy/_tmpx`、`.english-daily-package-yj7kiobf` → 各自加 `.bak-20260929` 后缀 | 顺带隔离同目录下的旧 `check_environment.py` / `init_workspace.py` |
+
+隔离后实测：**全仓仅剩 1 个名为 `build_board.py` 的活跃文件**，即权威副本 `.workbuddy/skills/english-daily/scripts/build_board.py`（md5 未变）；4 份旧副本 md5 分别 `101d1df7…`×1、`486cd289…`×3，均为旧版。
+全部隔离路径仍被 `.gitignore` 命中（`.workbuddy/`、`.english-daily-package-*/`），`git status` 无新增未跟踪项【实】。
+回滚：去掉 `.bak-20260929` 后缀即可（含目录与其内文件两处后缀）。
+
+### 6.8 如何防止误跑旧副本（**防退化护栏**，回应 G-5）
+
+这不是理论风险：权威版首页模板已是 **API 驱动版**，误跑旧副本会把 `review/index.html` 首页**倒退成静态页**。四道护栏，从强到弱：
+
+1. **路径隔离**（已做）：旧副本与宿主目录已加 `.bak-20260929`，默认运行路径上不存在旧脚本。这是最硬的一道。
+2. **运行前 md5 自检**：任何会执行 `build_board.py` 的流程，先比对权威副本 md5（`50aca14b1edf40cb20404a088e4e3d14`），不一致立即中止。建议由权威脚本自身启动时打印「版本 + 自身 md5」实现——跑起来就能看出是不是旧版。
+3. **产物优先入库**：`review/*.html` 是生成产物。每次重建前先 `git status` 确认产物已提交，重建后用 `git diff` 核对，可一眼看出是否被旧版覆盖（旧版会删掉 API 调用、退回静态数据）。
+4. **打包产物不反向覆盖主源**：`.workbuddy/build/`、`_tmpx/` 里持有的是 711 行旧版，说明打包流程可能反向覆盖。故**编辑只改 `skills/english-daily/`（主源）**，运行前再由主源同步到 `.workbuddy/skills/`，杜绝「打包流程改写版本文件」（见 6.4）。
+
+> ⚠ 未验证：护栏 2、3 目前仅为方案，尚未落到脚本或 CI【未】。真正防住「误跑」需要把 md5 自检写进 `build_board.py` 启动逻辑——列入 Skill 入库后的第一批改动。
+
+### 6.4 同步纪律（方向已定稿，待 skill-designer 书面确认）
+
+**定稿方向（已在 Q3/Q8 答复中同步 skill-designer）：`skills/english-daily/` = 受控主源，`.workbuddy/skills/english-daily/` = 运行时副本。**
+- **编辑只改 `skills/english-daily/`**（受控、可 diff、可回滚）；改完 → 实测 → 提交 → 打 tag。
+- 需要在 WorkBuddy 运行时生效时，由主源 `cp -r` 同步到 `.workbuddy/skills/english-daily/`。
+- 理由（对应 6.8 护栏 4）：`.workbuddy/` 内的副本会被打包/构建流程改写（实测持有 711 行旧版），若把主源放在其中，存在「打包反向覆盖版本文件」的不可控风险；把主源放在 `skills/` 则天然被 git 保护。
+- 提醒：Windows 下是物理复制而非 symlink，两份可能漂移。**提交时以 `skills/` 为准**；如担心漂移，可在提交钩子里加 `diff -r` 校验。
 
 ### 6.5 其他产物
 
@@ -485,7 +512,9 @@ docs/testdata/**/*.actual.json
 
 `build/` 需确认不会误伤 `.workbuddy/build/`（该目录已被 `.workbuddy/` 整体忽略，规则顺序上仍安全）。
 
-### 7.3 P2 — 处置 `build_board.py` 的 4 份旧副本（**重命名观察，不直接删**）
+### 7.3 P2 — 处置 `build_board.py` 的 4 份旧副本（**重命名观察，不直接删**）— ✅ 已执行
+
+> **执行状态（2026-09-29）**：已完成，未删除任何文件。权威副本 md5 核对通过（`50aca14b…` / 44415 B / 1040 行）；4 份旧副本加 `.bak-20260929` 后缀；宿主目录 `.workbuddy/build`、`.workbuddy/_tmpx`、`.english-daily-package-yj7kiobf` 亦加同后缀（双层隔离，详见 6.3 执行记录）。以下为原始命令，留作回滚参照。
 
 **前置条件**：7.1 第 5 步已完成，且 `diff -r E:/English/skills/english-daily/scripts E:/English/.workbuddy/skills/english-daily/scripts` 确认一致。
 
@@ -519,12 +548,12 @@ mv E:/English/.english-daily-package-yj7kiobf E:/English/.english-daily-package-
 | Q1 | 是否立即把 6 个本地提交 push 到 GitHub？ | ①立即 push ②先本地整理再 push ③永不 push | **①**。`origin` 已存在且空转，push 是消除单点风险成本最低的手段；push 前先建 `backup/` 分支 |
 | Q2 | 是否需要额外远端备份（第二个 remote / 本地裸仓库 / 网盘）？ | ①仅 GitHub ②加本地裸仓库镜像 ③加网盘同步 | **②**（`git clone --mirror` 到另一块盘或目录，成本近乎为零，防 GitHub 不可用） |
 | Q3 | Skill 源码入库采用方案 A（`skills/`）还是 B（`.workbuddy/skills/` 例外）？ | A / B | **A** —— ✅ 已与 skill-designer 定稿（他编号 C）。且他实测证明 7.4 的 `!.workbuddy/skills/` 写法无效，进一步锁定 A。见 6.2 |
-| Q4 | `.workbuddy/skills/` 与 `skills/` 哪个是权威？ | ①`.workbuddy/` 权威 ②`skills/` 权威 | 待 skill-designer 定；若选 ②，运行前需一条复制命令，稍麻烦但版本更可靠 |
+| Q4 | `.workbuddy/skills/` 与 `skills/` 哪个是权威？ | ①`.workbuddy/` 权威 ②`skills/` 权威 | ✅ 已定：**②**。`skills/english-daily/` = 受控主源，`.workbuddy/skills/` = 运行时副本（见 6.4） |
 | Q5 | `backend/.env`（含数据库口令）如何处理？ | ①仅本地不入库（现状）②入口令管理器并文档化 ③入库 `.env.example` 以外不做处理 | **① + 补一份口令来源说明**（如写在 `backend/README.md`，不含明文）；**绝不入库明文** |
 | Q6 | 编辑器配置 `.vscode/` / `.idea/` 是否入库？ | ①忽略 ②共享 | 由用户定；单人项目建议 **①忽略**，避免 IDE 私有路径污染 |
 | Q7 | 是否需要为「多 Agent 并行」引入分支（方案 A/D）？ | ①不用（方案 C）②用 | **①**。当前规模下切分支的风险大于收益 |
 | Q8 | `docs/plans/` 下各 Agent 的方案文档是否全部入库？ | ①全入库 ②仅最终版 | **①**。方案文档是决策留痕，入库才有追溯价值 |
-| Q9 | `.workbuddy/build/`、`_tmpx/`、`.english-daily-package-*/` 能否清理？ | ①直接删 ②重命名观察再删 ③不动 | ✅ 已定：**②**。3 份 30 KB 副本是旧版（711 行，权威 1040 行），存在反向覆盖嫌疑且触发条件未复现，删除不可逆。见 6.3 |
+| Q9 | `.workbuddy/build/`、`_tmpx/`、`.english-daily-package-*/` 能否清理？ | ①直接删 ②重命名观察再删 ③不动 | ✅ 已定并**已执行**：**②**。文件级 + 目录级双层加 `.bak-20260929`，静置 7 天。见 6.3 |
 | Q10 | Skill tag 命名与是否启用？ | ①`skill-v<x.y.z>` ②`skill-<name>-v<x.y.z>` ③不启用 | ✅ 已定：**② 启用**。后续会有多个 Skill，版本号不足以区分。见 5.2 |
 | Q11 | `docs/testdata/`（适配层黄金样本）是否入库、体积上限？ | ①入库 ②不入库（.gitignore 排除） | ✅ 已定：**入库**，单文件 ≤ 200 KB、目录总量 ≤ 1 MB，排除 `*.tmp` / `*.actual.json`。见 6.7 |
 | Q12 | `docs/skills.md` 7.4 的无效 gitignore 写法是否更正？ | ①更正 ②保留 | **①更正**（改由 skill-designer 在其文档内修订，我不改他的文件）。见 6.2 |
