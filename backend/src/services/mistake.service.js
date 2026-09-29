@@ -1,7 +1,12 @@
 'use strict';
 
 const mistakeRepository = require('../repositories/mistake.repository');
+const lessonRepository = require('../repositories/lesson.repository');
+const studyRecordRepository = require('../repositories/studyRecord.repository');
+const { withTransaction } = require('../config/db');
 const ApiError = require('../utils/ApiError');
+const { parseJsonColumn } = require('../utils/json');
+const { normalizeDateTime } = require('../utils/datetime');
 
 /**
  * 优先级判定（依据 docs/skills.md 4.2 缺口 G2 的口径）：
@@ -59,4 +64,99 @@ async function getStats(studentId) {
   return mistakeRepository.stats(studentId);
 }
 
-module.exports = { listMistakes, getMistake, getPendingMistakes, getStats, mapMistake };
+/** 未过关错词按 error_type 分布（快照 pendingMistakeStats） */
+async function getPendingByType(studentId) {
+  const rows = await mistakeRepository.pendingByType(studentId);
+  const byType = {};
+  let total = 0;
+  for (const row of rows) {
+    byType[row.error_type] = row.cnt;
+    total += row.cnt;
+  }
+  return { total, byType };
+}
+
+/**
+ * POST /api/mistakes/:id/review —— 复习结果回写。
+ *
+ * 规则（只搬运 wrong-words.md，不重设计）：
+ *   wrong   → wrong_count+1、streak=0、status='pending'
+ *   correct → streak+1；streak>=2 → status='passed'
+ * 两者都写 last_reviewed_at，并留一条复习流水。
+ *
+ * 幂等：clientEventId 命中已存在的 review 流水时直接返回首次结果，
+ * 不重复累加（配合 mistakes 行锁，单错词维度的重复提交是串行的）。
+ */
+async function reviewMistake(studentId, mistakeId, { result, lessonNo, answeredAt, clientEventId }) {
+  const reviewedAt = normalizeDateTime(answeredAt);
+
+  let lessonId = null;
+  if (Number.isInteger(lessonNo)) {
+    const lesson = await lessonRepository.findByNo(studentId, lessonNo);
+    lessonId = lesson ? lesson.id : null;
+  }
+
+  return withTransaction(async (conn) => {
+    const lockedId = await mistakeRepository.lockRow(conn, mistakeId, studentId);
+    if (!lockedId) {
+      throw ApiError.notFound('MISTAKE_NOT_FOUND', `错词不存在：id=${mistakeId}`);
+    }
+    const row = await mistakeRepository.findByIdOn(conn, mistakeId, studentId);
+
+    if (clientEventId) {
+      const dup = await studyRecordRepository.findReviewByClientEventId(conn, studentId, clientEventId);
+      if (dup) {
+        const prev = parseJsonColumn(dup.payload) || {};
+        const streak = Number.isInteger(prev.streak) ? prev.streak : row.streak;
+        const wrongCount = Number.isInteger(prev.wrongCount) ? prev.wrongCount : row.wrong_count;
+        const status = prev.status || row.status;
+        return {
+          id: row.id,
+          streak,
+          wrongCount,
+          status,
+          priority: derivePriority({ wrong_count: wrongCount, streak }),
+          lastReviewedAt: row.last_reviewed_at,
+        };
+      }
+    }
+
+    let next;
+    if (result === 'wrong') {
+      next = { streak: 0, wrongCount: row.wrong_count + 1, status: 'pending' };
+    } else {
+      const streak = row.streak + 1;
+      next = { streak, wrongCount: row.wrong_count, status: streak >= 2 ? 'passed' : 'pending' };
+    }
+
+    await mistakeRepository.updateReviewState(conn, mistakeId, { ...next, lastReviewedAt: reviewedAt });
+    await studyRecordRepository.insert(conn, {
+      studentId,
+      lessonId,
+      recordType: 'review',
+      summary: `错词复习：${result === 'correct' ? '答对' : '答错'}（mistakeId=${mistakeId}）`,
+      payload: {
+        mistakeId,
+        result,
+        lessonNo: Number.isInteger(lessonNo) ? lessonNo : null,
+        clientEventId: clientEventId || null,
+        streak: next.streak,
+        wrongCount: next.wrongCount,
+        status: next.status,
+      },
+    });
+
+    return {
+      id: row.id,
+      streak: next.streak,
+      wrongCount: next.wrongCount,
+      status: next.status,
+      priority: derivePriority({ wrong_count: next.wrongCount, streak: next.streak }),
+      lastReviewedAt: reviewedAt,
+    };
+  });
+}
+
+module.exports = {
+  listMistakes, getMistake, getPendingMistakes, getStats, getPendingByType, reviewMistake, mapMistake,
+};

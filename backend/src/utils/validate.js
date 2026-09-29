@@ -21,6 +21,14 @@ const RULES = {
     if (rule.enum && !rule.enum.includes(v)) return `取值必须是 ${rule.enum.join(' / ')} 之一`;
     return null;
   },
+  object: (v, rule) => {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return '必须是对象';
+    if (rule.requiredKeys) {
+      const missing = rule.requiredKeys.filter((k) => v[k] === undefined);
+      if (missing.length) return `缺少字段 ${missing.join(' / ')}`;
+    }
+    return null;
+  },
 };
 
 /**

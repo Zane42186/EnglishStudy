@@ -1,6 +1,6 @@
 'use strict';
 
-const { query } = require('../config/db');
+const { query, queryOn, executeOn } = require('../config/db');
 
 function buildWhere(studentId, filters = {}) {
   const where = ['m.student_id = ?'];
@@ -50,6 +50,41 @@ async function findById(id, studentId) {
   return rows[0] || null;
 }
 
+/** 事务内加行锁（SELECT ... FOR UPDATE），防止并发复习丢更新 */
+async function lockRow(conn, id, studentId) {
+  const [rows] = await conn.execute(
+    'SELECT id FROM mistakes WHERE id = ? AND student_id = ? FOR UPDATE',
+    [id, studentId]
+  );
+  return rows.length ? rows[0].id : null;
+}
+
+/** 事务内读取完整行（复用同一套字段，避免两套 SQL 漂移） */
+async function findByIdOn(conn, id, studentId) {
+  const rows = await queryOn(conn, `${BASE_SELECT} WHERE m.id = ? AND m.student_id = ? LIMIT 1`, [id, studentId]);
+  return rows[0] || null;
+}
+
+/** 事务内回写复习结果 */
+async function updateReviewState(conn, id, { streak, wrongCount, status, lastReviewedAt }) {
+  const result = await executeOn(conn,
+    `UPDATE mistakes SET streak = ?, wrong_count = ?, status = ?, last_reviewed_at = ?
+     WHERE id = ?`,
+    [streak, wrongCount, status, lastReviewedAt, id]
+  );
+  return result.affectedRows;
+}
+
+/** 未过关错词的 error_type 分布（快照 pendingMistakeStats.byType） */
+async function pendingByType(studentId) {
+  return query(
+    `SELECT error_type, COUNT(*) AS cnt FROM mistakes
+     WHERE student_id = ? AND status = 'pending'
+     GROUP BY error_type ORDER BY cnt DESC`,
+    [studentId]
+  );
+}
+
 /** 未过关错词（等价 digest.md「待复习」段） */
 async function findPending(studentId, limit = 50) {
   return query(
@@ -79,4 +114,6 @@ async function stats(studentId) {
   };
 }
 
-module.exports = { count, list, findById, findPending, stats };
+module.exports = {
+  count, list, findById, findByIdOn, lockRow, updateReviewState, findPending, stats, pendingByType,
+};

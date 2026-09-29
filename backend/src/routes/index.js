@@ -11,6 +11,7 @@ const vocabularyRoutes = require('./vocabulary.routes');
 const mistakeRoutes = require('./mistake.routes');
 const studyRecordRoutes = require('./studyRecord.routes');
 const progressRoutes = require('./progress.routes');
+const agentRoutes = require('./agent.routes');
 
 const router = express.Router();
 
@@ -57,6 +58,7 @@ router.get('/', (req, res) =>
     endpoints: [
       'GET /api/health',
       'GET /api/lessons',
+      'GET /api/lessons/all',
       'GET /api/lessons/latest',
       'GET /api/lessons/error-trend',
       'GET /api/lessons/:id',
@@ -67,9 +69,13 @@ router.get('/', (req, res) =>
       'GET /api/mistakes/pending',
       'GET /api/mistakes/stats',
       'GET /api/mistakes/:id',
+      'POST /api/mistakes/:id/review',
       'GET /api/study-records',
       'GET /api/study-records/stats',
+      'POST /api/study-records',
       'GET /api/progress',
+      'POST /api/progress/feedback',
+      'GET /api/agent/snapshot',
     ],
   })
 );
@@ -79,5 +85,6 @@ router.use('/vocabulary', vocabularyRoutes);
 router.use('/mistakes', mistakeRoutes);
 router.use('/study-records', studyRecordRoutes);
 router.use('/progress', progressRoutes);
+router.use('/agent', agentRoutes);
 
 module.exports = router;

@@ -51,6 +51,7 @@ async function loadPage(fetchImpl) {
   const dom = new JSDOM(html, {
     url: PAGE_URL,
     runScripts: 'dangerously',
+    resources: 'usable', // P0 起页面依赖外部 assets/*.js，必须真加载
     pretendToBeVisual: true,
     virtualConsole,
     beforeParse(window) {
@@ -123,23 +124,34 @@ function waitFor(fn, timeoutMs = 8000) {
     const title = firstCard.querySelector('h3').textContent;
     check('首张卡片含真实课号与日期', /第\s*\d+\s*课/.test(title), title.trim());
     const link = firstCard.querySelector('a.btn');
-    check('卡片带「查看全文」详情链接', !!link && /lessons\/lesson-\d+\.html$/.test(link.getAttribute('href')),
-      link ? link.getAttribute('href') : '无');
+    // P2 起详情页参数化为 lessons/lesson.html?no=N，旧的 lesson-N.html 仍兼容
+    check(
+      '卡片带「查看全文」详情链接',
+      !!link && /lessons\/(lesson-\d+\.html|lesson\.html\?no=\d+)$/.test(link.getAttribute('href')),
+      link ? link.getAttribute('href') : '无'
+    );
   }
 
   // 请求契约核对：页面真实发出的 URL
   const requested = [...new Set(window.__netLog.map((u) => u.replace(API_ORIGIN, '')))]
     .filter((u) => u.startsWith('/api'));
   console.log('  ℹ️  页面实际请求：' + requested.join(' , '));
-  const expected = ['/api/lessons?size=1', '/api/progress', '/api/vocabulary/stats', '/api/mistakes/stats', '/api/lessons?size=100'];
+  // 2026-09-29 起 /lessons/all 取代会被静默截断的 ?size=100
+  const expected = ['/api/lessons?size=1', '/api/progress', '/api/vocabulary/stats', '/api/mistakes/stats', '/api/lessons/all'];
   const missing = expected.filter((e) => !requested.includes(e));
-  check('页面请求集合与后端接口一致', missing.length === 0, missing.length ? '缺失 ' + missing.join(',') : '5/5 命中');
+  check('页面请求集合与后端接口一致', missing.length === 0, missing.length ? '缺失 ' + missing.join(',') : expected.length + '/' + expected.length + ' 命中');
 
-  // Loading 态证据：静态服务器返回的原始 HTML 首屏即含 loading 占位与转圈动画
+  // Loading 态证据：P0 起样式抽到 assets/board.css，需连外部样式一起校验
+  let css = '';
+  try {
+    css = await (await fetch(new URL('assets/board.css', PAGE_URL))).text();
+  } catch {
+    css = '';
+  }
   check(
     'Loading 态已实现（.state.loading + 转圈动画）',
-    /class="state loading"/.test(RAW_HTML) && /@keyframes spin/.test(RAW_HTML),
-    '首屏占位与动画样式均存在'
+    /class="state loading"/.test(RAW_HTML) && /@keyframes\s+spin/.test(RAW_HTML + css),
+    '首屏占位存在；转圈动画在 ' + (/@keyframes\s+spin/.test(RAW_HTML) ? '内联样式' : 'assets/board.css')
   );
   dom.window.close();
 

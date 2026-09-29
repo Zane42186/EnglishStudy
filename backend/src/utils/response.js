@@ -32,7 +32,7 @@ function fail(res, status, message, data = null) {
 }
 
 /** 解析分页参数，带边界保护 */
-function parsePaging(query, { defaultSize = 20, maxSize = 100 } = {}) {
+function parsePaging(query, { defaultSize = 20, maxSize = 500 } = {}) {
   let page = Number.parseInt(query.page, 10);
   let size = Number.parseInt(query.size, 10);
   if (!Number.isFinite(page) || page < 1) page = 1;

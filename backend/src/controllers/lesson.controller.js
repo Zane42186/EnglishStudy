@@ -8,7 +8,15 @@ const lessonService = require('../services/lesson.service');
 
 const LIST_SCHEMA = {
   page: { type: 'int', min: 1 },
-  size: { type: 'int', min: 1, max: 100 },
+  size: { type: 'int', min: 1, max: 500 },
+  level: { type: 'string', maxLength: 10 },
+  q: { type: 'string', maxLength: 100 },
+  from: { type: 'string', maxLength: 10 },
+  to: { type: 'string', maxLength: 10 },
+  studentId: { type: 'int', min: 1 },
+};
+
+const ALL_SCHEMA = {
   level: { type: 'string', maxLength: 10 },
   q: { type: 'string', maxLength: 100 },
   from: { type: 'string', maxLength: 10 },
@@ -26,6 +34,18 @@ const list = asyncHandler(async (req, res) => {
   const studentId = await studentService.resolveStudentId({ studentId: query.studentId });
   const { list: rows, total } = await lessonService.listLessons(studentId, query, paging);
   return okList(res, rows, total, paging.page, paging.size);
+});
+
+/**
+ * GET /api/lessons/all —— 全量课程（不分页）。
+ * 字段与 /api/lessons 列表完全一致（含 grammarPoint），不受 size 上限约束，
+ * 供前端替换会被静默截断的 ?size=100。
+ */
+const listAll = asyncHandler(async (req, res) => {
+  const query = validate(req.query, ALL_SCHEMA);
+  const studentId = await studentService.resolveStudentId({ studentId: query.studentId });
+  const { list: rows, total } = await lessonService.listAllLessons(studentId, query);
+  return okList(res, rows, total, 1, total);
 });
 
 /** GET /api/lessons/latest */
@@ -56,4 +76,4 @@ const detail = asyncHandler(async (req, res) => {
   return ok(res, data);
 });
 
-module.exports = { list, latest, errorTrend, detail };
+module.exports = { list, listAll, latest, errorTrend, detail };

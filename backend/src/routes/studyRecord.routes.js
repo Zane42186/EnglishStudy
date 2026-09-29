@@ -7,5 +7,6 @@ const router = express.Router();
 
 router.get('/', controller.list);
 router.get('/stats', controller.stats);
+router.post('/', controller.create);
 
 module.exports = router;

@@ -8,7 +8,7 @@ const vocabularyService = require('../services/vocabulary.service');
 
 const LIST_SCHEMA = {
   page: { type: 'int', min: 1 },
-  size: { type: 'int', min: 1, max: 100 },
+  size: { type: 'int', min: 1, max: 500 },
   letter: { type: 'string', maxLength: 1 },
   q: { type: 'string', maxLength: 100 },
   lessonId: { type: 'int', min: 1 },

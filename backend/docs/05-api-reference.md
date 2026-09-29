@@ -2,7 +2,11 @@
 
 > 状态：**已实现并实测**（2026-09-29）。本文档描述的是**可运行的真实接口**，非设计稿。
 > 服务地址：`http://localhost:4000`　接口前缀：`/api`
-> 冒烟测试：`npm run test:api`（27 项全部通过）
+> 冒烟测试：`npm run test:api`（**37 项全部通过**）
+>
+> 变更记录：
+> - 2026-09-29 · 第一批写接口与聚合快照落地：`GET /api/lessons/all`、`POST /api/mistakes/:id/review`、
+>   `POST /api/study-records`、`POST /api/progress/feedback`、`GET /api/agent/snapshot`；分页 `size` 上限 100 → **500**。
 
 ---
 
@@ -23,12 +27,14 @@
 
 ### 1.2 分页
 
-请求：`?page=1&size=20`（`size` 上限 100）
+请求：`?page=1&size=20`（`size` 上限 **500**，2026-09-29 由 100 放宽）
 响应：
 ```json
 { "code": 200, "message": "success",
   "data": { "list": [ ], "total": 6, "page": 1, "size": 20 } }
 ```
+
+> 需要**不分页拿全量**课程时用 `GET /api/lessons/all`，不要靠把 `size` 调大绕过（历史 `?size=100` 会静默截断）。
 
 ### 1.3 学生参数
 
@@ -60,19 +66,24 @@
 | 1 | GET | `/api/health` | 健康检查（服务 + 数据库 + 默认学生） |
 | 2 | GET | `/api` | 接口索引 |
 | 3 | GET | `/api/lessons` | 课程列表 |
-| 4 | GET | `/api/lessons/latest` | 最近一课 + 下一课号 |
-| 5 | GET | `/api/lessons/error-trend` | 错误趋势（最近 N 课） |
-| 6 | GET | `/api/lessons/:id` | 课程详情（含小节 + 词汇） |
-| 7 | GET | `/api/vocabulary` | 词汇列表 |
-| 8 | GET | `/api/vocabulary/stats` | 词汇统计（总数 + 首字母分布） |
-| 9 | GET | `/api/vocabulary/:id` | 词汇详情 |
-| 10 | GET | `/api/mistakes` | 错词列表 |
-| 11 | GET | `/api/mistakes/pending` | 未过关错词（按优先级） |
-| 12 | GET | `/api/mistakes/stats` | 错词统计 |
-| 13 | GET | `/api/mistakes/:id` | 错词详情 |
-| 14 | GET | `/api/study-records` | 学习记录 |
-| 15 | GET | `/api/study-records/stats` | 学习记录统计 |
-| 16 | GET | `/api/progress` | 学习进度 |
+| 4 | GET | `/api/lessons/all` | 课程全量（不分页，含 `grammarPoint`） |
+| 5 | GET | `/api/lessons/latest` | 最近一课 + 下一课号 |
+| 6 | GET | `/api/lessons/error-trend` | 错误趋势（最近 N 课） |
+| 7 | GET | `/api/lessons/:id` | 课程详情（含小节 + 词汇） |
+| 8 | GET | `/api/vocabulary` | 词汇列表 |
+| 9 | GET | `/api/vocabulary/stats` | 词汇统计（总数 + 首字母分布） |
+| 10 | GET | `/api/vocabulary/:id` | 词汇详情 |
+| 11 | GET | `/api/mistakes` | 错词列表 |
+| 12 | GET | `/api/mistakes/pending` | 未过关错词（按优先级） |
+| 13 | GET | `/api/mistakes/stats` | 错词统计 |
+| 14 | GET | `/api/mistakes/:id` | 错词详情 |
+| 15 | POST | `/api/mistakes/:id/review` | 复习结果回写（`clientEventId` 幂等） |
+| 16 | GET | `/api/study-records` | 学习记录 |
+| 17 | GET | `/api/study-records/stats` | 学习记录统计 |
+| 18 | POST | `/api/study-records` | 写入学习记录 |
+| 19 | GET | `/api/progress` | 学习进度 |
+| 20 | POST | `/api/progress/feedback` | 难度反馈（触发升降级） |
+| 21 | GET | `/api/agent/snapshot` | 教学快照（9 次请求 → 1 次） |
 
 ---
 
@@ -108,7 +119,24 @@
 - 排序：`lessonNo` **降序**（最新在前）。
 - `feedback` 枚举：`too_easy` / `just_right` / `too_hard`。
 
-### 4. GET `/api/lessons/latest`
+### 4. GET `/api/lessons/all`
+**Query**：`level`、`q`、`from`、`to`、`studentId`（**无 `page`/`size`**）
+
+**字段与 [`/api/lessons`](#3-get-apilessons) 列表完全一致**（含 `grammarPoint`），仅不分页、不受 `size` 上限约束。`data` 形状同分页结构（`page=1`、`size=total`），保证前端可复用同一渲染函数。
+
+**用途**：替换前端会静默截断的 `?size=100`。**不可精简字段**——首页/看板的客户端搜索依赖 `grammarPoint`，去掉会漏词。
+
+```json
+{ "code": 200, "message": "success", "data": {
+  "list": [ { "id": 6, "lessonNo": 6, "lessonDate": "2026-09-29", "level": "Level 2",
+              "summary": "…", "grammarPoint": "一般过去时 was / were",
+              "vocabCount": 10, "exerciseCount": 9, "errorCount": 5,
+              "feedback": "just_right", "sourceFile": "day-01-07.md",
+              "status": "taught", "createdAt": "2026-09-29 14:08:02" } ],
+  "total": 6, "page": 1, "size": 6 } }
+```
+
+### 5. GET `/api/lessons/latest`
 ```json
 { "code": 200, "message": "success", "data": {
   "latest": { "id": 6, "lessonNo": 6, "lessonDate": "2026-09-29", "level": "Level 2",
@@ -118,7 +146,7 @@
 ```
 - `nextLessonNo = 最大课号 + 1`（断更不断号）。无课程时返回 `{latest:null, nextLessonNo:1}`。
 
-### 5. GET `/api/lessons/error-trend`
+### 6. GET `/api/lessons/error-trend`
 **Query**：`limit`（1—20，默认 5）
 ```json
 { "code": 200, "message": "success", "data": {
@@ -132,7 +160,7 @@
 - `byLesson` 按课号**升序**，便于直接画趋势线。
 - 口径为**错误处数**，不折算百分制。
 
-### 6. GET `/api/lessons/:id`
+### 7. GET `/api/lessons/:id`
 **路径**：`id` 必须为正整数。
 ```json
 { "code": 200, "message": "success", "data": {
@@ -149,7 +177,7 @@
 - `sections[].sectionType` 枚举：`review` / `grammar` / `vocab_table` / `examples` / `homework` / `my_answer` / `grading` / `feedback`。
 - **Error**：404 `课程不存在：id=<id>`
 
-### 7. GET `/api/vocabulary`
+### 8. GET `/api/vocabulary`
 **Query**：`page`、`size`（默认 50）、`letter`（单字母 A—Z；`#` 表示非字母开头）、`q`、`lessonId`、`studentId`
 ```json
 { "code": 200, "message": "success", "data": {
@@ -159,7 +187,7 @@
 ```
 - 排序：按 `word` 升序（A→Z），便于词汇卡页分组。
 
-### 8. GET `/api/vocabulary/stats`
+### 9. GET `/api/vocabulary/stats`
 ```json
 { "code": 200, "message": "success", "data": {
   "total": 51,
@@ -168,10 +196,10 @@
                 "R": 2, "S": 7, "T": 4, "U": 1, "W": 5, "Y": 1 } } }
 ```
 
-### 9. GET `/api/vocabulary/:id`
+### 10. GET `/api/vocabulary/:id`
 单个词条，字段同上。**Error**：404 `词汇不存在：id=<id>`
 
-### 10. GET `/api/mistakes`
+### 11. GET `/api/mistakes`
 **Query**：`page`、`size`、`status`（`pending` / `passed`）、`errorType`、`q`、`studentId`
 ```json
 { "code": 200, "message": "success", "data": {
@@ -186,7 +214,7 @@
 - `priority` 由服务端推导：`wrongCount ≥ 2` → `high`；`streak === 1` → `medium`；其余 `low`。
 - `errorType` 枚举：`grammar` / `spelling` / `punctuation` / `word_choice` / `capitalization` / `other`。
 
-### 11. GET `/api/mistakes/pending`
+### 12. GET `/api/mistakes/pending`
 **Query**：`limit`（1—200，默认 50）
 ```json
 { "code": 200, "message": "success", "data": {
@@ -199,7 +227,7 @@
 ```
 - 等价于 `digest.md` 的「待复习」段，**供 Amy / 出复习题直接取用**。
 
-### 12. GET `/api/mistakes/stats`
+### 13. GET `/api/mistakes/stats`
 ```json
 { "code": 200, "message": "success", "data": {
   "total": 20, "pending": 15, "passed": 5,
@@ -211,10 +239,36 @@
               { "errorType": "other", "count": 1 } ] } }
 ```
 
-### 13. GET `/api/mistakes/:id`
+### 14. GET `/api/mistakes/:id`
 单条错词。**Error**：404 `错词不存在：id=<id>`
 
-### 14. GET `/api/study-records`
+### 15. POST `/api/mistakes/:id/review` ★
+复习结果回写。**这是学生打卡的写路径**，重复提交会污染过关判定，故必须用 `clientEventId` 幂等。
+
+**Body**
+```json
+{ "result": "correct", "lessonNo": 7, "answeredAt": "2026-09-30T10:20:00+08:00", "clientEventId": "rev-20260930-001" }
+```
+- `result`（必填）：`correct` / `wrong`
+- `lessonNo`（选填）：用于关联复习发生的课；该课不存在时不报错，仅不建关联
+- `answeredAt`（选填）：ISO 或 `YYYY-MM-DD HH:MM:SS`；缺省 = 服务端当前时间
+- `clientEventId`（选填）：客户端事件唯一 id；**同一 id 重复提交返回首次结果，不再累加**
+
+**服务端规则**（搬运 `wrong-words.md`，不重设计）
+- `wrong` → `wrongCount+1`、`streak=0`、`status='pending'`
+- `correct` → `streak+1`；`streak>=2` → `status='passed'`
+- 两者都写 `lastReviewedAt`，并留一条复习流水
+
+**实测响应**
+```json
+{ "code": 200, "message": "success", "data": {
+  "id": 1, "streak": 0, "wrongCount": 2, "status": "pending",
+  "priority": "high", "lastReviewedAt": "2026-09-30 10:20:00" } }
+```
+- `priority` 与错词列表同源推导（`wrongCount>=2` high / `streak===1` medium / 其余 low）
+- **Error**：404 `错词不存在：id=<id>`；400（`result` 非法等）
+
+### 16. GET `/api/study-records`
 **Query**：`page`、`size`、`type`、`lessonId`、`from`、`to`、`studentId`
 ```json
 { "code": 200, "message": "success", "data": {
@@ -228,13 +282,34 @@
 - `type` 枚举：`attend` / `homework_submit` / `grade` / `review` / `feedback` / `reading`。
 - 排序：`createdAt` 降序。
 
-### 15. GET `/api/study-records/stats`
+### 17. GET `/api/study-records/stats`
 ```json
 { "code": 200, "message": "success", "data": {
   "total": 18, "byType": { "attend": 6, "grade": 6, "feedback": 6 } } }
 ```
 
-### 16. GET `/api/progress`
+### 18. POST `/api/study-records`
+写入学习记录（`ATTEND` / 批改 / 反馈等）。**两条写入约定**：
+- `grade` 记录带 `payload.byType` → 供 `/api/lessons/error-trend` 与快照 `errorTrend.byLesson[].byType` 读取
+- `feedback` 记录带 `payload.nextRecommendation` → 快照 `lastRecommendation` 的**唯一数据来源**
+
+**Body**
+```json
+{ "recordType": "grade", "lessonNo": 7,
+  "payload": { "errorCount": 3, "exerciseCount": 9, "byType": { "grammar": 2, "punctuation": 1 } } }
+```
+- `recordType`（必填）：`attend` / `homework_submit` / `grade` / `review` / `feedback` / `reading`
+- `lessonNo`（选填）：也可只写在 `payload.lessonNo`
+- `payload` 键白名单：`lessonNo` / `level` / `feedback` / `errorCount` / `exerciseCount` / `byType` / `nextRecommendation` / `studyMinutes` / `incompleteStep`；**白名单外的键被忽略**
+- `nextRecommendation` 也接受 snake_case 别名 `next_recommendation`，落库统一为 camelCase
+
+**实测响应 201**
+```json
+{ "code": 201, "message": "created", "data": { "id": 26, "recordType": "grade", "createdAt": "2026-09-29T09:38:38.884Z" } }
+```
+- **Error**：400（`recordType` 非法 / `payload` 非对象 / `feedback` 非法）
+
+### 19. GET `/api/progress`
 ```json
 { "code": 200, "message": "success", "data": {
   "studentId": 1, "currentLevel": "Level 2", "currentLevelNumber": 2,
@@ -247,6 +322,63 @@
 ```
 - `currentLessonNo` 取「进度表值与实际最大课号」的较大者，**以实际课程为准**（断更不断号）。
 - `lessonNoAligned`：进度表课号与课程记录是否一致（不一致说明需要修正）。
+
+### 20. POST `/api/progress/feedback` ★
+难度反馈，触发级别升降。
+
+**Body**
+```json
+{ "lessonNo": 7, "feedback": "too_easy", "note": "", "nextRecommendation": "第 8 课：…" }
+```
+- `lessonNo`（必填）、`feedback`（必填）：`too_easy` / `just_right` / `too_hard`
+- `note`（选填）、`nextRecommendation`（选填，同时接受 `next_recommendation`）
+
+**服务端规则**（对齐 `progress.md`；Amy 侧守门规则不在后端实现）
+- `too_easy` → `easyStreak+1`；达 2 且未被冻结（`upgradeFrozenUntil < lessonNo`）→ 升 1 级并清零
+- `too_hard` → 降 1 级（下限 `Level 1`），`upgradeFrozenUntil = lessonNo + 3`
+- `just_right` → `easyStreak` 清零，仅记录
+
+**实测响应**
+```json
+{ "code": 200, "message": "success", "data": {
+  "levelBefore": "Level 2", "levelAfter": "Level 3", "easyStreak": 0,
+  "upgradeFrozenUntil": 0, "message": "升 1 级：Level 2 → Level 3" } }
+```
+- 同时写回 `lessons.feedback`（该课不存在时跳过，不影响反馈生效），并留一条 `feedback` 学习记录
+- **Error**：400（`feedback` 非法 / 缺 `lessonNo`）
+
+### 21. GET `/api/agent/snapshot` ★
+教学快照：把 Skill 上课所需的 9 次请求降为 1 次。`data` 形状对齐 `docs/schemas/agent-snapshot.schema.json`。
+
+**Query**：`recent`（1—10，默认 3）、`studentId`
+
+**实测响应（节选）**
+```json
+{ "code": 200, "message": "success", "data": {
+  "deploymentMode": "backend",
+  "progress": { "currentLevel": "Level 2", "currentCourseNo": 6, "currentLessonNo": 6,
+                "nextLessonNo": 7, "lastFeedback": "just_right", "easyStreak": 0,
+                "upgradeFrozenUntil": 0, "lastClassDate": "2026-09-29" },
+  "courseCatalog": [ { "lessonNo": 6, "lessonDate": "2026-09-29", "levelCode": "Level 2", "summary": "…" } ],
+  "recentLessons": [ { "lessonNo": 6, "lessonDate": "2026-09-29", "levelCode": "Level 2",
+                       "summary": "…", "grammarPoint": "一般过去时 was / were",
+                       "vocabulary": ["yesterday", "last night"],
+                       "feedback": "just_right", "mistakeCount": 6, "errorCount": 5 } ],
+  "pendingMistakes": [ { "id": 5, "wrongText": "…", "correctText": "…", "errorType": "punctuation",
+                         "streak": 1, "wrongCount": 3, "status": "pending", "priority": "high",
+                         "firstCourseNo": 2, "lastCourseNo": 2, "lastReviewedAt": null } ],
+  "pendingMistakeStats": { "total": 15, "byType": { "grammar": 8, "punctuation": 2 } },
+  "errorTrend": { "windowSize": 6, "byLesson": [ { "lessonNo": 6, "errorCount": 5, "byType": { "grammar": 3 } } ] },
+  "readingCatalog": [], "backlog": null,
+  "lastRecommendation": null, "lastIncomplete": null,
+  "degradation": { "degraded": true, "reason": "…", "affected": ["errorTrend.byType", "backlog", "readingCatalog", "lastRecommendation", "lastIncomplete"] } } }
+```
+**硬约束**
+- `pendingMistakes` / `errorTrend` 与 `/api/mistakes/pending`、`/api/lessons/error-trend` **同源复用**（同一 service，不另写排序）
+- `pendingMistakeStats` **只统计 `status='pending'`**；`byType` 为 `errorType → count`
+- `lastRecommendation` 形状 `{ lessonNo, text }`，取自最近一条 `feedback` 记录的 `payload.nextRecommendation`；无数据为 `null`
+- **缺数据一律降级**（`null` / `[]` / 省略键）+ `degradation`，**绝不 500、绝不空串**。当前 `backlog` / `readingCatalog` 依赖尚未建表，恒为降级值
+- `pendingMistakes[].firstCourseNo/lastCourseNo` 用课号；来源课号为脏值（DQ4）时**省略该键**而不是塞 `null`
 
 ---
 

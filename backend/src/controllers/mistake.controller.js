@@ -9,7 +9,7 @@ const { MISTAKE_STATUS, ERROR_TYPE } = require('../constants');
 
 const LIST_SCHEMA = {
   page: { type: 'int', min: 1 },
-  size: { type: 'int', min: 1, max: 100 },
+  size: { type: 'int', min: 1, max: 500 },
   status: { type: 'string', enum: MISTAKE_STATUS },
   errorType: { type: 'string', enum: ERROR_TYPE },
   q: { type: 'string', maxLength: 100 },
@@ -18,6 +18,13 @@ const LIST_SCHEMA = {
 
 const ID_SCHEMA = { id: { type: 'int', min: 1, required: true } };
 const STUDENT_SCHEMA = { studentId: { type: 'int', min: 1 } };
+
+const REVIEW_SCHEMA = {
+  result: { type: 'string', required: true, enum: ['correct', 'wrong'] },
+  lessonNo: { type: 'int', min: 1 },
+  answeredAt: { type: 'string', maxLength: 40 },
+  clientEventId: { type: 'string', maxLength: 64 },
+};
 
 /** GET /api/mistakes */
 const list = asyncHandler(async (req, res) => {
@@ -56,4 +63,17 @@ const detail = asyncHandler(async (req, res) => {
   return ok(res, data);
 });
 
-module.exports = { list, pending, stats, detail };
+/**
+ * POST /api/mistakes/:id/review —— 复习结果回写。
+ * clientEventId 幂等：同一事件重复提交不会重复累加 wrong_count。
+ */
+const review = asyncHandler(async (req, res) => {
+  const params = validate(req.params, ID_SCHEMA);
+  const query = validate(req.query, STUDENT_SCHEMA);
+  const body = validate(req.body || {}, REVIEW_SCHEMA);
+  const studentId = await studentService.resolveStudentId({ studentId: query.studentId });
+  const data = await mistakeService.reviewMistake(studentId, params.id, body);
+  return ok(res, data);
+});
+
+module.exports = { list, pending, stats, detail, review };

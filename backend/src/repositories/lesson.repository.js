@@ -1,6 +1,11 @@
 'use strict';
 
-const { query } = require('../config/db');
+const { query, queryOn, executeOn } = require('../config/db');
+
+const LIST_COLUMNS = `
+  l.id, l.lesson_no, l.lesson_date, l.level_code, l.summary, l.grammar_point,
+  l.vocab_count, l.exercise_count, l.error_count, l.feedback, l.source_file,
+  l.status, l.created_at`;
 
 /** 组装 WHERE 条件（含参数） */
 function buildWhere(studentId, filters = {}) {
@@ -36,14 +41,27 @@ async function list(studentId, filters = {}, paging = { offset: 0, size: 20 }) {
   const { clause, params } = buildWhere(studentId, filters);
   // LIMIT/OFFSET 已在 parsePaging 中校验为整数，直接内联（prepared 不支持 LIMIT 占位）
   const sql = `
-    SELECT l.id, l.lesson_no, l.lesson_date, l.level_code, l.summary, l.grammar_point,
-           l.vocab_count, l.exercise_count, l.error_count, l.feedback, l.source_file,
-           l.status, l.created_at,
+    SELECT ${LIST_COLUMNS},
            (SELECT COUNT(*) FROM lesson_vocabulary lv WHERE lv.lesson_id = l.id) AS vocab_linked
     FROM lessons l
     ${clause}
     ORDER BY l.lesson_no DESC
     LIMIT ${paging.size} OFFSET ${paging.offset}`;
+  return query(sql, params);
+}
+
+/**
+ * 全量课程列表（不分页）。字段与 list 完全一致（含 grammarPoint），
+ * 供前端 /api/lessons/all 替代会被静默截断的 ?size=100。
+ */
+async function listAll(studentId, filters = {}) {
+  const { clause, params } = buildWhere(studentId, filters);
+  const sql = `
+    SELECT ${LIST_COLUMNS},
+           (SELECT COUNT(*) FROM lesson_vocabulary lv WHERE lv.lesson_id = l.id) AS vocab_linked
+    FROM lessons l
+    ${clause}
+    ORDER BY l.lesson_no DESC`;
   return query(sql, params);
 }
 
@@ -60,12 +78,30 @@ async function findById(id, studentId) {
   return rows[0] || null;
 }
 
-async function findByNo(studentId, lessonNo) {
-  const rows = await query(
-    'SELECT id, lesson_no FROM lessons WHERE student_id = ? AND lesson_no = ? LIMIT 1',
+async function findByNo(studentId, lessonNo, exec = null) {
+  const rows = await queryOn(exec,
+    'SELECT id, lesson_no, lesson_date FROM lessons WHERE student_id = ? AND lesson_no = ? LIMIT 1',
     [studentId, lessonNo]
   );
   return rows[0] || null;
+}
+
+/** 写回某课的难度反馈（课不存在时影响 0 行，由调用方决定是否容忍） */
+async function updateFeedback(studentId, lessonNo, feedback, exec = null) {
+  const result = await executeOn(exec,
+    'UPDATE lessons SET feedback = ? WHERE student_id = ? AND lesson_no = ?',
+    [feedback, studentId, lessonNo]
+  );
+  return result.affectedRows;
+}
+
+/** 某课首次犯错引入的错词条数（快照 recentLessons[].mistakeCount） */
+async function countMistakesByLesson(studentId, lessonId) {
+  const rows = await query(
+    'SELECT COUNT(*) AS total FROM mistakes WHERE student_id = ? AND first_lesson_id = ?',
+    [studentId, lessonId]
+  );
+  return rows[0].total;
 }
 
 /** 最近一课（按课号最大） */
@@ -102,7 +138,7 @@ async function findVocabulary(lessonId) {
 /** 按课号聚合错误数（错误趋势） */
 async function errorTrend(studentId, limit = 5) {
   return query(
-    `SELECT lesson_no, error_count, lesson_date
+    `SELECT id, lesson_no, error_count, lesson_date
      FROM lessons WHERE student_id = ?
      ORDER BY lesson_no DESC LIMIT ${Number(limit) || 5}`,
     [studentId]
@@ -110,5 +146,6 @@ async function errorTrend(studentId, limit = 5) {
 }
 
 module.exports = {
-  count, list, findById, findByNo, findLatest, findSections, findVocabulary, errorTrend,
+  count, list, listAll, findById, findByNo, findLatest, findSections, findVocabulary,
+  errorTrend, updateFeedback, countMistakesByLesson,
 };

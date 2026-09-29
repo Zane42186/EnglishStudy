@@ -57,6 +57,27 @@ async function withTransaction(handler) {
   }
 }
 
+/**
+ * 在指定执行器上查询：传 conn 走该事务连接，否则走连接池。
+ * 供事务内读改写复用同一套 SQL，避免两套语句漂移。
+ */
+async function queryOn(conn, sql, params = []) {
+  if (conn) {
+    const [rows] = await conn.execute(sql, params);
+    return rows;
+  }
+  return query(sql, params);
+}
+
+/** 在指定执行器上写：传 conn 走该事务连接，否则走连接池。 */
+async function executeOn(conn, sql, params = []) {
+  if (conn) {
+    const [result] = await conn.execute(sql, params);
+    return result;
+  }
+  return execute(sql, params);
+}
+
 /** 连通性检查 */
 async function ping() {
   const rows = await query('SELECT 1 AS ok');
@@ -70,4 +91,4 @@ async function close() {
   }
 }
 
-module.exports = { getPool, query, execute, withTransaction, ping, close };
+module.exports = { getPool, query, execute, queryOn, executeOn, withTransaction, ping, close };

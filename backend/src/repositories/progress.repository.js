@@ -1,15 +1,43 @@
 'use strict';
 
-const { query, execute } = require('../config/db');
+const { query, queryOn, execute, executeOn } = require('../config/db');
+
+const PROGRESS_COLUMNS = `
+  id, student_id, current_level, current_lesson_no, last_feedback,
+  easy_streak, upgrade_frozen_until, last_class_date, note, updated_at`;
 
 async function findByStudentId(studentId) {
   const rows = await query(
-    `SELECT id, student_id, current_level, current_lesson_no, last_feedback,
-            easy_streak, upgrade_frozen_until, last_class_date, note, updated_at
-     FROM progress WHERE student_id = ? LIMIT 1`,
+    `SELECT ${PROGRESS_COLUMNS} FROM progress WHERE student_id = ? LIMIT 1`,
     [studentId]
   );
   return rows[0] || null;
+}
+
+/** 事务内加行锁（难度反馈会同时改级别与连击，必须串行） */
+async function lockByStudentId(conn, studentId) {
+  const rows = await queryOn(conn, `SELECT ${PROGRESS_COLUMNS} FROM progress WHERE student_id = ? LIMIT 1 FOR UPDATE`, [studentId]);
+  return rows[0] || null;
+}
+
+/** 事务内回写进度（级别升降与连击必须原子） */
+async function update(conn, studentId, data) {
+  const result = await executeOn(conn,
+    `UPDATE progress
+       SET current_level = ?, current_lesson_no = ?, last_feedback = ?,
+           easy_streak = ?, upgrade_frozen_until = ?, last_class_date = ?
+     WHERE student_id = ?`,
+    [
+      data.currentLevel,
+      data.currentLessonNo,
+      data.lastFeedback ?? null,
+      data.easyStreak ?? 0,
+      data.upgradeFrozenUntil ?? 0,
+      data.lastClassDate ?? null,
+      studentId,
+    ]
+  );
+  return result.affectedRows;
 }
 
 /** 不存在则插入，存在则更新（幂等初始化用） */
@@ -40,4 +68,4 @@ async function upsert(studentId, data) {
   );
 }
 
-module.exports = { findByStudentId, upsert };
+module.exports = { findByStudentId, lockByStudentId, update, upsert };

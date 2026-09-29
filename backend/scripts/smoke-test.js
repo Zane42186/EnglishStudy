@@ -12,19 +12,25 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const BASE = process.argv[2] || `http://localhost:${process.env.PORT || 4000}`;
 
-function request(urlPath) {
+function request(urlPath, { method = 'GET', body = null } = {}) {
   return new Promise((resolve, reject) => {
-    const req = http.get(`${BASE}${urlPath}`, (res) => {
-      let body = '';
-      res.on('data', (chunk) => { body += chunk; });
+    const payload = body === null ? null : JSON.stringify(body);
+    const headers = payload
+      ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+      : {};
+    const req = http.request(`${BASE}${urlPath}`, { method, headers }, (res) => {
+      let chunks = '';
+      res.on('data', (chunk) => { chunks += chunk; });
       res.on('end', () => {
         let json = null;
-        try { json = JSON.parse(body); } catch { /* 非 JSON 响应 */ }
-        resolve({ status: res.statusCode, json, raw: body });
+        try { json = JSON.parse(chunks); } catch { /* 非 JSON 响应 */ }
+        resolve({ status: res.statusCode, json, raw: chunks });
       });
     });
     req.on('error', reject);
     req.setTimeout(8000, () => req.destroy(new Error('请求超时')));
+    if (payload) req.write(payload);
+    req.end();
   });
 }
 
@@ -45,6 +51,8 @@ const CASES = [
   { name: '课程列表(分页)', path: '/api/lessons?page=1&size=3', verify: (d) => (d.list.length <= 3 ? null : '分页未生效') },
   { name: '课程列表(按级别)', path: '/api/lessons?level=Level%202' },
   { name: '课程列表(搜索)', path: '/api/lessons?q=%E8%BF%87%E5%8E%BB%E6%97%B6' },
+  { name: '课程全量', path: '/api/lessons/all', verify: (d) => (Array.isArray(d.list) && d.list.length > 0 && 'grammarPoint' in d.list[0] ? null : 'list 缺少 grammarPoint') },
+  { name: 'size 放宽到 500', path: '/api/lessons?size=200', verify: (d) => (d.size === 200 ? null : `size=${d.size} 未放宽`) },
   { name: '最近一课', path: '/api/lessons/latest', verify: (d) => (d.nextLessonNo === d.latest.lessonNo + 1 ? null : 'nextLessonNo 推导错误') },
   { name: '错误趋势', path: '/api/lessons/error-trend' },
   { name: '课程详情', path: '/api/lessons/1', verify: (d) => (Array.isArray(d.sections) && Array.isArray(d.vocabulary) ? null : '缺少 sections/vocabulary') },
@@ -61,6 +69,24 @@ const CASES = [
   { name: '学习记录(按类型)', path: '/api/study-records?type=grade' },
   { name: '学习记录统计', path: '/api/study-records/stats' },
   { name: '学习进度', path: '/api/progress', verify: (d) => (d.currentLevel ? null : '缺少 currentLevel') },
+  {
+    name: '教学快照',
+    path: '/api/agent/snapshot',
+    verify: (d) =>
+      d.deploymentMode === 'backend' &&
+      Array.isArray(d.pendingMistakes) &&
+      d.pendingMistakeStats &&
+      typeof d.pendingMistakeStats.total === 'number' &&
+      d.degradation &&
+      typeof d.degradation.degraded === 'boolean'
+        ? null
+        : '快照关键字段缺失（deploymentMode / pendingMistakes / pendingMistakeStats / degradation）',
+  },
+  {
+    name: '教学快照(recent=2)',
+    path: '/api/agent/snapshot?recent=2',
+    verify: (d) => (d.recentLessons.length <= 2 ? null : 'recent 未生效'),
+  },
 ];
 
 // 期望返回 4xx 的错误路径用例
@@ -70,6 +96,12 @@ const ERROR_CASES = [
   { name: '分页参数非法 → 400', path: '/api/lessons?page=abc', expectStatus: 400 },
   { name: '枚举值非法 → 400', path: '/api/mistakes?status=xxx', expectStatus: 400 },
   { name: '路由不存在 → 404', path: '/api/not-exist', expectStatus: 404 },
+  { name: '复习 result 非法 → 400', path: '/api/mistakes/1/review', method: 'POST', body: { result: 'maybe' }, expectStatus: 400 },
+  { name: '复习错词不存在 → 404', path: '/api/mistakes/99999/review', method: 'POST', body: { result: 'correct' }, expectStatus: 404 },
+  { name: '反馈枚举非法 → 400', path: '/api/progress/feedback', method: 'POST', body: { lessonNo: 7, feedback: 'bad' }, expectStatus: 400 },
+  { name: '反馈缺 lessonNo → 400', path: '/api/progress/feedback', method: 'POST', body: { feedback: 'just_right' }, expectStatus: 400 },
+  { name: '记录类型非法 → 400', path: '/api/study-records', method: 'POST', body: { recordType: 'nope' }, expectStatus: 400 },
+  { name: '快照 recent 越界 → 400', path: '/api/agent/snapshot?recent=99', expectStatus: 400 },
 ];
 
 (async () => {
@@ -105,7 +137,7 @@ const ERROR_CASES = [
   for (const c of ERROR_CASES) {
     let res;
     try {
-      res = await request(c.path);
+      res = await request(c.path, { method: c.method, body: c.body });
     } catch (err) {
       console.log(`  ✗ ${c.name.padEnd(18)} 请求失败：${err.message}`);
       fail += 1;

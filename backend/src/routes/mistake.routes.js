@@ -9,5 +9,6 @@ router.get('/', controller.list);
 router.get('/pending', controller.pending);
 router.get('/stats', controller.stats);
 router.get('/:id', controller.detail);
+router.post('/:id/review', controller.review);
 
 module.exports = router;
