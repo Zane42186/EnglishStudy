@@ -172,6 +172,36 @@ CREATE TABLE IF NOT EXISTS progress (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='学习进度';
 
 -- -----------------------------------------------------------------------------
+-- 9. lesson_exercises —— 课程练习明细（第二批新增 2026-09-29）
+--    没有它，批改结果只能停在对话里，「错了什么」在库内不可追溯。
+--    字段对齐 docs/schemas/lesson-record.schema.json 的 ExerciseRecord，
+--    并含 FE-1 的 revised_answer（开放题完整改后版，D-11 已批准）。
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS lesson_exercises (
+  id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  lesson_id        BIGINT UNSIGNED NOT NULL,
+  exercise_no      SMALLINT UNSIGNED NOT NULL COMMENT '课内题号，从 1 开始',
+  exercise_type    ENUM('fill_blank','translate','error_correction','reorder','open','choice')
+                   NOT NULL DEFAULT 'fill_blank' COMMENT '题型，与 common.schema.json 同源',
+  prompt           TEXT            NOT NULL COMMENT '题干',
+  reference_answer TEXT            NULL     COMMENT '标准答案',
+  target_point     VARCHAR(64)     NULL     COMMENT '考查知识点（设计稿无此列，建表时新增）',
+  user_answer      TEXT            NULL     COMMENT '学生作答',
+  is_correct       TINYINT(1)      NULL     COMMENT '是否答对；NULL = 未批改',
+  error_type       ENUM('grammar','spelling','punctuation','word_choice','capitalization','other')
+                   NULL COMMENT '错误类型，复用 mistakes 同一套 ENUM（同源不漂移）',
+  error_note       TEXT            NULL     COMMENT '错因批注',
+  revised_answer   TEXT            NULL     COMMENT '开放题完整改后版（与 reference_answer 语义不同）',
+  order_index      SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  created_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_exercise (lesson_id, exercise_no),
+  KEY idx_ex_lesson (lesson_id),
+  CONSTRAINT fk_ex_lesson FOREIGN KEY (lesson_id) REFERENCES lessons (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='课程练习明细';
+
+-- -----------------------------------------------------------------------------
 -- 视图：看板统计（等价 review/index.html 顶部统计卡）
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE VIEW v_dashboard_stats AS
