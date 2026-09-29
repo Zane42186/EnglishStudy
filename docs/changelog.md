@@ -13,6 +13,12 @@
   - 版本管理调整：`.gitignore` 增加临时打包目录、`.env`、`node_modules/`、`db/_snapshot.json`
 - 2026-09-29 · （本次） · `docs: add documentation skeleton` —— 新增 `docs/` 骨架（architecture / api / database / ai-teacher / skills / changelog）
 
+## 2026-09-29（阶段二：后端落地 + 前后端联调）
+
+- 2026-09-29 · 4c29813 · `feat: add backend foundation` —— 后端从设计进入实现：分层代码（config/utils/middlewares/repositories/services/controllers/routes）、`db/init.js`、`db/seed.js`、`schema.sql`（第一阶段 8 表 + 2 视图）、`docs/05-api-reference.md` 与 `06-api-requirements-amy.md`、校验脚本 `smoke-test.js` / `integration-check.js`
+- 2026-09-29 · 4377603 · `feat: connect dashboard with backend api` —— `review/index.html` 切换为后端 API 实时取数；其余 review 页面为 `build_board.py` 重建产物
+- 2026-09-29 · 5e96775 · `docs: add skill schemas and ai learning data flow` —— `docs/schemas/` 12 个 JSON Schema、Amy 教学规则与 Skill 设计、联调报告、第 7 课计划（首次由后端 API 供数）
+
 ## 2026-09-27
 
 - 2026-09-27 · 80427d7 · `docs: 第 3、4 课归档，级别升至 Level 2`
