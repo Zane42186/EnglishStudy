@@ -137,6 +137,34 @@ backend/
 - 校验失败 → 400 `VALIDATION_ERROR`，`details` 给出字段级原因。
 - 关键枚举（level、feedback、status、section_type、exercise_type）**与数据库 ENUM 同一份定义**，避免漂移。
 
+### 5.3.1 枚举变更铁律（强制，2026-09-29 实测教训）
+
+**改 ENUM 只有一条允许的方向：新值一律追加在末尾，禁止插在中间，禁止调整既有值顺序。**
+
+原因：MySQL 的 `ENUM` **按内部索引存储**，列定义里的第 N 个取值对应磁盘上的整数 N。把新值插到中间会让其后所有取值的索引整体后移，既有行**不会报错、也不会被拒绝**，而是被静默重新解释成另一个语义——属于最难排查的一类数据损坏（例如把 `grading` 读成 `feedback`）。
+
+安全做法（`section_type` 增 `objectives` / `expected_mistakes` 时的实际写法）：
+
+```sql
+-- ✅ 追加在末尾：可走 INSTANT，既有行索引不变
+ALTER TABLE lesson_sections
+  MODIFY COLUMN section_type ENUM('review','grammar','vocab_table','examples',
+                                  'homework','my_answer','grading','feedback',
+                                  'objectives','expected_mistakes') NOT NULL;
+
+-- ❌ 禁止：插在中间会让 feedback/grading 等既有值的索引错位
+-- ENUM('objectives','review','grammar',...,'feedback','expected_mistakes')
+```
+
+变更后必须**逐类型计数核对**，确认既有行没有漂移：
+
+```sql
+SELECT section_type, COUNT(*) FROM lesson_sections GROUP BY section_type;
+-- 变更前 6/6 → 变更后仍须 6/6（实测通过）
+```
+
+同源顺序（见 §5.3）：`db/schema.sql` → 库内 `ALTER TABLE` → `src/constants.js` → `docs/schemas/*.json`。反序会造成「代码接受、库拒绝」的 500。
+
 ### 5.4 安全与环境
 
 - 密钥只走 `.env`；`.env` 必须加入 `.gitignore`（现有 `.gitignore` 已忽略 `.workbuddy/` 与 `*.zip`，实现阶段需补 `.env`、`node_modules/`）。

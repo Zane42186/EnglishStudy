@@ -64,12 +64,37 @@ notes/*.md  read/*.md  wrong-words.md  progress.md
 
 ## 五、风险与回滚
 
+### 5.1 DDL 前置动作（强制，2026-09-29 定为标准流程）
+
+**执行任何 `CREATE TABLE` / `ALTER TABLE` / `DROP` / 数据修复之前，先导出一份可重放的结构备份。** 并在动手前**实测它能重放**，而不是只看文件存在。
+
+```bash
+# 1) 导出结构（纯结构，不含数据，体积小、可安全留存）
+mysqldump -h127.0.0.1 -P3306 -uroot -p"$PW" \
+  --no-data --routines --skip-comments --single-transaction \
+  english_platform > db/backup-YYYYMMDD-<用途>.sql
+
+# 2) 实测可重放（关键一步，别省）
+mysql -e "DROP DATABASE IF EXISTS <db>_bakcheck; CREATE DATABASE <db>_bakcheck DEFAULT CHARSET utf8mb4;"
+mysql <db>_bakcheck < db/backup-YYYYMMDD-<用途>.sql
+mysql -N -e "SHOW TABLES FROM <db>_bakcheck;"   # 必须等于变更前的对象集合
+mysql -e "DROP DATABASE <db>_bakcheck;"          # 清理临时库
+```
+
+约束：
+- 备份文件**不入 Git**（`.gitignore` 已含 `backend/db/backup-*.sql`）——纯结构 dump 可由 `schema.sql` 重建，入库只会制造第二真相源与 churn。
+- **每次 DDL 单独一个 commit**，只提交 `db/schema.sql`（枚举同步时加 `src/constants.js`），commit message 写明改了哪张表与**回滚 SQL**。
+- 回滚锚点优先级：远端 `main`（已 push）> 备份分支 > 本地镜像 > 结构 dump > commit message 内的回滚语句。
+
+### 5.2 风险
+
 | 风险 | 应对 |
 |---|---|
 | 迁移写入脏数据 | 导入在**单事务**内；失败整体回滚，DB 不留半成品 |
 | 解析规则与 md 不一致 | 复用 Python 已验证规则；导入后跑一致性校验（课数/词数/错词数与 `INDEX.md` 对比） |
 | 影响现有静态看板 | 后端完全独立目录，**不改不删任何现有文件**；回滚 = 删掉 `backend/` 即可 |
 | 密钥泄漏 | 密码走 `.env`；实现阶段先补 `.gitignore`（加 `.env`、`node_modules/`） |
+| **ENUM 变更静默损坏既有行** | 新值**只追加末尾**，禁止插中间；变更后逐类型计数核对。详见 `01-architecture.md` §5.3.1 |
 
 ---
 
