@@ -38,6 +38,7 @@ const RECORD_TYPE_LABEL = {
 const SECTION_TYPE = [
   'review', 'grammar', 'vocab_table', 'examples',
   'homework', 'my_answer', 'grading', 'feedback',
+  'objectives', 'expected_mistakes',
 ];
 const SECTION_TYPE_LABEL = {
   review: '复习',
@@ -48,6 +49,8 @@ const SECTION_TYPE_LABEL = {
   my_answer: '我的作答',
   grading: '批改',
   feedback: '难度反馈',
+  objectives: '本课目标',
+  expected_mistakes: '预期易错点',
 };
 
 const LESSON_STATUS = ['planned', 'taught', 'archived'];

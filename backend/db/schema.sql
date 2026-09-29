@@ -65,7 +65,9 @@ CREATE TABLE IF NOT EXISTS lesson_sections (
   id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   lesson_id    BIGINT UNSIGNED NOT NULL,
   section_type ENUM('review','grammar','vocab_table','examples',
-                    'homework','my_answer','grading','feedback') NOT NULL,
+                    'homework','my_answer','grading','feedback',
+                    'objectives','expected_mistakes') NOT NULL
+               COMMENT '课程小节类型。objectives / expected_mistakes 为 2026-09-29 S1 新增（D-10 批准）；新值一律追加在末尾，避免既有权重索引错位',
   content_md   MEDIUMTEXT      NOT NULL COMMENT '原始 Markdown 正文',
   order_index  TINYINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (id),
