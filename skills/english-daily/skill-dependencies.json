@@ -1,0 +1,179 @@
+{
+  "schema_version": "1",
+  "capabilities": [
+    "上课与笔记归档",
+    "总目录重建",
+    "复习看板生成",
+    "分级阅读文章",
+    "当日新闻改写阅读",
+    "错词复习"
+  ],
+  "dependencies": [
+    {
+      "id": "python-runtime",
+      "type": "runtime",
+      "required": true,
+      "auth_type": "none",
+      "capabilities": ["总目录重建", "复习看板生成", "错词复习"],
+      "checks": [
+        {
+          "id": "python-version",
+          "type": "python",
+          "required": true,
+          "command": "python --version",
+          "min_version": "3.10"
+        }
+      ],
+      "setup": {
+        "official_home_url": "https://www.python.org/downloads/",
+        "official_docs_url": "https://docs.python.org/zh-cn/3/",
+        "download_url": "https://www.python.org/downloads/",
+        "steps": [
+          "到官方下载页获取 3.10 及以上版本的安装包",
+          "Windows 安装时勾选 Add Python to PATH",
+          "安装后用 python --version 确认版本号"
+        ],
+        "verify": "python --version 输出 3.10 及以上，且 build_board.py 输出 BOARD_OK",
+        "security": "脚本只使用 Python 标准库，不安装第三方包，不读取任何凭据",
+        "verified_at": "2026-09-26",
+        "applies_to_version": "3.10 及以上"
+      },
+      "degradation": [
+        {
+          "capability": "总目录重建",
+          "trigger": "Python 低于 3.10 或命令不可用",
+          "fallback": "由模型直接按笔记内容维护 INDEX.md",
+          "user_input": "无需用户提供内容",
+          "limitations": "目录可能与笔记不同步，漏写风险由人工承担",
+          "evidence_label": "推断",
+          "recovery": "升级 Python，或用完整路径调用已达标的解释器后重跑 build_board.py",
+          "stop_condition": "解释器仍不可用时停止自动重建"
+        },
+        {
+          "capability": "复习看板生成",
+          "trigger": "Python 低于 3.10 或命令不可用",
+          "fallback": "不生成 review/index.html，复习改为直接阅读 md 笔记",
+          "user_input": "无需用户提供内容，但需确认是否接受没有交互看板",
+          "limitations": "无点击翻词卡、无答案遮挡、无按课检索",
+          "evidence_label": "推断",
+          "recovery": "升级 Python 或用完整路径调用已达标的解释器",
+          "stop_condition": "看板生成停止，上课与笔记归档不受影响"
+        },
+        {
+          "capability": "错词复习",
+          "trigger": "Python 不可用导致看板不更新",
+          "fallback": "模型直接读取 wrong-words.md 出题并批改",
+          "user_input": "无需用户提供内容",
+          "limitations": "看板错词页停留在上一版，交互复习不可用",
+          "evidence_label": "推断",
+          "recovery": "修复 Python 后重跑 build_board.py 刷新看板",
+          "stop_condition": "wrong-words.md 读不到时不出错词题，改为出 N-1/N-3/N-7 的题"
+        }
+      ]
+    },
+    {
+      "id": "web-search",
+      "type": "network",
+      "required": false,
+      "auth_type": "none",
+      "capabilities": ["当日新闻改写阅读"],
+      "checks": [
+        {
+          "id": "news-source-reachable",
+          "type": "url",
+          "required": false,
+          "url": "https://www.bbc.co.uk/learningenglish",
+          "method": "HEAD",
+          "expected_status": [200, 301, 302, 403, 405]
+        }
+      ],
+      "setup": {
+        "official_home_url": "https://www.bbc.co.uk/learningenglish",
+        "official_docs_url": "https://www.bbc.co.uk/learningenglish",
+        "steps": [
+          "不需要注册和登录，直接访问公开页面即可",
+          "任何可访问的英文新闻站点都可以作为替代来源",
+          "Level 4 及以上才会用到网络，Level 1-3 的阅读材料全部自编"
+        ],
+        "verify": "check_environment.py 的网络一项显示就绪；制作环境下该地址未能连通，需在本机实际访问后确认",
+        "security": "只读公开页面，不提交个人信息，不需要任何 Token 或 Key",
+        "verified_at": "2026-09-26",
+        "applies_to_version": "公开站点，无版本约束"
+      },
+      "degradation": [
+        {
+          "capability": "当日新闻改写阅读",
+          "trigger": "网络不可用或搜不到当日新闻",
+          "fallback": "改为自编同级别短文，来源一行标注为自编（当日新闻获取失败）",
+          "user_input": "无需用户提供内容",
+          "limitations": "不是真实新闻，没有时效性",
+          "evidence_label": "推断",
+          "recovery": "网络恢复后下一次上课自动恢复为当日新闻改写",
+          "stop_condition": "不得编造新闻内容，不得把非当日的新闻标注为当日新闻"
+        }
+      ]
+    }
+  ],
+  "functional_degradations": [
+    {
+      "capability": "上课与笔记归档",
+      "trigger": "学习目录不存在或不可写",
+      "fallback": "提示用户换目录或修复权限，不写入任何文件",
+      "user_input": "需要用户指定可写目录或修复权限",
+      "limitations": "修复前不产生任何笔记",
+      "evidence_label": "已验证",
+      "recovery": "运行 init_workspace.py 重建目录，或换一个可写目录并统一传入 --root",
+      "stop_condition": "目录仍不可写时停止归档，不降级为写入其他位置"
+    },
+    {
+      "capability": "总目录重建",
+      "trigger": "笔记缺少「一句话」摘要，或课号重复、文件名不符合 day-XX-YY 规范",
+      "fallback": "摘要缺失的行标注为（缺一句话摘要）继续生成；课号重复或文件名不合规则输出 BOARD_FAIL 并指出具体问题，不改动已有文件",
+      "user_input": "需要用户修正笔记中的课号或文件名",
+      "limitations": "修正前总目录与看板停在上一版",
+      "evidence_label": "已验证",
+      "recovery": "按提示改笔记的课号、文件名或补写一句话摘要，重跑 build_board.py",
+      "stop_condition": "连续两次重跑仍失败时停止自动重建，改为人工排查"
+    },
+    {
+      "capability": "复习看板生成",
+      "trigger": "build_board.py 输出 BOARD_FAIL",
+      "fallback": "提示笔记格式问题所在，修正笔记后重跑，不手工改 INDEX.md 和 index.html",
+      "user_input": "需要用户确认是否修改笔记格式",
+      "limitations": "修正前看板停在上一版",
+      "evidence_label": "已验证",
+      "recovery": "按 BOARD_FAIL 的原因修正笔记小节标题或文件名后重跑",
+      "stop_condition": "两次重跑仍失败时停止重建，改为人工排查"
+    },
+    {
+      "capability": "分级阅读文章",
+      "trigger": "当前级别没有可用素材，或文章超出级别词数与句长上限",
+      "fallback": "改用自编同级别短文，并在来源一行注明为自编",
+      "user_input": "无需用户提供内容",
+      "limitations": "题材重复性可能提高",
+      "evidence_label": "推断",
+      "recovery": "素材恢复后自动按级别取材",
+      "stop_condition": "不得把超出级别上限的原文直接交给用户"
+    },
+    {
+      "capability": "当日新闻改写阅读",
+      "trigger": "联网搜索没有返回可核实的当日英文新闻",
+      "fallback": "改为自编同级别短文，来源写自编（当日新闻获取失败）",
+      "user_input": "无需用户提供内容",
+      "limitations": "无时效性",
+      "evidence_label": "推断",
+      "recovery": "网络或搜索恢复后下一次上课自动恢复",
+      "stop_condition": "不得编造新闻，不得用旧新闻冒充当日新闻"
+    },
+    {
+      "capability": "错词复习",
+      "trigger": "wrong-words.md 缺失或为空",
+      "fallback": "只从 N-1、N-3、N-7 课出题，看板错词页显示为空表",
+      "user_input": "无需用户提供内容",
+      "limitations": "缺少针对性错题复习",
+      "evidence_label": "已验证",
+      "recovery": "批改后按模板追加错词行，下次重建即可出现在看板",
+      "stop_condition": "错词本格式错误时不猜测内容，提示用户按模板补写"
+    }
+  ]
+}
