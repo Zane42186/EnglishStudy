@@ -30,7 +30,12 @@ function baseConfig() {
 }
 
 async function summarize(conn) {
-  const tables = ['students', 'lessons', 'lesson_sections', 'vocabulary', 'lesson_vocabulary', 'mistakes', 'study_records', 'progress'];
+  // 覆盖全部 13 张业务表：少一张就能在 DB_INIT_OK 的清单里立刻看出来
+  const tables = [
+    'students', 'lessons', 'lesson_sections', 'vocabulary', 'lesson_vocabulary',
+    'mistakes', 'study_records', 'progress', 'lesson_exercises', 'mistake_events',
+    'readings', 'reading_pieces', 'reading_questions',
+  ];
   const counts = {};
   for (const t of tables) {
     const [[row]] = await conn.query(`SELECT COUNT(*) AS cnt FROM \`${t}\``);
