@@ -188,13 +188,17 @@ md 原文打回 seed 的简化版。实测重跑 `db:init` 后 `lesson_sections`
 `study_records.payload`、`lessons` 四处 md5 **全部未变**。
 **正确顺序**：`db:init` → `db:export` → `db:import`（首次建库）；日常只跑后两步。
 
-**逐项验收（`npm run db:compare`）**：`match=13 diff=1 gap=1`
+**逐项验收（`npm run db:compare`）**：`match=11 diff=3 gap=1`（15 项总数不变）
+
+> 2026-09-30 复核：计数由 `match=13 diff=1 gap=1` 变为 `match=11 diff=3 gap=1`，**变化全部来自 `mistakes`**——
+> Amy 新增 4 条错词 + 8 条文本改净后，错词本 23 vs 库内 19 同时触发「条数 / status 分布 / `wrong_text` 集合」三条差异。
+> **readings 三项（4 天 / 11 篇 / 22 题）始终全绿**，`lesson_sections` / `lesson_exercises` 亦全绿。
 
 | 项 | 结论 | 说明 |
 |---|---|---|
 | lessons 课数 / `lesson_date` | ✅ | 「同日沿用当日日期」规则已实现：md 无日期的第 2、4 课沿用上一课日期，与库内一致 |
 | vocabulary / lesson_vocabulary | ✅ | 51 / 52 |
-| mistakes 条数 / status 分布 | ✅ | 19；passed 4 / pending 15 |
+| mistakes 条数 / status 分布 | ⚠️ 已知预期 | 库内 19（passed 4 / pending 15）vs md 23（passed 4 / pending 19）。**已决：维持现状**（后端不写 `mistakes`，由 Amy 人工/一次性迁移） |
 | `mistakes.wrong_text` 集合 | ⚠️ **8 条 + 缺 4 行** | ① 库内 8 行仍是旧格式（带括号批注，如 `play game（第 3 次犯：…）`、`zane（人名小写）`），md 已按「只写错误形式本身」改为纯净文本；② md 比库内多 4 行（Amy 新增）。**按「以错词本为准」不自动写库**，待 amy 复核 |
 | lesson_sections 条数 | ✅ | 51 |
 | lesson_exercises 条数 / 题块拆分 / 批改覆盖 | ✅ | 34；homework 25 / backfill 9；`is_correct` 无 NULL，答错 10 条 |
@@ -213,7 +217,8 @@ md 原文打回 seed 的简化版。实测重跑 `db:init` 后 `lesson_sections`
   **② 8 行 `wrong_text` 仍是旧格式**（库内带括号批注，如 `zane（人名小写）` / `Do you like coffee.（句号结尾）` /
   `play game（第 3 次犯：…）` / `I am very busy.（题目要求…）` / `those are their bags.（句首小写）` /
   `at yesterday（…）` / `What were you yesterday.（…）` / `what do you do?（…）`，md 已按「只写错误形式本身」改为纯净文本）。
-  **按「以错词本为准、不自动写库」原则处理**，须 amy 复核后由人工或一次性迁移落库。
+  **处置已决（2026-09-30，项目负责人）：维持现状** —— 由 Amy 落地时**人工 / 一次性迁移**写入，**后端不碰**；
+  `db:import` 不写 `mistakes` 的约定不变。故 `db:export` 报 23 / 库内 19 属**已知预期差异**（`db:compare` 的 3 条差异同源）。
 
 **新增待办**
 

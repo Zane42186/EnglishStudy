@@ -326,7 +326,10 @@ ALTER TABLE reading_pieces DROP COLUMN source_url;
 - [ ] `lesson_exercises.error_type` 全为 NULL（34/34）——待 amy 统一 `records.mistakeCandidates` 与错词本措辞后逐题判定
 - [ ] **`mistakes` 全表待与错词本对齐**（库内 19 vs `wrong-words.md` 23）：① **缺 4 行**（`work.So` /
   `intrusting` / `Our teacher is Amy together.` / `Now, My`）；② **8 行 `wrong_text` 仍带括号批注**
-  （库内为旧格式，如 `zane（人名小写）`，md 已按新规则改为 `zane`）。**均需 amy 定夺，后端不自动写库**
+  （库内为旧格式，如 `zane（人名小写）`，md 已按新规则改为 `zane`）。
+  **已决（2026-09-30，项目负责人）：维持现状** —— `mistakes` 由 Amy 落地时**人工 / 一次性迁移**写入，
+  **后端不碰**（`db:import` 不写 `mistakes` 的既有约定不变）。故 `db:export` 报 23、库内 19 是**已知预期差异**，
+  `db:compare` 的 3 条差异同源，均**不是缺陷**。
 - [ ] 长期设计中的其余表（知识点地图 `knowledge_points`、Skill 运行记录等）
 - [ ] 备份与恢复策略（学习数据为长期资产，需明确频率与存放位置）
 - [ ] `schema.full.design.sql` 同步业务唯一键 `uk_mistakes_text`、`self_check`、`block_kind` / `block_no` 与 `backfill`，并把 `readings` 三表的 `users` 命名改为 `students`；该设计稿仍用已废弃的 `courses`/`user_*` 命名，且 `exercises` 表还缺 `target_point` / `revised_answer`，**已落后实际表 7 个字段**，需整体重审后再动

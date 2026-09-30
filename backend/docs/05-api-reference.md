@@ -617,3 +617,77 @@ POST /api/readings?studentId=1   （levelCode 非法 + pieces 为空）
 | 路径前缀 | `/api/v1` | `/api`（第一阶段不带版本号） |
 
 > 影响面：前端工程师与 Skill 设计师按**本文档**对接；`03-api-contract.md` 保留作为长期契约参考。
+
+---
+
+## 六、前端对接确认项（be-dev 答复，2026-09-30）
+
+对应 `docs/plans/frontend-plan.md` §11.3 的 **V1 / C6 / C8 / C9 / C10**。
+
+### V1 · 正常链路真机验证 ✅ 已跑通 26/26
+
+- 方式：启动后端（4000）→ `NODE_PATH=<workspace>/node_modules node .workbuddy/tmp/e2e-reading.js up`
+  （Playwright + 本机 Edge，`file://` 直开页面；脚本已由前端备好）。
+- 结果：**pass=26 fail=0**（§11.2 写的「约 26 项」吻合）。关键读数：
+  - 看板 `阅读篇数 = 11`、`title = 读了 4 天 ｜ 最近 2026-09-29 ｜ 连续 4 天`、无错误横幅
+  - 阅读页默认 `2026-09-29`、当天渲染 3 篇、计数 `第 1 / 3 篇`、源文件 `read\2026-09-29-read.md`、
+    `无 iframe`、同页目录 4 条 + **唯一** `.on` 高亮、F8 提示可见（未生成分支，因今天 09-30 尚未读）
+  - 理解题折叠 + 作答框、作答 localStorage 刷新留存、箭头/键盘翻页与禁用态、`#2026-09-26` 深链 2 篇
+  - **逐日遍历 4 天累计 11 篇 = `stats.pieceCount`**（内容零丢失）
+- 截图：`.workbuddy/tmp/r1-board.png`、`.workbuddy/tmp/r1-reading.png`。
+- 性质说明：**该验证不写库**（仅浏览器 localStorage）；跑完读数仍为 `readings/reading_pieces/reading_questions = 4/11/22`。
+- 错误态（后端离线）此前已 13/13。
+
+### C6 · `questions[].answer === null` 时只出题干、不给「看答案」 → **与教学口径一致，确认**
+
+| 层面 | 事实 |
+|---|---|
+| 契约 | `reading-set.schema.json` 的 `ReadingQuestion.required = [questionNo, question, answer]` 且 `answer.minLength = 1` ⇒ **答案必填非空** |
+| 写入 | `POST /api/readings` 遇空/缺 `answer` → **400**（`ReadingSet 校验失败` + 字段级明细） |
+| 数据 | 库内实测 **22/22 题均有答案，0 条为空** |
+
+- 结论：`answer === null` 属**绕过契约的脏数据**（人工 SQL 直改等）。前端「只出题干、不给『看答案』」是**正确的防御式渲染**，符合「不伪造数据」原则 → **保持不变**。
+- 建议（可选）：把该分支当**异常信号**，文案与正常态区分开（如「本题答案缺失（数据异常）」），便于暴露脏数据。
+- **列保持 nullable 是有意的**（读路径优雅降级）；**不建议**改成 `NOT NULL`，以免未来「先答后给答案」的教学形态被表结构卡死。
+
+### C8 · `POST /api/readings` 现已开放（原「未开放」前提作废）
+
+- 2026-09-30 已实现并开放（`f969e9f` / `5932365` / `bbd96b1`），契约见本文档 **§27**。
+- 「**本轮前端不需要写入口**」这一结论不受影响；但 §11.3 中 C8 的**理由已失效**，
+  状态应由 `⏳ 待定` 改为 `✅ 已开放（前端本轮不接写）`。
+- 若后续要接写入口：请求体即 `ReadingSet`；同日已存在返回 **409**，重出需显式 `?force=true`；
+  400 的字段级明细可直接交给 `UI.partError` 渲染。
+
+### C9 · 阅读数据 md 与库冲突以哪边为准 → **md 为准；但经 POST 写入的天以库为准**
+
+- **方向单向 `md → DB`**：`read/*.md` 是**作者源**（教学侧产出），库是**服务副本**。
+  同一日期冲突 → **以 md 为准**，收敛手段是重跑 `npm run db:export` → `db:import`
+  （**幂等**、可 `--dry-run` 预演），**不手改库**。
+- **但存在第二条写路径**：`POST /api/readings` **直接写库、不落 md**。对「经 POST 新写、`read/` 无对应文件」的那些天，
+  **库是唯一事实**，不存在「与 md 冲突」。
+- 判定规则：该日期 `read/*.md` 存在 → md 为准；只在库（POST 写入）→ 库为准。
+  两者**不会共存**：写入侧由「当天不覆盖 **409**」与导入器幂等 upsert 挡住。
+- **当前实测无冲突**：`npm run db:compare` 对 readings 三项全绿（4 天 / 11 篇 / 22 题与 md 一致）。
+- **前端无需处理**：前端只读 API/库、不读 md；这纯粹是**后端 / 教学侧的写入纪律**。
+
+### C10 · 首页取值口径 → **确认，字段语义与文案一致**
+
+| 字段 | 语义 | 实测值 | 前端用法 |
+|---|---|---|---|
+| `pieceCount` | **总篇数** | 11 | 文案「阅读篇数」✅ |
+| `totalDays` | **阅读日数** | 4 | `title`「读了 N 天」✅ |
+| `currentStreakDays` | **截至 `lastReadDate`** 的连续天数（**不要求 `lastReadDate` = 今天**） | 4 | `title`「连续 N 天」✅ |
+| `lastReadDate` | 最近阅读日 | 2026-09-29 | 「今天是否已读」自判（见 C7） |
+| `today` | **服务端**今日（APP 时区） | 2026-09-30 | 「今日」判定**请用这个**，勿用浏览器本地时间 |
+
+- 现状实测：`阅读篇数 = 11`、`title = 读了 4 天 ｜ 最近 2026-09-29 ｜ 连续 4 天` —— **与 D3 暂定一致，确认无误**。
+- ⚠️ **唯一提醒**：今天未读时（`lastReadDate !== today`），`currentStreakDays` 仍是「截至最近阅读日」的值，**不会因今天没读而归零**。
+  若首页想表达「今天断了」，需另加判断，避免 `连续 N 天` 与「今天未读」并列产生歧义。
+
+### 附：V1 期间后端侧附带发现
+
+`npm run db:export` 的 `warnings=1` 唯一一条为
+`exercises.errorType 需由 records.mistakeCandidates 与错词本对账后回填` ——
+即 **`lesson_exercises.error_type` 0/34 的已知预期状态**（待 amy 对账），非新问题。
+`db:compare` 计数由 `match=13 diff=1 gap=1` 变为 `match=11 diff=3 gap=1`，
+因 Amy 新增 4 条错词 + 8 条文本改净，使错词本 23 vs 库内 19 同时触发「条数 / status 分布 / wrong_text 集合」三条差异（**总项数仍 15**）。
