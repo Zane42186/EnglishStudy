@@ -66,8 +66,8 @@ CREATE TABLE IF NOT EXISTS lesson_sections (
   lesson_id    BIGINT UNSIGNED NOT NULL,
   section_type ENUM('review','grammar','vocab_table','examples',
                     'homework','my_answer','grading','feedback',
-                    'objectives','expected_mistakes') NOT NULL
-               COMMENT '课程小节类型。objectives / expected_mistakes 为 2026-09-29 S1 新增（D-10 批准）；新值一律追加在末尾，避免既有权重索引错位',
+                    'objectives','expected_mistakes','backfill') NOT NULL
+               COMMENT '课程小节类型。objectives / expected_mistakes 为 2026-09-29 S1 新增（D-10 批准）；backfill 为 2026-09-30 新增（补漏块整段正文，见 docs/skills.md 2.5）；新值一律追加在末尾，避免既有权重索引错位',
   content_md   MEDIUMTEXT      NOT NULL COMMENT '原始 Markdown 正文',
   order_index  TINYINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (id),
@@ -187,7 +187,11 @@ CREATE TABLE IF NOT EXISTS progress (
 CREATE TABLE IF NOT EXISTS lesson_exercises (
   id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   lesson_id        BIGINT UNSIGNED NOT NULL,
-  exercise_no      SMALLINT UNSIGNED NOT NULL COMMENT '课内题号，从 1 开始',
+  block_kind       ENUM('homework','backfill') NOT NULL DEFAULT 'homework'
+                   COMMENT '题集类型：作业 / 补漏块（同课两套题号命名空间，故必须参与唯一键）',
+  block_no         SMALLINT UNSIGNED NOT NULL DEFAULT 0
+                   COMMENT '补漏块编号 N；0 = 作业题，不属于补漏块。必须 NOT NULL——MySQL 唯一键不约束 NULL，留空会失去去重能力',
+  exercise_no      SMALLINT UNSIGNED NOT NULL COMMENT '块内题号，从 1 开始（作业与补漏块各自独立编号）',
   exercise_type    ENUM('fill_blank','translate','error_correction','reorder','open','choice')
                    NOT NULL DEFAULT 'fill_blank' COMMENT '题型，与 common.schema.json 同源',
   prompt           TEXT            NOT NULL COMMENT '题干',
@@ -204,7 +208,7 @@ CREATE TABLE IF NOT EXISTS lesson_exercises (
   created_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uk_exercise (lesson_id, exercise_no),
+  UNIQUE KEY uk_exercise (lesson_id, block_kind, block_no, exercise_no),
   KEY idx_ex_lesson (lesson_id),
   CONSTRAINT fk_ex_lesson FOREIGN KEY (lesson_id) REFERENCES lessons (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='课程练习明细';
@@ -242,6 +246,52 @@ CREATE TABLE IF NOT EXISTS mistake_events (
 -- -----------------------------------------------------------------------------
 
 -- -----------------------------------------------------------------------------
+-- 11. readings / reading_pieces / reading_questions —— 阅读（第三批新增 2026-09-30）
+--     数据源：read/YYYY-MM-DD-read.md；写库器 backend/db/migration/import_json.js。
+--     一天一行（uk_reading_day 提供幂等键），一篇一行，一题一行。
+--     注意：设计稿 schema.full.design.sql §10—§12 用的是已废弃的 users/user_id 命名，
+--     此处按在线约定改为 students/student_id，重跑 db:init 也能建出这三张表。
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS readings (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  student_id  BIGINT UNSIGNED NOT NULL,
+  read_date   DATE            NOT NULL COMMENT '阅读日（一天一行）',
+  source_file VARCHAR(64)     NULL COMMENT '来源 md 文件名，如 2026-09-29-read.md',
+  created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_reading_day (student_id, read_date),
+  CONSTRAINT fk_reading_student FOREIGN KEY (student_id) REFERENCES students (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='阅读日（一天一行）';
+
+CREATE TABLE IF NOT EXISTS reading_pieces (
+  id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  reading_id       BIGINT UNSIGNED NOT NULL,
+  piece_no         SMALLINT UNSIGNED NOT NULL COMMENT '当天第几篇，从 1 开始',
+  level_code       VARCHAR(16)     NULL COMMENT '如 Level 1',
+  source           VARCHAR(128)    NULL COMMENT '自编 / 新闻来源',
+  title            VARCHAR(255)    NULL,
+  body_md          MEDIUMTEXT      NOT NULL COMMENT '正文（英中对照，逐段）',
+  vocabulary_notes TEXT            NULL COMMENT '生词注释',
+  word_count       SMALLINT UNSIGNED NULL COMMENT '英文词数（导出时计算）',
+  order_index      SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_piece (reading_id, piece_no),
+  CONSTRAINT fk_piece_reading FOREIGN KEY (reading_id) REFERENCES readings (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='阅读篇';
+
+CREATE TABLE IF NOT EXISTS reading_questions (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  piece_id    BIGINT UNSIGNED NOT NULL,
+  question_no SMALLINT UNSIGNED NOT NULL COMMENT '篇内题号，从 1 开始',
+  question    TEXT            NOT NULL,
+  answer      TEXT            NULL,
+  order_index SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_rq (piece_id, question_no),
+  CONSTRAINT fk_rq_piece FOREIGN KEY (piece_id) REFERENCES reading_pieces (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='阅读理解题';
+
+-- -----------------------------------------------------------------------------
 -- 视图：看板统计（等价 review/index.html 顶部统计卡）
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE VIEW v_dashboard_stats AS
@@ -251,7 +301,10 @@ SELECT
   (SELECT COUNT(*) FROM lessons l WHERE l.student_id = s.id)                    AS lesson_count,
   (SELECT p.current_level FROM progress p WHERE p.student_id = s.id)           AS current_level,
   (SELECT COUNT(*) FROM vocabulary v WHERE v.student_id = s.id)                AS vocab_total,
-  (SELECT COUNT(*) FROM mistakes m WHERE m.student_id = s.id AND m.status='pending') AS pending_mistake_count
+  (SELECT COUNT(*) FROM mistakes m WHERE m.student_id = s.id AND m.status='pending') AS pending_mistake_count,
+  (SELECT COUNT(*) FROM reading_pieces rp
+     JOIN readings r ON r.id = rp.reading_id WHERE r.student_id = s.id)             AS reading_piece_count,
+  (SELECT COUNT(*) FROM readings r WHERE r.student_id = s.id)                       AS reading_day_count
 FROM students s;
 
 -- -----------------------------------------------------------------------------

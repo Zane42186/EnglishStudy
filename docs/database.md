@@ -25,7 +25,7 @@
 - **连接**：`127.0.0.1:3306`，账号配置在 `backend/.env`（不入版本库）
 - **初始化命令**：`cd backend && npm run db:init`（**幂等，可安全重复执行**）；`npm run db:reset` 会先删库再重建
 
-### 已建表（10 张）与实测行数
+### 已建表（13 张）与实测行数
 
 | 表 | 行数 | 说明 |
 |---|---|---|
@@ -39,10 +39,13 @@
 | `progress` | 1 | 学习进度（Level 2 · 第 6 课） |
 | `lesson_exercises` | 0 | 练习记录（P0 表，结构已建、待写入；含 `self_check` 列，2026-09-30 补） |
 | `mistake_events` | 0 | 错词事件流水（P0 表，幂等键 `uk_me_client`，待写入） |
+| `readings` | 0 | 阅读日（一天一行，`uk_reading_day`，2026-09-30 建；待回填 4 天） |
+| `reading_pieces` | 0 | 阅读篇（`uk_piece`，待回填 11 篇） |
+| `reading_questions` | 0 | 阅读理解题（`uk_rq`，待回填 22 题） |
 
 ### 已建视图（2 个）
 
-- `v_dashboard_stats` —— 看板统计（课程数 / 当前级别 / 词汇总数 / 未过关错词数）
+- `v_dashboard_stats` —— 看板统计（课程数 / 当前级别 / 词汇总数 / 未过关错词数 / **阅读篇数 `reading_piece_count`** / **阅读天数 `reading_day_count`**，后两列 2026-09-30 追加）
 - `v_pending_mistakes` —— 未过关错词（等价 `digest.md` 的「待复习」段）
 
 ---
@@ -53,9 +56,12 @@
 - **`lesson_sections.content_md`** 用 MEDIUMTEXT 保存原始 Markdown，**不丢信息**。
 - **`mistakes`** 含掌握度字段：`streak`（连续答对，≥2 判过关）、`wrong_count`（累计犯错）、`status`（pending/passed）、`error_type`（6 类）。
   - 业务唯一键 **`uk_mistakes_text (student_id, wrong_text)`** —— 同一学生下「错误点」唯一。这是 `seed.js` 的 `INSERT ... ON DUPLICATE KEY UPDATE` **能真正触发幂等**的前提（见第五节 DQ1）。
+- **`lesson_exercises`** 以 `uk_exercise (lesson_id, block_kind, block_no, exercise_no)` 唯一 —— `exerciseNo` 是**块内**题号，作业与补漏块各自从 1 开始，必须带上 `block_kind` + `block_no` 才唯一。
+- **`lesson_sections.section_type`** 共 11 值，`backfill`（补漏块整段原文）为 2026-09-30 追加值。
 - **`mistake_events`** 以 `uk_me_client (student_id, client_event_id)` 做写入幂等（写接口重复提交只记一次）。
 - **`lesson_exercises.self_check`**（`VARCHAR(128) NULL`）—— 本题点名的强制自查项。此前 `exercise-set.schema.json` 的 `ExerciseItem.selfCheck` 在 `LessonRecord.ExerciseRecord` 与表中**都没有对应字段**，归档时会**静默丢弃**（2026-09-30 已补列闭合，见第六节）。
-- **外键删除策略统一 `RESTRICT`**：学习数据只增不删。
+- **`readings` / `reading_pieces` / `reading_questions`** 三层：「阅读日 → 当天第几篇 → 篇内第几题」，幂等键依次是 `uk_reading_day (student_id, read_date)` / `uk_piece (reading_id, piece_no)` / `uk_rq (piece_id, question_no)`。`reading_pieces.body_md` 存**英中对照逐段**原文（英文行 + `> 中文` 行），`vocabulary_notes` 存「生词注释」整行，`word_count` 由写库器按英文词数计算。设计稿 `schema.full.design.sql` §10—§12 用的是已废弃的 `users` / `user_id`，**以本文件与 `schema.sql` 的 `students` / `student_id` 为准**。
+- **外键删除策略统一 `RESTRICT`**：学习数据只增不删（阅读三表同样不带 `ON DELETE CASCADE`；重导入时由写库器在同一事务内显式删除子行）。
 - 枚举与 `backend/src/constants.js` **同源**，改枚举必须先改表（`lesson_sections.section_type` 已含 `objectives` / `expected_mistakes`）。
 
 ### 口径说明（2026-09-30 更新，看板已改为纯 API 驱动）
@@ -134,10 +140,141 @@
 
 ---
 
-## 七、待补充（TODO）
+## 七、题块与补漏块归置（2026-09-30 已执行）
 
-- [ ] 自动迁移脚本 `export_md_to_json.py` + `import_json.js`（M2）
-- [ ] 长期设计中的其余 8 张表（知识点、阅读、Skill 运行记录等）
-- [ ] 写接口对应的数据变更路径已落地（错词连击、难度反馈升降级、学习记录写入）；待接的是 md→DB 归档
+**问题**：笔记里的 `### 补漏块 N · <主题>` 是**与 `### 作业` 同构的第二份题集**（整段就是题干列表）。它与作业**共用一套题号**（各自从 1 开始），因此 `lesson_exercises` 原唯一键 `uk_exercise (lesson_id, exercise_no)` 会撞车；且补漏块原文本无对应 `SectionType`，会被解析链静默丢弃。
+
+**修复（两项 DDL 已执行，口径见 `docs/skills.md` 2.5）**：
+
+```sql
+ALTER TABLE lesson_exercises
+  ADD COLUMN block_kind ENUM('homework','backfill') NOT NULL DEFAULT 'homework' AFTER lesson_id,
+  ADD COLUMN block_no   SMALLINT UNSIGNED NOT NULL DEFAULT 0
+                        COMMENT '补漏块编号 N；0 = 作业题，不属于补漏块' AFTER block_kind,
+  DROP INDEX uk_exercise,
+  ADD UNIQUE KEY uk_exercise (lesson_id, block_kind, block_no, exercise_no);
+
+ALTER TABLE lesson_sections
+  MODIFY COLUMN section_type ENUM('review','grammar','vocab_table','examples',
+                                  'homework','my_answer','grading','feedback',
+                                  'objectives','expected_mistakes','backfill') NOT NULL;
+```
+
+- **`block_no` 必须 NOT NULL、作业取 0**：MySQL 唯一键**不约束 NULL**，若作业行留空就失去去重能力。
+- **`backfill` 追加在枚举末尾**：MySQL 按内部索引存储，插中间会让既有行静默错位。
+- **回滚 SQL**：
+  ```sql
+  ALTER TABLE lesson_sections
+    MODIFY COLUMN section_type ENUM('review','grammar','vocab_table','examples',
+                                    'homework','my_answer','grading','feedback',
+                                    'objectives','expected_mistakes') NOT NULL;
+  ALTER TABLE lesson_exercises
+    DROP INDEX uk_exercise,
+    ADD UNIQUE KEY uk_exercise (lesson_id, exercise_no),
+    DROP COLUMN block_no,
+    DROP COLUMN block_kind;
+  ```
+  > ⚠️ 回滚前必须确认表内 `block_kind='backfill'` 的行已清空，否则新唯一键会因重复 `exercise_no` 失败。
+
+**执行记录**：
+
+- 变更前备份：`backend/db/backup-20260930-before-blockkind.sql`（**含数据**，8 条 INSERT；已实测可在临时库重放 → 12 表 / `lesson_sections`=12 / `mistakes`=19）。
+- 验证：`uk_exercise` 实际为 `lesson_id, block_kind, block_no, exercise_no`（4 列）；`section_type` 末尾为 `backfill`；数据计数未变（sections 12 / exercises 0 / mistakes 19 / lessons 6）。
+- 端到端：`write-api-check.js` 的 D2 段（SC1—SC8）——同课同题号分别落 `homework#0` 与 `backfill#1` 可共存、`selfCheck` 可读回、同块重复题号被 `ER_DUP_ENTRY` 拦下。
+- 三处枚举同源已同步：`backend/db/schema.sql` / `backend/src/constants.js`（新增 `EXERCISE_BLOCK_KIND`）/ `docs/schemas/common.schema.json`（`ExerciseBlockKind`）。
+
+### 阅读表（P1）已于 2026-09-30 建成
+
+`read/` 目录有 4 天 11 篇，`readings` / `reading_pieces` / `reading_questions` 三张表**已于 2026-09-30 创建**（见第八节）。设计稿见 `schema.full.design.sql` §10—§12，但用的是已废弃的 `users` 命名，实际建表按 `students` 重写；`schema.sql` 已同步，`npm run db:init` 在新库也能建出这三张表。
+
+---
+
+## 八、阅读三表（2026-09-30 已执行）
+
+**目的**：`read/*.md` 的 4 天 11 篇阅读此前只存在于文件里，前端「阅读篇数」恒为 `—`（R1）；快照 `readingCatalog` 因「依赖尚未建表」被列入 `degradation.affected`。建表后两者都有数据来源。
+
+**DDL（已执行，同时写入 `backend/db/schema.sql`）**：
+
+```sql
+CREATE TABLE IF NOT EXISTS readings (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  student_id  BIGINT UNSIGNED NOT NULL,
+  read_date   DATE            NOT NULL COMMENT '阅读日（一天一行）',
+  source_file VARCHAR(64)     NULL COMMENT '来源 md 文件名，如 2026-09-29-read.md',
+  created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_reading_day (student_id, read_date),
+  CONSTRAINT fk_reading_student FOREIGN KEY (student_id) REFERENCES students (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='阅读日（一天一行）';
+
+CREATE TABLE IF NOT EXISTS reading_pieces (
+  id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  reading_id       BIGINT UNSIGNED NOT NULL,
+  piece_no         SMALLINT UNSIGNED NOT NULL COMMENT '当天第几篇，从 1 开始',
+  level_code       VARCHAR(16)     NULL COMMENT '如 Level 1',
+  source           VARCHAR(128)    NULL COMMENT '自编 / 新闻来源',
+  title            VARCHAR(255)    NULL,
+  body_md          MEDIUMTEXT      NOT NULL COMMENT '正文（英中对照，逐段）',
+  vocabulary_notes TEXT            NULL COMMENT '生词注释',
+  word_count       SMALLINT UNSIGNED NULL COMMENT '英文词数（导出时计算）',
+  order_index      SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_piece (reading_id, piece_no),
+  CONSTRAINT fk_piece_reading FOREIGN KEY (reading_id) REFERENCES readings (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='阅读篇';
+
+CREATE TABLE IF NOT EXISTS reading_questions (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  piece_id    BIGINT UNSIGNED NOT NULL,
+  question_no SMALLINT UNSIGNED NOT NULL COMMENT '篇内题号，从 1 开始',
+  question    TEXT            NOT NULL,
+  answer      TEXT            NULL,
+  order_index SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_rq (piece_id, question_no),
+  CONSTRAINT fk_rq_piece FOREIGN KEY (piece_id) REFERENCES reading_pieces (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='阅读理解题';
+
+-- 看板视图追加两列（追加在末尾，属加法变更）
+CREATE OR REPLACE VIEW v_dashboard_stats AS
+SELECT s.id AS student_id, s.name AS student_name,
+  (SELECT COUNT(*) FROM lessons l WHERE l.student_id = s.id)                    AS lesson_count,
+  (SELECT p.current_level FROM progress p WHERE p.student_id = s.id)           AS current_level,
+  (SELECT COUNT(*) FROM vocabulary v WHERE v.student_id = s.id)                AS vocab_total,
+  (SELECT COUNT(*) FROM mistakes m WHERE m.student_id = s.id AND m.status='pending') AS pending_mistake_count,
+  (SELECT COUNT(*) FROM reading_pieces rp
+     JOIN readings r ON r.id = rp.reading_id WHERE r.student_id = s.id)         AS reading_piece_count,
+  (SELECT COUNT(*) FROM readings r WHERE r.student_id = s.id)                   AS reading_day_count
+FROM students s;
+```
+
+**回滚 SQL**：
+
+```sql
+DROP TABLE IF EXISTS reading_questions;
+DROP TABLE IF EXISTS reading_pieces;
+DROP TABLE IF EXISTS readings;
+CREATE OR REPLACE VIEW v_dashboard_stats AS
+SELECT s.id AS student_id, s.name AS student_name,
+  (SELECT COUNT(*) FROM lessons l WHERE l.student_id = s.id)                    AS lesson_count,
+  (SELECT p.current_level FROM progress p WHERE p.student_id = s.id)           AS current_level,
+  (SELECT COUNT(*) FROM vocabulary v WHERE v.student_id = s.id)                AS vocab_total,
+  (SELECT COUNT(*) FROM mistakes m WHERE m.student_id = s.id AND m.status='pending') AS pending_mistake_count
+FROM students s;
+```
+
+**执行记录**：
+
+- 变更前备份：`backend/db/backup-20260930-before-readings.sql`（**含数据**，10 `CREATE TABLE` + 8 `INSERT INTO`，可重放）。
+- 验证：表数 10 → **13**；`uk_reading_day` = `student_id, read_date`、`uk_piece` = `reading_id, piece_no`、`uk_rq` = `piece_id, question_no`（均按 `seq_in_index` 核对）；既有数据计数与 `mistakes` md5（`7f9ad9e713d4ed3cfd0e7f7808cfd5d2`）**均未变**。
+- 视图读回：`lesson_count=6 / current_level=Level 2 / vocab_total=51 / pending_mistake_count=15 / reading_piece_count=0 / reading_day_count=0`（后两列为 0 是回填前预期值）。
+
+---
+
+## 九、待补充（TODO）
+
+- [ ] 自动迁移脚本已落地为**只读**的 `export_md_to_json.py` + `compare_snapshot.js`（`backend/db/migration/`）；**写库器 `import_json.js` 待建**（M2 历史回填第二步）
+- [x] `readings` / `reading_pieces` / `reading_questions` 三张表（P1，见第八节，2026-09-30 已建）
+- [ ] 长期设计中的其余表（知识点地图、Skill 运行记录等）
 - [ ] 备份与恢复策略（学习数据为长期资产，需明确频率与存放位置）
-- [ ] `schema.full.design.sql` 同步业务唯一键 `uk_mistakes_text` 与 `self_check`；注意该设计稿仍用已废弃的 `courses`/`user_*` 命名，且 `exercises` 表还缺 `target_point` / `revised_answer`，**已落后实际表 5 个字段**，需整体重审后再动
+- [ ] `schema.full.design.sql` 同步业务唯一键 `uk_mistakes_text`、`self_check`、`block_kind` / `block_no` 与 `backfill`；注意该设计稿仍用已废弃的 `courses`/`user_*` 命名，且 `exercises` 表还缺 `target_point` / `revised_answer`，**已落后实际表 7 个字段**，需整体重审后再动
