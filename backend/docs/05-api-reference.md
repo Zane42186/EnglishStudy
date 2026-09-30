@@ -684,10 +684,14 @@ POST /api/readings?studentId=1   （levelCode 非法 + pieces 为空）
 - ⚠️ **唯一提醒**：今天未读时（`lastReadDate !== today`），`currentStreakDays` 仍是「截至最近阅读日」的值，**不会因今天没读而归零**。
   若首页想表达「今天断了」，需另加判断，避免 `连续 N 天` 与「今天未读」并列产生歧义。
 
-### 附：V1 期间后端侧附带发现
+### 附：V1 期间后端侧附带发现（2026-09-30 已全部闭环）
 
-`npm run db:export` 的 `warnings=1` 唯一一条为
-`exercises.errorType 需由 records.mistakeCandidates 与错词本对账后回填` ——
-即 **`lesson_exercises.error_type` 0/34 的已知预期状态**（待 amy 对账），非新问题。
-`db:compare` 计数由 `match=13 diff=1 gap=1` 变为 `match=11 diff=3 gap=1`，
-因 Amy 新增 4 条错词 + 8 条文本改净，使错词本 23 vs 库内 19 同时触发「条数 / status 分布 / wrong_text 集合」三条差异（**总项数仍 15**）。
+V1 联调时，`npm run db:export` 报 `warnings=1`
+（`exercises.errorType 需由 records.mistakeCandidates 与错词本对账后回填`），
+`db:compare` 计数由 `match=13 diff=1 gap=1` 变为 `match=11 diff=3 gap=1` ——
+因 Amy 新增 4 条错词 + 8 条文本改净，使错词本 23 vs 库内 19 同时触发「条数 / status 分布 / `wrong_text` 集合」三条差异（**总项数仍 15**）。
+
+> **追记（2026-09-30）**：上述两项均已收口 —— `npm run db:sync-mistakes`（mistakes 逐字段对齐）
+> 与 `npm run db:apply-error-types`（`error_type` **10 填 / 24 NULL**）落地后，
+> `db:export` **`warnings=0`**、`db:compare` **`match=15 diff=0 gap=0`**（15 项全绿）。
+> 详见 `04-migration-and-roadmap.md §五之三`。

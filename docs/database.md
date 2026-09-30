@@ -34,7 +34,7 @@
 | `lesson_sections` | 51 | 课程小节（每课 8 类，2026-09-30 由 12 条回填；另含 3 课补漏块 `backfill`） |
 | `vocabulary` | 51 | 词汇库（**学生内单词唯一**，已去重） |
 | `lesson_vocabulary` | 52 | 课程 ↔ 词汇关联（按课累计，`tired` 在第 2、6 课各一次） |
-| `mistakes` | 19 | 错词本（**pending 15 / passed 4**；参见第九节待办：错词本已 23 行，库内仍是 19） |
+| `mistakes` | 23 | 错词本（**pending 19 / passed 4**；2026-09-30 已由 `db:sync-mistakes` 与 `wrong-words.md` 逐字段对齐） |
 | `study_records` | 18 | 学习记录（6 课 × 上课/批改/反馈） |
 | `progress` | 1 | 学习进度（Level 2 · 第 6 课） |
 | `lesson_exercises` | 34 | 练习记录（作业 25 + 补漏块 9，2026-09-30 回填；含 `self_check` 列） |
@@ -71,13 +71,13 @@
 | 指标 | 库内（= 看板现值） | 同口径换算 | 原因 |
 |---|---|---|---|
 | 累计生词 | **51** | 52（按课累计） | 库内按 `word` 去重，`tired` 在第 2、6 课重复 |
-| 未过关错词 | **15** | 16（不归并） | 库内归并 `play game`（第 4、6 课各记一次） |
-| 错词总数 | **19** | 20（不归并） | 归并 `play game` 1 条后为 20；DQ1 再剔除 1 条非错题 → 19 |
+| 未过关错词 | **19** | 20（不归并） | 库内归并 `play game`（第 4、6 课各记一次） |
+| 错词总数 | **23** | 24（不归并） | 归并 `play game` 1 条；DQ1 另剔除 1 条非错题（不归并则 24） |
 
 > 口径统一原则：**以库内为准**（写接口取数一律走库）。
-> ⚠️ **错词本 `wrong-words.md` 已于 2026-09-30 由 Amy 扩充为 23 行**（新增 `work.So` / `intrusting` /
-> `Our teacher is Amy together.` / `Now, My` 4 条漏登记项）。库内仍是 **19** 条——因 `db:import` 按既定规则
-> **不写 `mistakes`**（权威在 md，需 Amy 判定的字段不自动推导）。差异待处理，见第九节。
+> ✅ **2026-09-30：错词本 `wrong-words.md` 已扩充为 23 行并由 `npm run db:sync-mistakes` 逐字段同步进库**（4 条新增
+> + 13 条更新，`wrong_text` 括号批注一并改净）。库内与 md **已完全对齐**（`GET /api/mistakes/stats` = total 23 /
+> pending 19 / passed 4），一致性由 `db:compare` 保证。详见第九节与 `04-migration-and-roadmap.md` §五之三。
 
 ---
 
@@ -94,6 +94,15 @@
 首次建库顺序：`npm run db:init` → `npm run db:export` → `npm run db:import`。
 实测 `db:init` 重跑不会回退回填内容（`seed.js` 的 `lesson_sections` 写入已改为冲突时空操作）。
 明细与逐项验收见 `backend/docs/04-migration-and-roadmap.md` §五之三。
+
+**两个一次性的补写工具（2026-09-30，不在 M2 主管线内）**：
+
+| 命令 | 作用 | 性质 |
+|---|---|---|
+| `npm run db:sync-mistakes` | `_snapshot.json` 的 `mistakes[]` → 库；判重键 = 规范化 `wrong_text`（去括号批注、折叠空白、转小写） | 写库：单事务 + 幂等（支持 `--dry-run`），补 `db:import` 不写 `mistakes` 的空缺 |
+| `npm run db:apply-error-types` | `records/exercise-error-types.json` → `lesson_exercises.error_type` | 写库：单事务 + 幂等（支持 `--dry-run`），**硬校验 `error_type != null ⟺ is_correct = 0`** |
+
+摘要看板（`INDEX.md` / `digest.md`）现由 `npm run db:summary` 读库生成（复刻原 `build_board.py` 规则）。
 
 `seed.js` 的两条写入约束（已实现）：
 
@@ -323,13 +332,12 @@ ALTER TABLE reading_pieces DROP COLUMN source_url;
 - [x] `lesson_exercises` 回填 34 条（作业 25 + 补漏块 9，2026-09-30）
 - [x] `POST /api/readings`（教学侧在线写当天阅读）已开放 —— 单事务 + 幂等判重，同日已存在 → 409，
   显式 `?force=true` 为重出例外；`reading_pieces.source_url` 追加列同步落地（见第八之二节、`05-api-reference.md` §27）
-- [ ] `lesson_exercises.error_type` 全为 NULL（34/34）——待 amy 统一 `records.mistakeCandidates` 与错词本措辞后逐题判定
-- [ ] **`mistakes` 全表待与错词本对齐**（库内 19 vs `wrong-words.md` 23）：① **缺 4 行**（`work.So` /
-  `intrusting` / `Our teacher is Amy together.` / `Now, My`）；② **8 行 `wrong_text` 仍带括号批注**
-  （库内为旧格式，如 `zane（人名小写）`，md 已按新规则改为 `zane`）。
-  **已决（2026-09-30，项目负责人）：维持现状** —— `mistakes` 由 Amy 落地时**人工 / 一次性迁移**写入，
-  **后端不碰**（`db:import` 不写 `mistakes` 的既有约定不变）。故 `db:export` 报 23、库内 19 是**已知预期差异**，
-  `db:compare` 的 3 条差异同源，均**不是缺陷**。
+- [x] `lesson_exercises.error_type` 已回填（2026-09-30）：`npm run db:apply-error-types` 读 `records/exercise-error-types.json`，
+  按 `(lessonNo, block_kind, exerciseNo)` 定位，**10 题填入 / 24 题保持 NULL**（未错题不填，硬校验 `error_type != null ⟺ is_correct = 0`）
+- [x] **`mistakes` 已与错词本对齐**（2026-09-30）：`npm run db:sync-mistakes` 读 `_snapshot.json` 的 `mistakes[]`，
+  **4 条新增 + 13 条更新**；`wrong_text` 的括号批注已改净。库内与 `wrong-words.md` 的 23 行**逐字段对齐**
+  （`db:compare` 由 `11/3/1` → `15/0/0`）。⚠️ `db:import` **仍不写 `mistakes`** 的约定不变（权威在 md，
+  需 Amy 判定的字段不自动推导）；本次为显式一次性同步，非让管线接管。
 - [ ] 长期设计中的其余表（知识点地图 `knowledge_points`、Skill 运行记录等）
 - [ ] 备份与恢复策略（学习数据为长期资产，需明确频率与存放位置）
 - [ ] `schema.full.design.sql` 同步业务唯一键 `uk_mistakes_text`、`self_check`、`block_kind` / `block_no` 与 `backfill`，并把 `readings` 三表的 `users` 命名改为 `students`；该设计稿仍用已废弃的 `courses`/`user_*` 命名，且 `exercises` 表还缺 `target_point` / `revised_answer`，**已落后实际表 7 个字段**，需整体重审后再动

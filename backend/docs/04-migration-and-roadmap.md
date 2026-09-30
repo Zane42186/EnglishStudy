@@ -179,7 +179,7 @@ COMMIT;
 | `lesson_exercises` | 0 | **34**（作业 25 + 补漏块 9；`block_no` = 1/2/3） |
 | `readings` / `reading_pieces` / `reading_questions` | 0 / 0 / 0 | **4 / 11 / 22** |
 | `study_records.payload.byType` | 0 / 18 条 | **6 课的 grade 记录已补**（第 1—6 课） |
-| `lessons` / `vocabulary` / `lesson_vocabulary` / `mistakes` | 6 / 51 / 52 / 19 | **未变**（含 `mistakes` md5 `7f9ad9e7…`） |
+| `lessons` / `vocabulary` / `lesson_vocabulary` / `mistakes` | 6 / 51 / 52 / 19 | **未变**（含 `mistakes` md5 `7f9ad9e7…`）；`mistakes` 后于 `db:sync-mistakes` 变为 23，见下 |
 
 **幂等证明**：连续两次 `npm run db:import`，第二次全部 `±0`、`byType=0`、无新行。
 **`db:init` 不打架**：`db/seed.js` 的 `lesson_sections` 写入改为**冲突时空操作**
@@ -188,37 +188,36 @@ md 原文打回 seed 的简化版。实测重跑 `db:init` 后 `lesson_sections`
 `study_records.payload`、`lessons` 四处 md5 **全部未变**。
 **正确顺序**：`db:init` → `db:export` → `db:import`（首次建库）；日常只跑后两步。
 
-**逐项验收（`npm run db:compare`）**：`match=11 diff=3 gap=1`（15 项总数不变）
+**逐项验收（`npm run db:compare`）**：`match=15 diff=0 gap=0`（15 项全绿）
 
-> 2026-09-30 复核：计数由 `match=13 diff=1 gap=1` 变为 `match=11 diff=3 gap=1`，**变化全部来自 `mistakes`**——
-> Amy 新增 4 条错词 + 8 条文本改净后，错词本 23 vs 库内 19 同时触发「条数 / status 分布 / `wrong_text` 集合」三条差异。
-> **readings 三项（4 天 / 11 篇 / 22 题）始终全绿**，`lesson_sections` / `lesson_exercises` 亦全绿。
+> 2026-09-30 复核：由 `match=11 diff=3 gap=1` 收口至 **`match=15 diff=0 gap=0`** ——
+> 三条差异全部来自 `mistakes`（Amy 扩充错词本后，条数 / status 分布 / `wrong_text` 集合与库内不一致），
+> 已由 `npm run db:sync-mistakes` 一次性同步消除；`lesson_exercises.error_type` 一项由 `gap` 转 `match`，
+> 由 `npm run db:apply-error-types` 回填闭合。**readings 三项（4 天 / 11 篇 / 22 题）始终全绿**，
+> `lesson_sections` / `lesson_exercises` 亦全绿。
 
 | 项 | 结论 | 说明 |
 |---|---|---|
 | lessons 课数 / `lesson_date` | ✅ | 「同日沿用当日日期」规则已实现：md 无日期的第 2、4 课沿用上一课日期，与库内一致 |
 | vocabulary / lesson_vocabulary | ✅ | 51 / 52 |
-| mistakes 条数 / status 分布 | ⚠️ 已知预期 | 库内 19（passed 4 / pending 15）vs md 23（passed 4 / pending 19）。**已决：维持现状**（后端不写 `mistakes`，由 Amy 人工/一次性迁移） |
-| `mistakes.wrong_text` 集合 | ⚠️ **8 条 + 缺 4 行** | ① 库内 8 行仍是旧格式（带括号批注，如 `play game（第 3 次犯：…）`、`zane（人名小写）`），md 已按「只写错误形式本身」改为纯净文本；② md 比库内多 4 行（Amy 新增）。**按「以错词本为准」不自动写库**，待 amy 复核 |
+| mistakes 条数 / status 分布 | ✅ | 库内 23（passed 4 / pending 19）= md 23；2026-09-30 由 `db:sync-mistakes` 逐字段对齐 |
+| `mistakes.wrong_text` 集合 | ✅ | 23 行全部匹配；8 行旧格式（带括号批注，如 `zane（人名小写）`）已按 md「只写错误形式本身」改净 |
 | lesson_sections 条数 | ✅ | 51 |
 | lesson_exercises 条数 / 题块拆分 / 批改覆盖 | ✅ | 34；homework 25 / backfill 9；`is_correct` 无 NULL，答错 10 条 |
-| `lesson_exercises.error_type` | ⛔ **0 / 34** | 需 amy 先统一 `records.mistakeCandidates` 与错词本措辞（**8 条同义不同文本**），对账后才能逐题判定。**当前 34 条 `error_type` 全为 NULL 是预期状态**，不是漏写 |
+| `lesson_exercises.error_type` | ✅ | 由 `db:apply-error-types` 回填：**10 题有值 / 24 题 NULL**（未错题不填；硬校验 `error_type != null ⟺ is_correct = 0`） |
 | readings 天数 / 篇数 / 题数 | ✅ | 4 / 11 / 22 |
 
 **发现的解析缺陷（已修）**：`read/*.md` 的理解题是「题干行 + `<details>` 答案行」两行一题，
 早期解析按行切分 → **每题的答案行被当成一道新题**（题数与空题干都翻倍，第 1 篇 2 题被解析成 4 条）。
 已改为「答案行并入上一题」，并在比对脚本中固化断言（`reading_questions` 题数必须 = md 题数）。
 
-**仍未闭环（两处，均卡在 amy 侧，非后端可自解）**
+**已闭环（2026-09-30，原「仍未闭环」两处）**
 
-- ⛔ `lesson_exercises.error_type` 全 NULL（缺 34 条的逐题判定）
-- ⚠️ `mistakes` 与错词本未对齐：库内 19 行 vs `wrong-words.md` **23 行**。差额分两类：
-  **① 缺 4 行**（Amy 2026-09-30 补登记的 `work.So` / `intrusting` / `Our teacher is Amy together.` / `Now, My`）；
-  **② 8 行 `wrong_text` 仍是旧格式**（库内带括号批注，如 `zane（人名小写）` / `Do you like coffee.（句号结尾）` /
-  `play game（第 3 次犯：…）` / `I am very busy.（题目要求…）` / `those are their bags.（句首小写）` /
-  `at yesterday（…）` / `What were you yesterday.（…）` / `what do you do?（…）`，md 已按「只写错误形式本身」改为纯净文本）。
-  **处置已决（2026-09-30，项目负责人）：维持现状** —— 由 Amy 落地时**人工 / 一次性迁移**写入，**后端不碰**；
-  `db:import` 不写 `mistakes` 的约定不变。故 `db:export` 报 23 / 库内 19 属**已知预期差异**（`db:compare` 的 3 条差异同源）。
+- ✅ `lesson_exercises.error_type` 已回填 —— `records/exercise-error-types.json` 提供逐题映射，
+  `npm run db:apply-error-types` 按 `(lessonNo, block_kind, exerciseNo)` 定位写入（**10 填 / 24 NULL**）。
+- ✅ `mistakes` 与错词本已对齐 —— `npm run db:sync-mistakes` 读 `_snapshot.json` 的 `mistakes[]`
+  一次性同步（**4 条新增 + 13 条更新**，`wrong_text` 括号批注改净）。⚠️ **`db:import` 仍不写 `mistakes`** 的
+  约定不变：本次是**显式一次性补写**，不是让主管线接管 `mistakes`（权威仍在 md，需 Amy 判定的字段不自动推导）。
 
 **新增待办**
 

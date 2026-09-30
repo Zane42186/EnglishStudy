@@ -94,6 +94,11 @@ Amy 的建议是**保留历史值、从第 7 课起按现口径严格计数**，
 
 ### 5.2 需后端执行的数据变更（第 1—6 课回填，共 12 处）
 
+> **执行结果（2026-09-30，后端）**：12 处已全部落地；执行中另发现 **9 处**与错词本不一致
+> （8 条 `error_reason` + 1 条 `correct_text`），经确认后一并同步 —— **实际共 21 处**，
+> 由 `npm run db:sync-mistakes` 一次性写入（**4 条新增 + 13 条更新**）。
+> 详见 `04-migration-and-roadmap.md` §五之三与 `docs/database.md` §九。
+
 **A. UPDATE `wrong_text`（8 条，去批注）**
 
 | DB id | 现值（带批注） | 改为 |
@@ -126,7 +131,7 @@ Amy 的建议是**保留历史值、从第 7 课起按现口径严格计数**，
 
 ### 5.3 `error_type` 逐题回填
 
-`lesson_exercises.error_type` 当前 34/34 全 NULL，**这是预期状态**（M2 未导入逐题类型）。
+`lesson_exercises.error_type` 已由 `npm run db:apply-error-types` 回填（2026-09-30）：**10 题有值 / 24 题 NULL**。
 逐题值见 `exercise-error-types.json`：34 题中 10 题判错有类型（grammar 4 / punctuation 3 / capitalization 2 / word_choice 1），其余 24 题按口径保持 NULL。
 
 判定规则（文件内 `rule` 字段同源）：
