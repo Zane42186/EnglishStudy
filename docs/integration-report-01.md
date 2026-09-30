@@ -241,3 +241,19 @@ Express(:4000) → MySQL english_platform（直连核对 5/5 一致）
 | 前端显示 | ✅ **真机浏览器**渲染 13/13，修复 F5 后无残留错误态 |
 
 **达标（复验通过）。** 双方代码未互相干预：本轮未修改后端任何文件，前端仅改动 `review/index.html` 的 1 条 CSS 规则。
+
+---
+
+## 九、后续更正（2026-09-30）· DQ1 口径已收敛
+
+> 本报告第 3.3 节记载 `mistakes = 20`，那是 **2026-09-29 当时的实测值**。该口径现已收敛为 **19**，与 `wrong-words.md` 的 19 行一致。以下为更正记录，原报告正文保留为历史快照。
+
+- **根因（真隐患）**：`mistakes` 表当时**只有 `PRIMARY KEY (id)`**，`seed.js` 的 `INSERT ... ON DUPLICATE KEY UPDATE` 永无命中 → **重跑 `npm run db:init` 会让 `mistakes` 直接翻倍**（实测 19 → 38、20 → 40）。其余 7 张表均幂等，仅此一表不幂等。
+- **处理**：
+  1. `backend/db/schema.sql` 为 `mistakes` 增加业务唯一键 `uk_mistakes_text (student_id, wrong_text)`；
+  2. `backend/db/seed.js` 增加 DQ1 过滤 `isRealMistake()`——`correct` 为空 / `—` / `-` / `n/a` 或 `wrong_count = 0` 的行**不导入**。
+- **DDL 已执行**：`ALTER TABLE mistakes ADD UNIQUE KEY uk_mistakes_text (student_id, wrong_text);`
+  执行前生成含数据备份 `backend/db/backup-20260930-before-uk-mistakes.sql`（8 条 INSERT）。
+  > ⚠️ 更早的 `backup-20260929-before-ddl.sql` 是 `mysqldump --no-data` 的**纯结构**文件，不能重放数据。
+- **幂等复验**：重跑 `npm run db:init` 后 `mistakes` 仍为 **19**（pending 15 / passed 4），全库数据指纹 md5 `60caf4d3240206bb50c25ab20fe5a0f3` 前后一致。
+- **权威口径**：以 `docs/database.md` 为准（已同步）。
