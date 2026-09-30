@@ -98,10 +98,22 @@ async function getSnapshot(studentId, { recent = 3 } = {}) {
     errorTrend,
     readingCatalog,
     backlog: null,
+    // lastIncomplete 与 lastRecommendation **同源但不同形状/语义**：
+    //   lastIncomplete  —— 给 Skill 断更接续用，含「未完成的教学动作」incompleteStep（有才带）
+    //   lastRecommendation —— 「当时的建议」原样，严格 {lessonNo, text}（契约 agent-snapshot §lastRecommendation）
+    // 二者都随 degradation 降级；库内暂无 payload 带 nextRecommendation，故当前恒为 null。
     lastIncomplete: lastRecommendation
-      ? { lessonNo: lastRecommendation.lessonNo, nextRecommendation: lastRecommendation.text }
+      ? {
+          lessonNo: lastRecommendation.lessonNo,
+          nextRecommendation: lastRecommendation.text,
+          ...(lastRecommendation.incompleteStep
+            ? { incompleteStep: lastRecommendation.incompleteStep }
+            : {}),
+        }
       : null,
-    lastRecommendation,
+    lastRecommendation: lastRecommendation
+      ? { lessonNo: lastRecommendation.lessonNo, text: lastRecommendation.text }
+      : null,
     degradation: affected.length
       ? {
           degraded: true,

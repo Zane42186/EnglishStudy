@@ -279,7 +279,7 @@ async function cleanup(studentId) {
     check('C1 grade 记录 → HTTP 201 且返回 id', r.status === 201 && !!r.json.data.id, `status=${r.status} id=${r.json.data && r.json.data.id}`);
 
     r = await post(`/api/study-records?studentId=${testStudentId}`,
-      { recordType: 'feedback', lessonNo: TEST_LESSON_NO, payload: { feedback: 'just_right', next_recommendation: 'probe: 下次先复习词形' } });
+      { recordType: 'feedback', lessonNo: TEST_LESSON_NO, payload: { feedback: 'just_right', next_recommendation: 'probe: 下次先复习词形', incomplete_step: 'probe: 未完成的教学动作' } });
     check('C2 feedback 记录（snake_case 别名）→ HTTP 201', r.status === 201, `status=${r.status}`);
 
     r = await get(`/api/study-records?studentId=${testStudentId}&type=grade`);
@@ -291,6 +291,8 @@ async function cleanup(studentId) {
     const fbRec = r.json.data.list[0];
     eq('C4 snake_case 别名被归一化为 camelCase（nextRecommendation）',
       fbRec.payload.nextRecommendation, 'probe: 下次先复习词形');
+    eq('C5 incomplete_step 别名归一化为 camelCase（incompleteStep）',
+      fbRec.payload.incompleteStep, 'probe: 未完成的教学动作');
 
     // ---------- D. 快照 lastRecommendation 链路 ----------
     console.log('\n— D. /api/agent/snapshot 的 lastRecommendation 链路 —');
@@ -299,6 +301,16 @@ async function cleanup(studentId) {
     const rec = r.json.data && r.json.data.lastRecommendation;
     check('D1 lastRecommendation 非 null（写接口 → 快照 链路贯通）', !!rec,
       rec ? `text="${rec.text}"` : '仍为 null');
+    check('D1 形状严格为 {lessonNo, text}（契约要求，不夹带内部字段）',
+      !!rec && Object.keys(rec).sort().join(',') === 'lessonNo,text',
+      rec ? Object.keys(rec).join(',') : 'null');
+    // G4：lastIncomplete 与 lastRecommendation 同源，但额外透传 incompleteStep（未完成的教学动作）
+    const inc = r.json.data && r.json.data.lastIncomplete;
+    check('D1b lastIncomplete 与 lastRecommendation 同源（lessonNo / nextRecommendation 一致）',
+      !!inc && inc.lessonNo === rec.lessonNo && inc.nextRecommendation === rec.text,
+      inc ? `lessonNo=${inc.lessonNo} nextRecommendation="${inc.nextRecommendation}"` : '为 null');
+    eq('D1c lastIncomplete.incompleteStep 透传（G4 断更接续判据）',
+      inc && inc.incompleteStep, 'probe: 未完成的教学动作');
 
     // ---------- D2. selfCheck + blockKind/blockNo 契约链 ----------
     // exercise-set.schema.json 的 ExerciseItem.selfCheck 曾因 LessonRecord.ExerciseRecord

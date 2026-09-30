@@ -139,6 +139,8 @@ function defaultSummary(recordType, lessonNo, payload) {
 /**
  * 最近一条 feedback 记录的 nextRecommendation（快照 lastRecommendation 数据源）。
  * 无记录 / 无该字段时返回 null，绝不抛错。
+ * 若该记录还带 `incompleteStep`（未完成的教学动作），一并带出 —— 供快照 lastIncomplete 投影，
+ * 是 G4「断更接续」的判据（docs/ai-teacher.md §11.2 第 5 条题量上浮依赖）。
  */
 async function getLastRecommendation(studentId) {
   const row = await studyRecordRepository.findLatestByType(studentId, 'feedback');
@@ -147,7 +149,8 @@ async function getLastRecommendation(studentId) {
   const text = payload.nextRecommendation || payload.next_recommendation;
   if (!text) return null;
   const lessonNo = payload.lessonNo ?? null;
-  return { lessonNo, text };
+  const incompleteStep = payload.incompleteStep || payload.incomplete_step || null;
+  return incompleteStep ? { lessonNo, text, incompleteStep } : { lessonNo, text };
 }
 
 module.exports = {
