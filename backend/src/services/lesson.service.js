@@ -152,6 +152,7 @@ async function getLessonExercises(studentId, lessonId) {
       exerciseNo: r.exercise_no,
       exerciseType: r.exercise_type,
       prompt: r.prompt,
+      selfCheck: r.self_check,
       referenceAnswer: r.reference_answer,
       targetPoint: r.target_point,
       userAnswer: r.user_answer,

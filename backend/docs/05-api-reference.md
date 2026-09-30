@@ -406,12 +406,13 @@
 ```json
 { "code": 200, "message": "success", "data": {
   "list": [ { "exerciseNo": 1, "exerciseType": "fill_blank", "prompt": "…",
-              "referenceAnswer": "…", "targetPoint": "规则动词过去式 -ed",
+              "selfCheck": "句尾标点", "referenceAnswer": "…", "targetPoint": "规则动词过去式 -ed",
               "userAnswer": "…", "isCorrect": false, "errorType": "grammar",
               "errorNote": "…", "revisedAnswer": null } ],
   "summary": { "exerciseCount": 1, "correctCount": 0, "byType": { "grammar": 1 } } } }
 ```
 - `isCorrect` 为 `boolean | null`（`null` = 未批改）；批改结论**不新造 `verdict` 字段**
+- `selfCheck` 对应 `lesson_exercises.self_check`（2026-09-30 加列），来源为 `exercise-set.schema.json` 的 `ExerciseItem.selfCheck`；无值返回 `null`
 - `summary.byType` 只统计「已批改且答错」的题；`errorType` 复用 `mistakes` 同源 ENUM
 - **Error**：404 `课程不存在：id=<id>`
 

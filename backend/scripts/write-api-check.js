@@ -279,6 +279,28 @@ async function cleanup(studentId) {
     check('D1 lastRecommendation 非 null（写接口 → 快照 链路贯通）', !!rec,
       rec ? `text="${rec.text}"` : '仍为 null');
 
+    // ---------- D2. selfCheck 契约链 ----------
+    // exercise-set.schema.json 的 ExerciseItem.selfCheck 曾因 LessonRecord.ExerciseRecord
+    // 与 lesson_exercises 表都没有对应字段而**静默丢弃**。此段证明链路已闭合。
+    console.log('\n— D2. selfCheck 契约链（exercise-set → lesson_exercises → GET exercises）—');
+    await db.execute(
+      `INSERT INTO lesson_exercises
+         (lesson_id, exercise_no, exercise_type, prompt, self_check, reference_answer, target_point, order_index)
+       VALUES (?, 1, 'fill_blank', 'probe 题干', '句尾标点', 'probe 答案', 'probe 知识点', 0)`,
+      [testLessonId]
+    );
+    r = await get(`/api/lessons/${testLessonId}/exercises?studentId=${testStudentId}`);
+    check('SC1 练习明细可读', r.status === 200, `status=${r.status}`);
+    const ex0 = (r.json.data && r.json.data.list[0]) || {};
+    eq('SC2 selfCheck 落库后能被读出（不再静默丢弃）', ex0.selfCheck, '句尾标点');
+    check('SC3 其余字段未受影响（exerciseNo / type / 答案 / 未批改）',
+      ex0.exerciseNo === 1 && ex0.exerciseType === 'fill_blank'
+        && ex0.referenceAnswer === 'probe 答案' && ex0.isCorrect === null,
+      `exerciseNo=${ex0.exerciseNo} type=${ex0.exerciseType} isCorrect=${ex0.isCorrect}`);
+    await db.execute('DELETE FROM lesson_exercises WHERE lesson_id = ?', [testLessonId]);
+    const exLeft = await db.query('SELECT COUNT(*) AS n FROM lesson_exercises WHERE lesson_id = ?', [testLessonId]);
+    check('SC4 测试练习已清理', exLeft[0].n === 0, `残留 ${exLeft[0].n} 行`);
+
     // ---------- E. 全表不变量 ----------
     console.log('\n— E. 不变量断言（streak>=2 ⇔ passed，双向）—');
     const inv = await assertInvariant();

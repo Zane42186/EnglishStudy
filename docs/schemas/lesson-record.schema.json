@@ -37,6 +37,11 @@
         "exerciseNo": { "type": "integer", "minimum": 1 },
         "exerciseType": { "$ref": "common.schema.json#/$defs/ExerciseType" },
         "prompt": { "type": "string" },
+        "selfCheck": {
+          "description": "本题点名的强制自查项，如「句尾标点」「可数名词复数」，对应 lesson_exercises.self_check。来源为 exercise-set.schema.json 的 ExerciseItem.selfCheck；归档时必须原样带过来，否则 F4-a 只读自查清单拿不到数据。",
+          "type": ["string", "null"],
+          "maxLength": 128
+        },
         "referenceAnswer": { "type": "string" },
         "userAnswer": { "type": ["string", "null"] },
         "isCorrect": {
