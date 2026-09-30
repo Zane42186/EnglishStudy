@@ -1,0 +1,39 @@
+{
+  "lessonNo": 6,
+  "kind": "backfill",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "correct",
+      "userAnswer": "What is your name?",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "疑问词 what"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "correct",
+      "userAnswer": "Who is that man?",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "疑问词 who"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "correct_with_note",
+      "userAnswer": "Where is your school",
+      "correctText": "Where is your school?",
+      "errorNote": null,
+      "note": "疑问词用对，句尾补问号。",
+      "targetPoint": "疑问词 where"
+    }
+  ],
+  "mistakeCandidates": [],
+  "summary": {
+    "exerciseCount": 3,
+    "errorCount": 0,
+    "backfillErrorCount": 0,
+    "byType": {},
+    "note": "补漏块 3 全对，疑问词 what / who / where 该点出队"
+  }
+}

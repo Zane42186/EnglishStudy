@@ -1,0 +1,48 @@
+{
+  "lessonNo": 5,
+  "kind": "homework",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "correct",
+      "userAnswer": "plays",
+      "correctText": "He plays football on Sundays.",
+      "errorNote": null,
+      "targetPoint": "一般现在时（习惯标志词 usually / on Sundays）"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "correct",
+      "userAnswer": "I like music.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "状态动词不用进行时"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "correct_with_note",
+      "userAnswer": "Now, he is sleeping.",
+      "correctText": "He is sleeping now.",
+      "errorNote": null,
+      "note": "结构正确；更常见的写法是把 now 放句末。",
+      "targetPoint": "现在进行时"
+    },
+    {
+      "exerciseNo": 4,
+      "verdict": "wrong",
+      "userAnswer": "I study English every morning. I drink water every day, I need sleep every night. I am studying English and drinking water now. I am typing.",
+      "correctText": null,
+      "revisedAnswer": "I study English every morning. I drink water every day. I need sleep every night. I am studying English and drinking water now. I am typing. I am sitting in my room.",
+      "errorNote": "一处：标点——I drink water every day, I need sleep every night 逗号连接两个完整句子（读作第 3 次犯）。任务完成度另记：要求 6 句（3 习惯 + 3 进行），进行时只写 2 句，少 1 句。亮点：I am studying English and drinking water now 两个动词共用一个 am，写法地道。",
+      "targetPoint": "书写规范（逗号连句）+ 两种时态的句数配额"
+    }
+  ],
+  "mistakeCandidates": [],
+  "summary": {
+    "exerciseCount": 4,
+    "errorCount": 1,
+    "historicalErrorCount": 2,
+    "byType": { "punctuation": 1 },
+    "note": "作业 only 计 1 处（逗号连句）。其余 2 处属补漏块（见 lesson-05.backfill.json），按 §11 口径不计入作业 errorCount，故与库内历史值 2 存在差异"
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "lessonNo": 1,
+  "kind": "homework",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "correct_with_note",
+      "userAnswer": "We need help",
+      "correctText": null,
+      "errorNote": null,
+      "note": "语序正确（we 主语 + need 谓语 + help 宾语）。书写补全：We need help.",
+      "targetPoint": "主语 + 谓语 + 宾语"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "wrong",
+      "userAnswer": "We see movie",
+      "correctText": "We watch movies.",
+      "errorNote": "两处：①用词——「看电视/电影」用 watch 不用 see；②语法——movie 是可数名词，单数不能裸用（用复数 movies 或 a movie）。",
+      "targetPoint": "可数名词单复数 + 动词搭配"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "correct",
+      "userAnswer": "football是宾语",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "宾语识别"
+    },
+    {
+      "exerciseNo": 4,
+      "verdict": "wrong",
+      "userAnswer": "I like studying English after work.So I need to ask for my teacher Mr.Aimi",
+      "correctText": null,
+      "revisedAnswer": "I like studying English after work, so I need to ask my teacher, Mr. Amy, for help.",
+      "errorNote": "三处：①标点——work.So 句号后缺空格（同类错误在本轮出现 2 次）；②用词——ask for 是「索要某物」，向老师请教要说 ask my teacher (for help)；③标点——Mr.Aimi 缺空格。任务完成度另记：只用 like/need，work 仅出现在 after work 搭配里。",
+      "targetPoint": "书写规范 + ask sb for help"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "We see movie",
+      "correctText": "We watch movies",
+      "errorType": "word_choice",
+      "errorReason": "「看电视/电影」用 watch 不用 see；movie 是可数名词，单数不能裸用",
+      "sourceExerciseNo": 2
+    },
+    {
+      "wrongText": "ask for my teacher",
+      "correctText": "ask my teacher for help",
+      "errorType": "word_choice",
+      "errorReason": "ask for 表示「要某物」，向人请教要说 ask sb (for help)",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "work.So",
+      "correctText": "work, so",
+      "errorType": "punctuation",
+      "errorReason": "句号后必须空一格再写下一个词",
+      "sourceExerciseNo": 4
+    }
+  ],
+  "summary": {
+    "exerciseCount": 4,
+    "errorCount": 5,
+    "historicalErrorCount": 3,
+    "byType": { "word_choice": 2, "grammar": 1, "punctuation": 2 },
+    "note": "errorCount 按 docs/ai-teacher.md §11 口径重算（一处 = 一个可独立改正的点）；historicalErrorCount 为库内 lessons.error_count 原值，未回改"
+  }
+}

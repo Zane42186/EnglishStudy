@@ -1,0 +1,70 @@
+{
+  "lessonNo": 2,
+  "kind": "homework",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "correct",
+      "userAnswer": "are",
+      "correctText": "They are friends.",
+      "errorNote": null,
+      "targetPoint": "be 动词与主语匹配"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "correct_with_note",
+      "userAnswer": "He is busy",
+      "correctText": "He is busy.",
+      "errorNote": null,
+      "note": "be 动词用对，句尾补句号。",
+      "targetPoint": "be 动词"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "correct",
+      "userAnswer": "I'm a student",
+      "correctText": "I am a student.",
+      "errorNote": null,
+      "targetPoint": "be 动词"
+    },
+    {
+      "exerciseNo": 4,
+      "verdict": "wrong",
+      "userAnswer": "My name is zane.I am a student now,liked my English teacher Amy.She is a kind teacher.But she always is busy.",
+      "correctText": null,
+      "revisedAnswer": "My name is Zane. I am a student now, and I like my English teacher, Amy. She is a kind teacher, but she is always busy.",
+      "errorNote": "四处：①大小写——zane 是人名，首字母大写；②标点——zane.I 句号后缺空格（同类第 2 次）；③标点+语法——now,liked 逗号连接两个完整句子（应用句号或加 and），且 liked 是过去式，「现在喜欢」用原形 like；④语法——she always is busy 频度副词 always 要放在 be 动词之后。任务完成度另记：are 未用到，也未介绍朋友。",
+      "targetPoint": "书写规范 + be 动词 + 频度副词位置"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "zane",
+      "correctText": "Zane",
+      "errorType": "capitalization",
+      "errorReason": "人名、地名首字母一律大写",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "now,liked my teacher",
+      "correctText": "…now, and I like my teacher（或用句号断开）",
+      "errorType": "punctuation",
+      "errorReason": "逗号不能连接两个完整句子；「现在喜欢」用原形 like 不用 liked",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "she always is busy",
+      "correctText": "she is always busy",
+      "errorType": "grammar",
+      "errorReason": "频度副词要放在 be 动词之后",
+      "sourceExerciseNo": 4
+    }
+  ],
+  "summary": {
+    "exerciseCount": 4,
+    "errorCount": 4,
+    "historicalErrorCount": 4,
+    "byType": { "capitalization": 1, "punctuation": 2, "grammar": 1 },
+    "note": "与库内 lessons.error_count = 4 一致"
+  }
+}

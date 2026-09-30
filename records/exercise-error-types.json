@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "exercise-error-types/1.0",
+  "generatedAt": "2026-09-30T15:20:00+08:00",
+  "generatedBy": "Amy",
+  "targetField": "lesson_exercises.error_type",
+  "purpose": "lesson_exercises.error_type 当前 34/34 全 NULL（预期状态）。本文件提供第 1—6 课 34 道题（作业 25 + 补漏块 9）的逐题错误类型，供后端回填。",
+  "rule": {
+    "whenNull": "verdict 为 correct / correct_with_note / blank 的题 → errorType = null（这些题没有产出错误）",
+    "whenWrong": "verdict 为 wrong 的题 → errorType = 该题**处数最多**的错误类型",
+    "tieBreak": "处数并列时按优先级取：grammar > word_choice > punctuation > spelling > capitalization",
+    "source": "取数依据为 records/lesson-NN.grading.json 的 mistakeCandidates[] 与 items[].errorNote；判定框架见 docs/ai-teacher.md §11.5",
+    "note": "error_type 一题只有一个值；同题多类型时其余类型写在 error_note 的批改说明里，不落库"
+  },
+  "rows": [
+    { "lessonNo": 1, "kind": "homework", "exerciseNo": 1, "verdict": "correct_with_note", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 1, "kind": "homework", "exerciseNo": 2, "verdict": "wrong", "errorType": "grammar", "derivation": "word_choice 1 + grammar 1 → 并列取 grammar" },
+    { "lessonNo": 1, "kind": "homework", "exerciseNo": 3, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 1, "kind": "homework", "exerciseNo": 4, "verdict": "wrong", "errorType": "punctuation", "derivation": "punctuation 2 + word_choice 1 → punctuation" },
+
+    { "lessonNo": 2, "kind": "homework", "exerciseNo": 1, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 2, "kind": "homework", "exerciseNo": 2, "verdict": "correct_with_note", "errorType": null, "derivation": "仅缺句号，计入 note" },
+    { "lessonNo": 2, "kind": "homework", "exerciseNo": 3, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 2, "kind": "homework", "exerciseNo": 4, "verdict": "wrong", "errorType": "punctuation", "derivation": "punctuation 2 + capitalization 1 + grammar 1 → punctuation" },
+
+    { "lessonNo": 3, "kind": "homework", "exerciseNo": 1, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 3, "kind": "homework", "exerciseNo": 2, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 3, "kind": "homework", "exerciseNo": 3, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 3, "kind": "homework", "exerciseNo": 4, "verdict": "wrong", "errorType": "word_choice", "derivation": "spelling 1 + word_choice 1 → 并列取 word_choice" },
+
+    { "lessonNo": 4, "kind": "homework", "exerciseNo": 1, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 4, "kind": "homework", "exerciseNo": 2, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 4, "kind": "homework", "exerciseNo": 3, "verdict": "wrong", "errorType": "grammar", "derivation": "grammar 1" },
+    { "lessonNo": 4, "kind": "homework", "exerciseNo": 4, "verdict": "wrong", "errorType": "grammar", "derivation": "grammar 4 + capitalization 1 + punctuation 1 → grammar" },
+    { "lessonNo": 4, "kind": "backfill", "exerciseNo": 1, "verdict": "correct_with_note", "errorType": null, "derivation": "仅缺句号，计入 note" },
+    { "lessonNo": 4, "kind": "backfill", "exerciseNo": 2, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 4, "kind": "backfill", "exerciseNo": 3, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+
+    { "lessonNo": 5, "kind": "homework", "exerciseNo": 1, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 5, "kind": "homework", "exerciseNo": 2, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 5, "kind": "homework", "exerciseNo": 3, "verdict": "correct_with_note", "errorType": null, "derivation": "仅语序更优，计入 note" },
+    { "lessonNo": 5, "kind": "homework", "exerciseNo": 4, "verdict": "wrong", "errorType": "punctuation", "derivation": "punctuation 1" },
+    { "lessonNo": 5, "kind": "backfill", "exerciseNo": 1, "verdict": "wrong", "errorType": "capitalization", "derivation": "capitalization 1" },
+    { "lessonNo": 5, "kind": "backfill", "exerciseNo": 2, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 5, "kind": "backfill", "exerciseNo": 3, "verdict": "wrong", "errorType": "capitalization", "derivation": "capitalization 1" },
+
+    { "lessonNo": 6, "kind": "homework", "exerciseNo": 1, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 6, "kind": "homework", "exerciseNo": 2, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 6, "kind": "homework", "exerciseNo": 3, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 6, "kind": "homework", "exerciseNo": 4, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 6, "kind": "homework", "exerciseNo": 5, "verdict": "wrong", "errorType": "grammar", "derivation": "grammar 4 + word_choice 1 + punctuation 1 → grammar" },
+    { "lessonNo": 6, "kind": "backfill", "exerciseNo": 1, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 6, "kind": "backfill", "exerciseNo": 2, "verdict": "correct", "errorType": null, "derivation": "无错误" },
+    { "lessonNo": 6, "kind": "backfill", "exerciseNo": 3, "verdict": "correct_with_note", "errorType": null, "derivation": "仅缺问号，计入 note" }
+  ],
+  "summary": {
+    "total": 34,
+    "notNull": 10,
+    "byType": { "grammar": 4, "punctuation": 3, "capitalization": 2, "word_choice": 1, "spelling": 0, "other": 0 },
+    "note": "10 道判错的题有 error_type；其余 24 道为正确 / 正确但有备注 / 空题，按口径保持 NULL"
+  }
+}

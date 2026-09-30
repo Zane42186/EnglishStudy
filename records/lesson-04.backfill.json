@@ -1,0 +1,40 @@
+{
+  "lessonNo": 4,
+  "kind": "backfill",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "correct_with_note",
+      "userAnswer": "There is a bed in the room",
+      "correctText": "There is a bed in the room.",
+      "errorNote": null,
+      "note": "结构正确，补句尾句号。",
+      "targetPoint": "there is / there are"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "correct",
+      "userAnswer": "There are two books on the desk.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "there are + 复数"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "correct",
+      "userAnswer": "There is a book on the table.",
+      "correctText": "A book is on the table.",
+      "errorNote": null,
+      "note": "用 there is 结构改写，同样修掉了 an → a，判定通过（第 2 次答对 → 该错词已过关）。",
+      "targetPoint": "a / an 规则"
+    }
+  ],
+  "mistakeCandidates": [],
+  "summary": {
+    "exerciseCount": 3,
+    "errorCount": 0,
+    "backfillErrorCount": 0,
+    "byType": {},
+    "note": "补漏块独立成一套 kind=backfill，其错误数按 §11 不计入本课作业 errorCount"
+  }
+}

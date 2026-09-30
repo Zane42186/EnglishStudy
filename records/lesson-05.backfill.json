@@ -1,0 +1,46 @@
+{
+  "lessonNo": 5,
+  "kind": "backfill",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "wrong",
+      "userAnswer": "this is my book.",
+      "correctText": "This is my book.",
+      "errorNote": "大小写：选词正确（this 指近处单数），但句首字母未大写。",
+      "targetPoint": "this / these"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "correct",
+      "userAnswer": "These are my books.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "these + 复数"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "wrong",
+      "userAnswer": "those are their bags.",
+      "correctText": "Those are their bags.",
+      "errorNote": "大小写：those 与 their 都用对，但句首字母未大写。",
+      "targetPoint": "those / their"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "those are their bags.",
+      "correctText": "Those are their bags.",
+      "errorType": "capitalization",
+      "errorReason": "句首单词首字母必须大写",
+      "sourceExerciseNo": 3
+    }
+  ],
+  "summary": {
+    "exerciseCount": 3,
+    "errorCount": 2,
+    "backfillErrorCount": 2,
+    "byType": { "capitalization": 2 },
+    "note": "补漏块错误独立计数，不计入第 5 课作业 errorCount（作业仅 1 处）"
+  }
+}

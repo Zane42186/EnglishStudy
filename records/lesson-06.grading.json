@@ -1,0 +1,84 @@
+{
+  "lessonNo": 6,
+  "kind": "homework",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "correct",
+      "userAnswer": "was",
+      "correctText": "I was tired yesterday.",
+      "errorNote": null,
+      "targetPoint": "was / were"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "correct",
+      "userAnswer": "were",
+      "correctText": "They were at home last night.",
+      "errorNote": null,
+      "targetPoint": "was / were"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "correct",
+      "userAnswer": "were → was",
+      "correctText": "He was late this morning.",
+      "errorNote": null,
+      "targetPoint": "was / were"
+    },
+    {
+      "exerciseNo": 4,
+      "verdict": "correct",
+      "userAnswer": "I was busy yesterday.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "was / were"
+    },
+    {
+      "exerciseNo": 5,
+      "verdict": "wrong",
+      "userAnswer": "I was busy yesterday. Tom and I were playing game at yesterday at 8.00 p.m. I teached my friend to use AI at yesterday. What were you yesterday.",
+      "correctText": null,
+      "revisedAnswer": "I was busy yesterday. Tom and I were playing games at 8 p.m. yesterday. I taught my friend to use AI. How were you yesterday? I was not very happy yesterday.",
+      "errorNote": "五处：①语法——play game 可数名词裸用（累计第 3 次）；②语法——at yesterday 出现两次，yesterday 前不加介词（跨句重复，计 2 处）；③语法——teached → taught，teach 是不规则动词；④用词——问「昨天怎么样」要用 how，不用 what；⑤标点——该句句尾应为问号。任务完成度另记：要求 1 句否定未写。",
+      "targetPoint": "规则动词过去式预演 + 可数名词 + 书写规范"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "play game",
+      "correctText": "play games",
+      "errorType": "grammar",
+      "errorReason": "可数名词单数不能裸用（累计第 3 次犯，第 4 课首次）",
+      "sourceExerciseNo": 5
+    },
+    {
+      "wrongText": "at yesterday",
+      "correctText": "yesterday（不加 at）",
+      "errorType": "grammar",
+      "errorReason": "yesterday / today / tomorrow 前面不加介词",
+      "sourceExerciseNo": 5
+    },
+    {
+      "wrongText": "I teached my friend to use AI",
+      "correctText": "I taught my friend to use AI",
+      "errorType": "grammar",
+      "errorReason": "teach 是不规则动词，过去式是 taught 不是加 -ed",
+      "sourceExerciseNo": 5
+    },
+    {
+      "wrongText": "What were you yesterday.",
+      "correctText": "How were you yesterday?",
+      "errorType": "word_choice",
+      "errorReason": "问「状态怎么样」用 how 不用 what；同题的句尾标点问题（应为问号）并入本条，见 errorNote",
+      "sourceExerciseNo": 5
+    }
+  ],
+  "summary": {
+    "exerciseCount": 5,
+    "errorCount": 6,
+    "historicalErrorCount": 5,
+    "byType": { "grammar": 4, "word_choice": 1, "punctuation": 1 },
+    "note": "按 §11 口径 at yesterday 跨句重复计 2 处，故为 6；库内历史值 5 未回改"
+  }
+}

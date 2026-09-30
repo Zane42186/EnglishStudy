@@ -1,0 +1,62 @@
+{
+  "lessonNo": 3,
+  "kind": "homework",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "correct",
+      "userAnswer": "This is his book.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "形容词性物主代词 his"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "correct",
+      "userAnswer": "My name is Zane.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "物主代词后必须跟名词"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "correct",
+      "userAnswer": "Her bag is very big.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "物主代词 her"
+    },
+    {
+      "exerciseNo": 4,
+      "verdict": "wrong",
+      "userAnswer": "My name is Zane. My English teacher is Amy. Her class is very good and intrusting. My friend is Tom. Our teacher is Amy together.",
+      "correctText": null,
+      "revisedAnswer": "My name is Zane. My English teacher is Amy. Her class is very good and interesting. My friend is Tom. Tom and I are students, and our teacher is Amy.",
+      "errorNote": "两处：①拼写——intrusting → interesting；②用词——together 是「一起做某事」，不能说「老师是 Amy 一起」，应改为 Tom and I are students. Our teacher is Amy.。格式本轮全对（句首大写、句号后空格、人名大写），物主代词 my/her/our 用够 3 个，任务完成度合格。",
+      "targetPoint": "拼写 + together 的用法"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "intrusting",
+      "correctText": "interesting",
+      "errorType": "spelling",
+      "errorReason": "拼写错误：interesting（有趣的），重音在首，拼作 inter-est-ing",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "Our teacher is Amy together.",
+      "correctText": "Tom and I are students. Our teacher is Amy.",
+      "errorType": "word_choice",
+      "errorReason": "together 表示「一起做某事」，不能用于描述身份归属",
+      "sourceExerciseNo": 4
+    }
+  ],
+  "summary": {
+    "exerciseCount": 4,
+    "errorCount": 2,
+    "historicalErrorCount": 2,
+    "byType": { "spelling": 1, "word_choice": 1 },
+    "note": "与库内 lessons.error_count = 2 一致"
+  }
+}

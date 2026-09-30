@@ -1,0 +1,83 @@
+{
+  "lessonNo": 4,
+  "kind": "homework",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "correct",
+      "userAnswer": "making running writing",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "-ing 三条拼写规则（去 e / 双写 / 直接加）"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "correct",
+      "userAnswer": "He is playing football now.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "现在进行时的标志词 now"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "wrong",
+      "userAnswer": "I reading a book.",
+      "correctText": "I am reading a book.",
+      "errorNote": "语法：现在进行时必须有 be 动词 am / is / are。",
+      "targetPoint": "进行时结构 am/is/are + -ing"
+    },
+    {
+      "exerciseNo": 4,
+      "verdict": "wrong",
+      "userAnswer": "Now, My grandpa and me sit on the chair. I am not playing game but studying English. what do you do ?",
+      "correctText": null,
+      "revisedAnswer": "Now, my grandpa and I are sitting on the chair. I am not playing games, but I am studying English. What are you doing?",
+      "errorNote": "六处：①语法——Now + sit 时态冲突，此刻正在坐要用 are sitting；②语法——my grandpa and me，作主语要用主格 I；③大小写——Now, My 的 My 不是句首，不必大写；④语法——play game 可数名词裸用（累计第 1 次）；⑤用词——what do you do 问的是职业，问此刻在做的事要用 What are you doing?；⑥标点——句首小写、问号前留空格。",
+      "targetPoint": "进行时 + 主格代词 + 可数名词 + 书写规范"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "I reading a book.",
+      "correctText": "I am reading a book.",
+      "errorType": "grammar",
+      "errorReason": "现在进行时必须有 be 动词 am / is / are",
+      "sourceExerciseNo": 3
+    },
+    {
+      "wrongText": "my grandpa and me",
+      "correctText": "my grandpa and I",
+      "errorType": "grammar",
+      "errorReason": "作主语用主格 I，me 是宾格；别人在前，I 在后",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "play game",
+      "correctText": "play games",
+      "errorType": "grammar",
+      "errorReason": "可数名词单数不能裸用，用复数或 a + 单数",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "what do you do?",
+      "correctText": "What are you doing?",
+      "errorType": "grammar",
+      "errorReason": "疑问词没选错，错在用一般现在时结构去问此刻正在做的事（与 I reading a book 同属结构缺失）；同题还有句首小写与问号前空格两处书写问题，见 errorNote",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "Now, My",
+      "correctText": "Now, my",
+      "errorType": "capitalization",
+      "errorReason": "非句首的词不需要大写",
+      "sourceExerciseNo": 4
+    }
+  ],
+  "summary": {
+    "exerciseCount": 4,
+    "errorCount": 6,
+    "historicalErrorCount": 6,
+    "byType": { "grammar": 4, "capitalization": 1, "punctuation": 1 },
+    "note": "与库内 lessons.error_count = 6 一致；本轮为新语法点首课，错误数上升属正常"
+  }
+}
