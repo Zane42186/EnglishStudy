@@ -191,6 +191,7 @@ CREATE TABLE IF NOT EXISTS lesson_exercises (
   exercise_type    ENUM('fill_blank','translate','error_correction','reorder','open','choice')
                    NOT NULL DEFAULT 'fill_blank' COMMENT '题型，与 common.schema.json 同源',
   prompt           TEXT            NOT NULL COMMENT '题干',
+  self_check       VARCHAR(128)    NULL     COMMENT '本题点名的强制自查项（exercise-set.schema.json selfCheck）',
   reference_answer TEXT            NULL     COMMENT '标准答案',
   target_point     VARCHAR(64)     NULL     COMMENT '考查知识点（设计稿无此列，建表时新增）',
   user_answer      TEXT            NULL     COMMENT '学生作答',
