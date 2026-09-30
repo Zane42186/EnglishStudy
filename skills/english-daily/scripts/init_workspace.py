@@ -34,9 +34,9 @@ WRONG_WORDS = """# 错词本
 
 INDEX = """# 英语学习总目录
 
-> 由 build_board.py 自动生成，手工修改会在下次重建时被覆盖。
+> 由后端数据更新，手工修改会被覆盖。
 
-还没有课程记录。上完第一次课后运行 build_board.py，这里会自动生成目录。
+还没有课程记录。上完第一次课后这里会自动生成目录。
 """
 
 FILES = {"progress.md": PROGRESS, "wrong-words.md": WRONG_WORDS, "INDEX.md": INDEX}

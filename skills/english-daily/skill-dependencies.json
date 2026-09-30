@@ -2,8 +2,6 @@
   "schema_version": "1",
   "capabilities": [
     "上课与笔记归档",
-    "总目录重建",
-    "复习看板生成",
     "分级阅读文章",
     "当日新闻改写阅读",
     "错词复习"
@@ -14,7 +12,7 @@
       "type": "runtime",
       "required": true,
       "auth_type": "none",
-      "capabilities": ["总目录重建", "复习看板生成", "错词复习"],
+      "capabilities": ["上课与笔记归档"],
       "checks": [
         {
           "id": "python-version",
@@ -33,41 +31,21 @@
           "Windows 安装时勾选 Add Python to PATH",
           "安装后用 python --version 确认版本号"
         ],
-        "verify": "python --version 输出 3.10 及以上，且 build_board.py 输出 BOARD_OK",
+        "verify": "python --version 输出 3.10 及以上，且 init_workspace.py 输出 INIT_OK",
         "security": "脚本只使用 Python 标准库，不安装第三方包，不读取任何凭据",
         "verified_at": "2026-09-26",
         "applies_to_version": "3.10 及以上"
       },
       "degradation": [
         {
-          "capability": "总目录重建",
+          "capability": "上课与笔记归档",
           "trigger": "Python 低于 3.10 或命令不可用",
-          "fallback": "由模型直接按笔记内容维护 INDEX.md",
+          "fallback": "不运行 init_workspace.py 与 check_environment.py，由模型按模板手工创建缺失的目录与初始文件",
           "user_input": "无需用户提供内容",
-          "limitations": "目录可能与笔记不同步，漏写风险由人工承担",
+          "limitations": "缺失目录写权限与网络连通性的自动自检，环境问题需人工发现",
           "evidence_label": "推断",
-          "recovery": "升级 Python，或用完整路径调用已达标的解释器后重跑 build_board.py",
-          "stop_condition": "解释器仍不可用时停止自动重建"
-        },
-        {
-          "capability": "复习看板生成",
-          "trigger": "Python 低于 3.10 或命令不可用",
-          "fallback": "不生成 review/index.html，复习改为直接阅读 md 笔记",
-          "user_input": "无需用户提供内容，但需确认是否接受没有交互看板",
-          "limitations": "无点击翻词卡、无答案遮挡、无按课检索",
-          "evidence_label": "推断",
-          "recovery": "升级 Python 或用完整路径调用已达标的解释器",
-          "stop_condition": "看板生成停止，上课与笔记归档不受影响"
-        },
-        {
-          "capability": "错词复习",
-          "trigger": "Python 不可用导致看板不更新",
-          "fallback": "模型直接读取 wrong-words.md 出题并批改",
-          "user_input": "无需用户提供内容",
-          "limitations": "看板错词页停留在上一版，交互复习不可用",
-          "evidence_label": "推断",
-          "recovery": "修复 Python 后重跑 build_board.py 刷新看板",
-          "stop_condition": "wrong-words.md 读不到时不出错词题，改为出 N-1/N-3/N-7 的题"
+          "recovery": "安装或升级 Python 后运行 `python scripts/init_workspace.py --root <目录>` 补齐",
+          "stop_condition": "目录不可写时停止归档，不降级为写入其他位置"
         }
       ]
     },
@@ -126,24 +104,14 @@
       "stop_condition": "目录仍不可写时停止归档，不降级为写入其他位置"
     },
     {
-      "capability": "总目录重建",
+      "capability": "上课与笔记归档",
       "trigger": "笔记缺少「一句话」摘要，或课号重复、文件名不符合 day-XX-YY 规范",
-      "fallback": "摘要缺失的行标注为（缺一句话摘要）继续生成；课号重复或文件名不合规则输出 BOARD_FAIL 并指出具体问题，不改动已有文件",
-      "user_input": "需要用户修正笔记中的课号或文件名",
-      "limitations": "修正前总目录与看板停在上一版",
+      "fallback": "不归档该课，先在对话里指出具体问题（缺摘要 / 课号重复 / 文件名不符）；已归档的历史笔记不自动改写",
+      "user_input": "需要用户补齐一句话摘要，或修正课号、文件名",
+      "limitations": "修正前该课不进入笔记归档；目录与摘要由后端数据更新，不受影响",
       "evidence_label": "已验证",
-      "recovery": "按提示改笔记的课号、文件名或补写一句话摘要，重跑 build_board.py",
-      "stop_condition": "连续两次重跑仍失败时停止自动重建，改为人工排查"
-    },
-    {
-      "capability": "复习看板生成",
-      "trigger": "build_board.py 输出 BOARD_FAIL",
-      "fallback": "提示笔记格式问题所在，修正笔记后重跑，不手工改 INDEX.md 和 index.html",
-      "user_input": "需要用户确认是否修改笔记格式",
-      "limitations": "修正前看板停在上一版",
-      "evidence_label": "已验证",
-      "recovery": "按 BOARD_FAIL 的原因修正笔记小节标题或文件名后重跑",
-      "stop_condition": "两次重跑仍失败时停止重建，改为人工排查"
+      "recovery": "按提示补齐摘要或修正课号、文件名后重新归档",
+      "stop_condition": "连续两次仍不合规时停止自动归档，改为人工排查"
     },
     {
       "capability": "分级阅读文章",
@@ -168,11 +136,11 @@
     {
       "capability": "错词复习",
       "trigger": "wrong-words.md 缺失或为空",
-      "fallback": "只从 N-1、N-3、N-7 课出题，看板错词页显示为空表",
+      "fallback": "只从 N-1、N-3、N-7 课出题，错词页显示为空表",
       "user_input": "无需用户提供内容",
       "limitations": "缺少针对性错题复习",
       "evidence_label": "已验证",
-      "recovery": "批改后按模板追加错词行，下次重建即可出现在看板",
+      "recovery": "批改后按模板追加错词行，后端同步后即出现在错词页",
       "stop_condition": "错词本格式错误时不猜测内容，提示用户按模板补写"
     }
   ]
