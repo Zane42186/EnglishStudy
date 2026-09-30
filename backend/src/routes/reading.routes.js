@@ -8,5 +8,6 @@ const router = express.Router();
 router.get('/', controller.list);
 router.get('/stats', controller.stats);
 router.get('/:date', controller.detail);
+router.post('/', controller.create);
 
 module.exports = router;

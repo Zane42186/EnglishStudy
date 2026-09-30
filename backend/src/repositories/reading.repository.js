@@ -5,7 +5,7 @@
  * 只写 SQL，不做业务判断；日期一律按 DATE 字符串比较，避免时区偏移。
  */
 
-const { query } = require('../config/db');
+const { query, queryOn, executeOn } = require('../config/db');
 
 /** 篇与篇之间的标题分隔符：用不可见字符，避免标题里本身含逗号把列表切错 */
 const TITLE_SEP = '\u001f';
@@ -112,10 +112,20 @@ async function findDay(studentId, date) {
   return rows[0] || null;
 }
 
+/** 某一天的阅读日行（走事务连接：判重与插入必须同一事务） */
+async function findDayOn(conn, studentId, date) {
+  const rows = await queryOn(
+    conn,
+    'SELECT id, read_date, source_file FROM readings WHERE student_id = ? AND read_date = ? LIMIT 1',
+    [studentId, date]
+  );
+  return rows[0] || null;
+}
+
 /** 某阅读日下的所有篇 */
 async function findPieces(readingId) {
   return query(
-    `SELECT id, piece_no, level_code, source, title, body_md, vocabulary_notes, word_count
+    `SELECT id, piece_no, level_code, source, source_url, title, body_md, vocabulary_notes, word_count
        FROM reading_pieces WHERE reading_id = ? ORDER BY piece_no ASC`,
     [readingId]
   );
@@ -153,6 +163,69 @@ async function catalog(studentId, limit = 30) {
   }));
 }
 
+/**
+ * 复用同一连接、同一套语句的写路径。
+ * 一律走 `*On(conn, ...)`：由 service 传入事务连接，保证「读旧值 → 判重 → 写入」在同一事务里，
+ * 避免并发下两个请求都判定「日期不存在」而各写一天。
+ */
+
+async function insertReading(conn, studentId, date, sourceFile) {
+  const result = await executeOn(
+    conn,
+    'INSERT INTO readings (student_id, read_date, source_file) VALUES (?, ?, ?)',
+    [studentId, date, sourceFile ?? null]
+  );
+  return result.insertId;
+}
+
+async function insertPiece(conn, readingId, piece) {
+  const result = await executeOn(
+    conn,
+    `INSERT INTO reading_pieces
+       (reading_id, piece_no, level_code, source, source_url, title, body_md,
+        vocabulary_notes, word_count, order_index)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    [
+      readingId,
+      piece.pieceNo,
+      piece.levelCode,
+      piece.source,
+      piece.sourceUrl,
+      piece.title,
+      piece.bodyMd,
+      piece.vocabularyNotes,
+      piece.wordCount,
+      piece.orderIndex,
+    ]
+  );
+  return result.insertId;
+}
+
+async function insertQuestion(conn, pieceId, question) {
+  await executeOn(
+    conn,
+    `INSERT INTO reading_questions (piece_id, question_no, question, answer, order_index)
+     VALUES (?,?,?,?,?)`,
+    [pieceId, question.questionNo, question.question, question.answer, question.orderIndex]
+  );
+}
+
+/** 清空某阅读日的子行（questions → pieces），供 force 重建使用；不动 readings 行本身 */
+async function deleteChildren(conn, readingId) {
+  await executeOn(
+    conn,
+    `DELETE q FROM reading_questions q
+       JOIN reading_pieces p ON p.id = q.piece_id
+      WHERE p.reading_id = ?`,
+    [readingId]
+  );
+  await executeOn(conn, 'DELETE FROM reading_pieces WHERE reading_id = ?', [readingId]);
+}
+
+async function updateSourceFile(conn, readingId, sourceFile) {
+  await executeOn(conn, 'UPDATE readings SET source_file = ? WHERE id = ?', [sourceFile ?? null, readingId]);
+}
+
 module.exports = {
   TITLE_SEP,
   summary,
@@ -160,7 +233,13 @@ module.exports = {
   countDays,
   listDays,
   findDay,
+  findDayOn,
   findPieces,
   findQuestions,
   catalog,
+  insertReading,
+  insertPiece,
+  insertQuestion,
+  deleteChildren,
+  updateSourceFile,
 };

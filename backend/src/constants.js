@@ -63,6 +63,17 @@ const EXERCISE_BLOCK_KIND_LABEL = { homework: '作业', backfill: '补漏块' };
 
 const LESSON_STATUS = ['planned', 'taught', 'archived'];
 
+/**
+ * 级别代码，与 docs/schemas/common.schema.json 的 $defs.LevelCode 严格同源。
+ * 用于写入接口的入参校验（如 POST /api/readings 的 levelCode）。
+ */
+const LEVEL_CODE = ['Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5'];
+
+/** 阅读篇数上限，与 reading-set.schema.json 的 pieces.maxItems 同源 */
+const READING_PIECE_MAX = 3;
+/** 每篇理解题数量，与 reading-set.schema.json 的 questions.minItems/maxItems 同源 */
+const READING_QUESTION_COUNT = 2;
+
 module.exports = {
   FEEDBACK, FEEDBACK_LABEL,
   MISTAKE_STATUS, MISTAKE_STATUS_LABEL,
@@ -71,4 +82,6 @@ module.exports = {
   SECTION_TYPE, SECTION_TYPE_LABEL,
   EXERCISE_BLOCK_KIND, EXERCISE_BLOCK_KIND_LABEL,
   LESSON_STATUS,
+  LEVEL_CODE,
+  READING_PIECE_MAX, READING_QUESTION_COUNT,
 };

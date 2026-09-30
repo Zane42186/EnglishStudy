@@ -81,6 +81,7 @@ router.get('/', (req, res) =>
       'GET /api/readings',
       'GET /api/readings/stats',
       'GET /api/readings/:date',
+      'POST /api/readings',
       'GET /api/agent/snapshot',
     ],
   })

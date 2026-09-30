@@ -1,7 +1,7 @@
 'use strict';
 
 const asyncHandler = require('../utils/asyncHandler');
-const { ok, okList, parsePaging } = require('../utils/response');
+const { ok, okList, created, parsePaging } = require('../utils/response');
 const { validate } = require('../utils/validate');
 const studentService = require('../services/student.service');
 const readingService = require('../services/reading.service');
@@ -46,4 +46,21 @@ const detail = asyncHandler(async (req, res) => {
   return ok(res, await readingService.getReadingByDate(studentId, params.date));
 });
 
-module.exports = { stats, list, detail };
+/**
+ * POST /api/readings —— 写入当天阅读（`ReadingSet`）。
+ * 同一日期已存在 → 409（「当天不覆盖」硬规则）；`?force=true` 为该规则的显式例外（重出）。
+ * 请求体只做 `validate()` 认得出的浅层校验，嵌套结构（pieces/paragraphs/questions）
+ * 由 service 按 `reading-set.schema.json` 校验并返回字段级明细。
+ */
+const create = asyncHandler(async (req, res) => {
+  const query = validate(req.query, {
+    ...STUDENT_SCHEMA,
+    force: { type: 'string', maxLength: 5 },
+  });
+  const studentId = await studentService.resolveStudentId({ studentId: query.studentId });
+  const force = query.force === 'true' || query.force === '1';
+  const data = await readingService.createReading(studentId, req.body || {}, { force });
+  return created(res, data);
+});
+
+module.exports = { stats, list, detail, create };

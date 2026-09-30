@@ -37,6 +37,9 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 const db = require('../../src/config/db');
+// 正文渲染与词数统计**复用 API 侧同一实现**：read/*.md 回填与 POST /api/readings 写入
+// 必须产出完全一致的 body_md，否则 GET /api/readings/:date 会因来源不同而形状漂移。
+const { renderBodyMd, countWords } = require('../../src/services/reading.service');
 
 const DEFAULT_SNAPSHOT = path.join(__dirname, '_snapshot.json');
 
@@ -106,24 +109,6 @@ function parseJsonColumn(value) {
   } catch {
     return null;
   }
-}
-
-/** 正文：逐段「英文行 + > 中文行」，与 read/*.md 的排版一致 */
-function renderBodyMd(paragraphs) {
-  return (paragraphs || [])
-    .map((p) => {
-      const en = (p.en || '').trim();
-      const zh = (p.zh || '').trim();
-      return zh ? `${en}\n> ${zh}` : en;
-    })
-    .filter(Boolean)
-    .join('\n\n');
-}
-
-function countWords(paragraphs) {
-  const text = (paragraphs || []).map((p) => p.en || '').join(' ');
-  const words = text.match(/[A-Za-z][A-Za-z'’-]*/g);
-  return words ? words.length : 0;
 }
 
 /**

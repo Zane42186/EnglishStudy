@@ -73,10 +73,16 @@ async function snapshotCounts() {
       (SELECT COUNT(*) FROM study_records)   AS study_records,
       (SELECT COUNT(*) FROM progress)        AS progress,
       (SELECT COUNT(*) FROM lesson_exercises) AS lesson_exercises,
-      (SELECT COUNT(*) FROM lesson_sections) AS lesson_sections
+      (SELECT COUNT(*) FROM lesson_sections) AS lesson_sections,
+      (SELECT COUNT(*) FROM readings)         AS readings,
+      (SELECT COUNT(*) FROM reading_pieces)   AS reading_pieces,
+      (SELECT COUNT(*) FROM reading_questions) AS reading_questions
   `);
   return rows[0];
 }
+
+/** 测试用阅读日期：远离真实数据的固定日期，便于清理与识别 */
+const TEST_READ_DATE = '1990-01-01';
 
 /** 全表不变量：streak>=2 ⇔ status='passed'（双向） */
 async function assertInvariant() {
@@ -99,6 +105,21 @@ async function assertInvariant() {
 /** 按 FK 依赖顺序清理临时学生的一切痕迹 */
 async function cleanup(studentId) {
   if (!studentId) return;
+  // 阅读三表：questions → pieces → readings（均为 student_id 直挂或经 reading_id 间接挂）
+  await db.execute(
+    `DELETE q FROM reading_questions q
+       JOIN reading_pieces p ON p.id = q.piece_id
+       JOIN readings r ON r.id = p.reading_id
+      WHERE r.student_id = ?`,
+    [studentId]
+  );
+  await db.execute(
+    `DELETE p FROM reading_pieces p
+       JOIN readings r ON r.id = p.reading_id
+      WHERE r.student_id = ?`,
+    [studentId]
+  );
+  await db.execute('DELETE FROM readings        WHERE student_id = ?', [studentId]);
   await db.execute('DELETE FROM mistake_events WHERE student_id = ?', [studentId]);
   await db.execute('DELETE FROM mistakes       WHERE student_id = ?', [studentId]);
   await db.execute('DELETE FROM study_records  WHERE student_id = ?', [studentId]);
@@ -320,6 +341,112 @@ async function cleanup(studentId) {
     await db.execute('DELETE FROM lesson_exercises WHERE lesson_id = ?', [testLessonId]);
     const exLeft = await db.query('SELECT COUNT(*) AS n FROM lesson_exercises WHERE lesson_id = ?', [testLessonId]);
     check('SC8 测试练习已清理', exLeft[0].n === 0, `残留 ${exLeft[0].n} 行`);
+
+    // ---------- E2. POST /api/readings（R7 阅读写入）----------
+    // 契约：docs/schemas/reading-set.schema.json。同一日期已存在 → 409（「当天不覆盖」硬规则），
+    // 唯一例外是学生明确要求重出（显式 force=true）。此段逐条证明这些语义真的生效。
+    console.log('\n— E2. POST /api/readings（ReadingSet → 三表 → GET 读回）—');
+
+    const readingPayload = {
+      date: TEST_READ_DATE,
+      levelCode: 'Level 2',
+      sourceFile: `${TEST_READ_DATE}-read.md`,
+      pieces: [
+        {
+          pieceNo: 1,
+          source: '自编',
+          sourceUrl: null,
+          title: 'probe 第一篇',
+          paragraphs: [
+            { en: 'I was busy yesterday.', zh: '我昨天很忙。' },
+            { en: 'I am free today.', zh: null },
+          ],
+          vocabularyNotes: 'busy 忙的',
+          questions: [
+            { questionNo: 1, question: 'Was the writer busy?', answer: 'Yes, he was.' },
+            { questionNo: 2, question: 'Is the writer free today?', answer: 'Yes, he is.' },
+          ],
+        },
+        {
+          pieceNo: 2,
+          source: 'The Times（改写）',
+          sourceUrl: 'https://example.com/news/1',
+          title: 'probe 第二篇',
+          levelCode: 'Level 3',
+          paragraphs: [{ en: 'A short news line.', zh: '一条短新闻。' }],
+          questions: [
+            { questionNo: 1, question: 'Q1?', answer: 'A1.' },
+            { questionNo: 2, question: 'Q2?', answer: 'A2.' },
+          ],
+        },
+      ],
+    };
+
+    r = await post(`/api/readings?studentId=${testStudentId}`, readingPayload);
+    check('RW1 首次提交返回 201', r.status === 201, `status=${r.status} ${JSON.stringify(r.json && r.json.data)}`);
+    eq('RW1b 返回 {date, pieceCount}', r.json && r.json.data && [r.json.data.date, r.json.data.pieceCount], [TEST_READ_DATE, 2]);
+
+    const cnt = async () => {
+      const rows = await db.query(
+        `SELECT (SELECT COUNT(*) FROM readings r WHERE r.student_id = ?) AS days,
+                (SELECT COUNT(*) FROM reading_pieces p JOIN readings r ON r.id = p.reading_id WHERE r.student_id = ?) AS pieces,
+                (SELECT COUNT(*) FROM reading_questions q
+                   JOIN reading_pieces p ON p.id = q.piece_id
+                   JOIN readings r ON r.id = p.reading_id WHERE r.student_id = ?) AS questions`,
+        [testStudentId, testStudentId, testStudentId]
+      );
+      return { days: Number(rows[0].days), pieces: Number(rows[0].pieces), questions: Number(rows[0].questions) };
+    };
+    eq('RW2 三表落库 1 天 / 2 篇 / 4 题', await cnt(), { days: 1, pieces: 2, questions: 4 });
+
+    r = await get(`/api/readings/${TEST_READ_DATE}?studentId=${testStudentId}`);
+    const got = (r.json && r.json.data) || {};
+    check('RW3 GET /:date 可读回，篇序按 pieceNo 升序',
+      r.status === 200 && got.pieceCount === 2 && got.pieces[0].pieceNo === 1 && got.pieces[1].pieceNo === 2,
+      `status=${r.status} 篇数=${got.pieceCount}`);
+    eq('RW4 段落英中对照原样读回（zh 缺失段为 null）',
+      got.pieces[0].paragraphs, [{ en: 'I was busy yesterday.', zh: '我昨天很忙。' }, { en: 'I am free today.', zh: null }]);
+    eq('RW5 理解题成对读回', got.pieces[0].questions.length, 2);
+    eq('RW6 篇级 levelCode 优先于顶层 levelCode', got.pieces[1].levelCode, 'Level 3');
+    eq('RW7 sourceUrl 落库并可读回（不再静默丢弃）', got.pieces[1].sourceUrl, 'https://example.com/news/1');
+    // "I was busy yesterday."(4) + "I am free today."(4) = 8
+    eq('RW8 wordCount 未传时按正文自动计算', got.pieces[0].wordCount, 8);
+
+    r = await post(`/api/readings?studentId=${testStudentId}`, readingPayload);
+    check('RW9 同一日期重复提交 → 409（「当天不覆盖」）', r.status === 409, `status=${r.status} ${r.json && r.json.message}`);
+    eq('RW10 409 未改动已有内容', await cnt(), { days: 1, pieces: 2, questions: 4 });
+
+    const forced = { ...readingPayload, pieces: [readingPayload.pieces[0]] };
+    r = await post(`/api/readings?studentId=${testStudentId}&force=true`, forced);
+    check('RW11 force=true 显式重出 → 201 且 replaced=true',
+      r.status === 201 && r.json && r.json.data && r.json.data.replaced === true,
+      `status=${r.status} ${JSON.stringify(r.json && r.json.data)}`);
+    eq('RW12 重出后旧篇被替换（2 → 1，题 4 → 2）', await cnt(), { days: 1, pieces: 1, questions: 2 });
+
+    r = await post(`/api/readings?studentId=${testStudentId}`, { date: TEST_READ_DATE, levelCode: 'Level 9', pieces: [] });
+    check('RW13 非法 levelCode + 空 pieces → 400', r.status === 400, `status=${r.status}`);
+    check('RW13b 400 带字段级明细', Array.isArray(r.json && r.json.data) && r.json.data.length >= 2,
+      JSON.stringify(r.json && r.json.data));
+
+    const threeQ = JSON.parse(JSON.stringify(readingPayload));
+    threeQ.pieces[0].questions.push({ questionNo: 3, question: 'Q3?', answer: 'A3.' });
+    r = await post(`/api/readings?studentId=${testStudentId}`, threeQ);
+    check('RW14 每篇恰好 2 道理解题，3 道 → 400', r.status === 400, `status=${r.status}`);
+
+    const fourPieces = JSON.parse(JSON.stringify(readingPayload));
+    fourPieces.pieces.push({ ...readingPayload.pieces[0], pieceNo: 4 });
+    r = await post(`/api/readings?studentId=${testStudentId}`, fourPieces);
+    check('RW15 一天最多 3 篇，4 篇 → 400', r.status === 400, `status=${r.status}`);
+
+    r = await post('/api/readings', { date: '2026-02-31', levelCode: 'Level 2', pieces: [] });
+    check('RW16 不存在的日历日期（2026-02-31）→ 400', r.status === 400, `status=${r.status}`);
+
+    // 跨学生隔离：真实学生不应看到测试学生的阅读
+    r = await get(`/api/readings/${TEST_READ_DATE}`);
+    check('RW17 学生隔离：默认学生读不到临时学生的阅读 → 404', r.status === 404, `status=${r.status}`);
+
+    await cleanup(testStudentId);
+    eq('RW18 清理后阅读三表零残留', await cnt(), { days: 0, pieces: 0, questions: 0 });
 
     // ---------- E. 全表不变量 ----------
     console.log('\n— E. 不变量断言（streak>=2 ⇔ passed，双向）—');
