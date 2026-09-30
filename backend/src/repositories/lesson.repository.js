@@ -98,11 +98,11 @@ async function updateFeedback(studentId, lessonNo, feedback, exec = null) {
 /** 某一课的练习明细（含批改结论） */
 async function findExercises(lessonId) {
   return query(
-    `SELECT exercise_no, exercise_type, prompt, self_check, reference_answer, target_point,
-            user_answer, is_correct, error_type, error_note, revised_answer, order_index
+    `SELECT block_kind, block_no, exercise_no, exercise_type, prompt, self_check, reference_answer,
+            target_point, user_answer, is_correct, error_type, error_note, revised_answer, order_index
      FROM lesson_exercises
      WHERE lesson_id = ?
-     ORDER BY order_index ASC, exercise_no ASC`,
+     ORDER BY block_kind ASC, block_no ASC, order_index ASC, exercise_no ASC`,
     [lessonId]
   );
 }

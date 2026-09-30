@@ -279,27 +279,47 @@ async function cleanup(studentId) {
     check('D1 lastRecommendation 非 null（写接口 → 快照 链路贯通）', !!rec,
       rec ? `text="${rec.text}"` : '仍为 null');
 
-    // ---------- D2. selfCheck 契约链 ----------
+    // ---------- D2. selfCheck + blockKind/blockNo 契约链 ----------
     // exercise-set.schema.json 的 ExerciseItem.selfCheck 曾因 LessonRecord.ExerciseRecord
-    // 与 lesson_exercises 表都没有对应字段而**静默丢弃**。此段证明链路已闭合。
-    console.log('\n— D2. selfCheck 契约链（exercise-set → lesson_exercises → GET exercises）—');
+    // 与 lesson_exercises 表都没有对应字段而**静默丢弃**；补漏块又因与作业共用题号
+    // 会撞 uk_exercise。此段证明两条链路都已闭合。
+    console.log('\n— D2. selfCheck 与 blockKind/blockNo 契约链（exercise-set → lesson_exercises → GET exercises）—');
+    // 作业 #1 与补漏块 #1 用同一个 exercise_no=1 —— 旧唯一键会撞车，新键必须放行
     await db.execute(
       `INSERT INTO lesson_exercises
-         (lesson_id, exercise_no, exercise_type, prompt, self_check, reference_answer, target_point, order_index)
-       VALUES (?, 1, 'fill_blank', 'probe 题干', '句尾标点', 'probe 答案', 'probe 知识点', 0)`,
-      [testLessonId]
+         (lesson_id, block_kind, block_no, exercise_no, exercise_type, prompt, self_check, reference_answer, target_point, order_index)
+       VALUES (?, 'homework', 0, 1, 'fill_blank', 'probe 作业题干', '句尾标点', 'probe 作业答案', 'probe 知识点', 0),
+              (?, 'backfill', 1, 1, 'translate', 'probe 补漏题干', null, 'probe 补漏答案', 'probe 知识点', 0)`,
+      [testLessonId, testLessonId]
     );
     r = await get(`/api/lessons/${testLessonId}/exercises?studentId=${testStudentId}`);
     check('SC1 练习明细可读', r.status === 200, `status=${r.status}`);
-    const ex0 = (r.json.data && r.json.data.list[0]) || {};
-    eq('SC2 selfCheck 落库后能被读出（不再静默丢弃）', ex0.selfCheck, '句尾标点');
-    check('SC3 其余字段未受影响（exerciseNo / type / 答案 / 未批改）',
-      ex0.exerciseNo === 1 && ex0.exerciseType === 'fill_blank'
-        && ex0.referenceAnswer === 'probe 答案' && ex0.isCorrect === null,
-      `exerciseNo=${ex0.exerciseNo} type=${ex0.exerciseType} isCorrect=${ex0.isCorrect}`);
+    const list = (r.json.data && r.json.data.list) || [];
+    check('SC2 同课同题号可共存于不同题块（新唯一键生效）', list.length === 2,
+      `实际 ${list.length} 条：${list.map((x) => `${x.blockKind}#${x.blockNo}-${x.exerciseNo}`).join(' ')}`);
+    const hw = list.find((x) => x.blockKind === 'homework');
+    const bf = list.find((x) => x.blockKind === 'backfill');
+    eq('SC3 作业题 blockKind/blockNo/exerciseNo', hw && [hw.blockKind, hw.blockNo, hw.exerciseNo], ['homework', 0, 1]);
+    eq('SC4 补漏块题 blockKind/blockNo/exerciseNo', bf && [bf.blockKind, bf.blockNo, bf.exerciseNo], ['backfill', 1, 1]);
+    eq('SC5 selfCheck 落库后能被读出（不再静默丢弃）', hw && hw.selfCheck, '句尾标点');
+    check('SC6 其余字段未受影响（答案 / 未批改）',
+      hw && hw.referenceAnswer === 'probe 作业答案' && hw.isCorrect === null && hw.exerciseType === 'fill_blank',
+      `type=${hw && hw.exerciseType} isCorrect=${hw && hw.isCorrect}`);
+    // 同一题块内重复题号必须被唯一键拦下
+    let dupBlocked = false;
+    try {
+      await db.execute(
+        `INSERT INTO lesson_exercises (lesson_id, block_kind, block_no, exercise_no, exercise_type, prompt)
+         VALUES (?, 'homework', 0, 1, 'fill_blank', '重复题号')`,
+        [testLessonId]
+      );
+    } catch (e) {
+      dupBlocked = e && e.code === 'ER_DUP_ENTRY';
+    }
+    check('SC7 同一题块内重复题号被唯一键拦下', dupBlocked, dupBlocked ? 'ER_DUP_ENTRY' : '未被拦截（唯一键失效）');
     await db.execute('DELETE FROM lesson_exercises WHERE lesson_id = ?', [testLessonId]);
     const exLeft = await db.query('SELECT COUNT(*) AS n FROM lesson_exercises WHERE lesson_id = ?', [testLessonId]);
-    check('SC4 测试练习已清理', exLeft[0].n === 0, `残留 ${exLeft[0].n} 行`);
+    check('SC8 测试练习已清理', exLeft[0].n === 0, `残留 ${exLeft[0].n} 行`);
 
     // ---------- E. 全表不变量 ----------
     console.log('\n— E. 不变量断言（streak>=2 ⇔ passed，双向）—');

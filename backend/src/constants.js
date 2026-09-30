@@ -38,7 +38,7 @@ const RECORD_TYPE_LABEL = {
 const SECTION_TYPE = [
   'review', 'grammar', 'vocab_table', 'examples',
   'homework', 'my_answer', 'grading', 'feedback',
-  'objectives', 'expected_mistakes',
+  'objectives', 'expected_mistakes', 'backfill',
 ];
 const SECTION_TYPE_LABEL = {
   review: '复习',
@@ -51,7 +51,15 @@ const SECTION_TYPE_LABEL = {
   feedback: '难度反馈',
   objectives: '本课目标',
   expected_mistakes: '预期易错点',
+  backfill: '补漏块',
 };
+
+/**
+ * 题集类型：同一课的两套题号命名空间。
+ * 与 lesson_exercises.block_kind 同源；作业题 block_no = 0，补漏块为块号 N。
+ */
+const EXERCISE_BLOCK_KIND = ['homework', 'backfill'];
+const EXERCISE_BLOCK_KIND_LABEL = { homework: '作业', backfill: '补漏块' };
 
 const LESSON_STATUS = ['planned', 'taught', 'archived'];
 
@@ -61,5 +69,6 @@ module.exports = {
   ERROR_TYPE, ERROR_TYPE_LABEL,
   RECORD_TYPE, RECORD_TYPE_LABEL,
   SECTION_TYPE, SECTION_TYPE_LABEL,
+  EXERCISE_BLOCK_KIND, EXERCISE_BLOCK_KIND_LABEL,
   LESSON_STATUS,
 };

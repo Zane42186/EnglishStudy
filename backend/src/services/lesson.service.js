@@ -149,6 +149,8 @@ async function getLessonExercises(studentId, lessonId) {
       byType[r.error_type] = (byType[r.error_type] || 0) + 1;
     }
     return {
+      blockKind: r.block_kind,
+      blockNo: r.block_no,
       exerciseNo: r.exercise_no,
       exerciseType: r.exercise_type,
       prompt: r.prompt,
