@@ -89,6 +89,52 @@ const CASES = [
     path: '/api/agent/snapshot?recent=2',
     verify: (d) => (d.recentLessons.length <= 2 ? null : 'recent 未生效'),
   },
+  {
+    name: '阅读统计',
+    path: '/api/readings/stats',
+    verify: (d) =>
+      typeof d.totalDays === 'number' &&
+      typeof d.pieceCount === 'number' &&
+      typeof d.wordCountTotal === 'number' &&
+      typeof d.currentStreakDays === 'number' &&
+      d.byMonth && typeof d.byMonth === 'object'
+        ? null
+        : '阅读统计字段缺失（totalDays / pieceCount / wordCountTotal / byMonth / currentStreakDays）',
+  },
+  {
+    name: '阅读日清单',
+    path: '/api/readings',
+    verify: (d) =>
+      Array.isArray(d.list) && typeof d.total === 'number' && d.list.length > 0 &&
+      Array.isArray(d.list[0].titles) && typeof d.list[0].pieceCount === 'number'
+        ? null
+        : '缺少 list[].titles / pieceCount',
+  },
+  {
+    name: '阅读日清单(日期区间)',
+    path: '/api/readings?from=2026-09-28&to=2026-09-29',
+    verify: (d) => (d.list.every((x) => x.date >= '2026-09-28' && x.date <= '2026-09-29') ? null : 'from/to 未生效'),
+  },
+  {
+    name: '阅读全文',
+    path: '/api/readings/2026-09-29',
+    verify: (d) =>
+      d.date === '2026-09-29' && Array.isArray(d.pieces) && d.pieces.length > 0 &&
+      Array.isArray(d.pieces[0].paragraphs) && d.pieces[0].paragraphs[0].en &&
+      Array.isArray(d.pieces[0].questions) && d.pieces[0].questions[0].question
+        ? null
+        : '篇/段落/理解题结构缺失',
+  },
+  {
+    name: '快照 readingCatalog 已非降级',
+    path: '/api/agent/snapshot',
+    verify: (d) =>
+      Array.isArray(d.readingCatalog) && d.readingCatalog.length > 0 &&
+      !d.degradation.affected.includes('readingCatalog') &&
+      d.errorTrend.byLesson.some((x) => x.byType)
+        ? null
+        : 'readingCatalog 仍为空，或仍在 degradation.affected 中，或 errorTrend.byType 未回填',
+  },
 ];
 
 // 期望返回 4xx 的错误路径用例
@@ -106,6 +152,9 @@ const ERROR_CASES = [
   { name: '快照 recent 越界 → 400', path: '/api/agent/snapshot?recent=99', expectStatus: 400 },
   { name: '错词流水不存在 → 404', path: '/api/mistakes/99999/events', expectStatus: 404 },
   { name: '课程练习不存在 → 404', path: '/api/lessons/99999/exercises', expectStatus: 404 },
+  { name: '阅读日期不存在 → 404', path: '/api/readings/2020-01-01', expectStatus: 404 },
+  { name: '阅读日期格式非法 → 400', path: '/api/readings/not-a-date', expectStatus: 400 },
+  { name: '阅读分页参数非法 → 400', path: '/api/readings?page=abc', expectStatus: 400 },
 ];
 
 (async () => {

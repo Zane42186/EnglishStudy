@@ -11,6 +11,11 @@
 >   `objectives` / `expected_mistakes`；删 `mistakes.id=19`（DQ1）。随之新增
 >   `GET /api/mistakes/:id/events`、`GET /api/lessons/:id/exercises`；
 >   `POST /api/mistakes/:id/review` 的复习流水改落 `mistake_events`（幂等键即其唯一键）。
+> - 2026-09-30 · 第三批：建 `readings` / `reading_pieces` / `reading_questions` 三表并回填 4 天 11 篇；
+>   新增 `GET /api/readings`、`GET /api/readings/stats`、`GET /api/readings/:date`（**24—26 节**）；
+>   `GET /api/agent/snapshot` 的 `readingCatalog` 转为真实数据（**退出 degradation**）；
+>   `lesson_exercises` 回填 34 条（作业 25 + 补漏块 9），`GET /api/lessons/:id/exercises` 的
+>   `blockKind` / `blockNo` 自此有数据；`lesson_sections` 12 → 51 条。
 
 ---
 
@@ -374,17 +379,27 @@
                          "streak": 1, "wrongCount": 3, "status": "pending", "priority": "high",
                          "firstCourseNo": 2, "lastCourseNo": 2, "lastReviewedAt": null } ],
   "pendingMistakeStats": { "total": 15, "byType": { "grammar": 8, "punctuation": 2 } },
-  "errorTrend": { "windowSize": 6, "byLesson": [ { "lessonNo": 6, "errorCount": 5, "byType": { "grammar": 3 } } ] },
-  "readingCatalog": [], "backlog": null,
+  "errorTrend": { "windowSize": 6, "byLesson": [ { "lessonNo": 6, "errorCount": 5,
+                  "byType": { "grammar": 4, "punctuation": 1, "word_choice": 1 } } ] },
+  "readingCatalog": [ { "date": "2026-09-29", "pieceCount": 3,
+                        "titles": ["Yesterday", "Tom's Bad Day", "Where Were You?"] } ],
+  "backlog": null,
   "lastRecommendation": null, "lastIncomplete": null,
-  "degradation": { "degraded": true, "reason": "…", "affected": ["errorTrend.byType", "backlog", "readingCatalog", "lastRecommendation", "lastIncomplete"] } } }
+  "degradation": { "degraded": true, "reason": "…", "affected": ["backlog", "lastRecommendation", "lastIncomplete"] } } }
 ```
 **硬约束**
 - `pendingMistakes` / `errorTrend` 与 `/api/mistakes/pending`、`/api/lessons/error-trend` **同源复用**（同一 service，不另写排序）
 - `pendingMistakeStats` **只统计 `status='pending'`**；`byType` 为 `errorType → count`
 - `lastRecommendation` 形状 `{ lessonNo, text }`，取自最近一条 `feedback` 记录的 `payload.nextRecommendation`；无数据为 `null`
-- **缺数据一律降级**（`null` / `[]` / 省略键）+ `degradation`，**绝不 500、绝不空串**。当前 `backlog` / `readingCatalog` 依赖尚未建表，恒为降级值
+- **缺数据一律降级**（`null` / `[]` / 省略键）+ `degradation`，**绝不 500、绝不空串**
+- `readingCatalog` 自 2026-09-30 起有真实数据源（`readings` 三表，**倒序、最多 30 天**）。
+  **空数组代表「确实还没有阅读」，属于正常数据而非降级**，故不再计入 `degradation.affected`。
+  判断「当天是否已生成阅读」用 `readingCatalog[0].date === 今天`
+- `errorTrend.byLesson[].byType` 取自对应课 `study_records(record_type='grade').payload.byType`
+  （2026-09-30 已回填第 1—6 课）；该课无数据时**省略 `byType` 键**，不编造 `{}`
 - `pendingMistakes[].firstCourseNo/lastCourseNo` 用课号；来源课号为脏值（DQ4）时**省略该键**而不是塞 `null`
+- 当前仍计入 `degradation.affected` 的只剩：`backlog`（待 `knowledge_points` 建表）、
+  `lastRecommendation` / `lastIncomplete`（待教学侧在 feedback payload 写 `nextRecommendation`）
 
 ### 22. GET `/api/mistakes/:id/events`
 某错词的复习流水，**按时间升序**（便于看复发曲线）。`mistake_events` 表 2026-09-29 建。
@@ -405,16 +420,69 @@
 **路径**：`id` 必须为正整数；**Query**：`studentId`
 ```json
 { "code": 200, "message": "success", "data": {
-  "list": [ { "exerciseNo": 1, "exerciseType": "fill_blank", "prompt": "…",
+  "list": [ { "blockKind": "homework", "blockNo": 0, "exerciseNo": 1, "exerciseType": "fill_blank", "prompt": "…",
               "selfCheck": "句尾标点", "referenceAnswer": "…", "targetPoint": "规则动词过去式 -ed",
               "userAnswer": "…", "isCorrect": false, "errorType": "grammar",
               "errorNote": "…", "revisedAnswer": null } ],
   "summary": { "exerciseCount": 1, "correctCount": 0, "byType": { "grammar": 1 } } } }
 ```
+- `blockKind`（`homework` / `backfill`）+ `blockNo`（作业恒为 `0`，补漏块为块号 N）区分**同一课的两套题号命名空间**；`exerciseNo` 是**块内**题号，两者合起来才唯一（2026-09-30 加，见 `docs/skills.md` 2.5）
 - `isCorrect` 为 `boolean | null`（`null` = 未批改）；批改结论**不新造 `verdict` 字段**
 - `selfCheck` 对应 `lesson_exercises.self_check`（2026-09-30 加列），来源为 `exercise-set.schema.json` 的 `ExerciseItem.selfCheck`；无值返回 `null`
 - `summary.byType` 只统计「已批改且答错」的题；`errorType` 复用 `mistakes` 同源 ENUM
 - **Error**：404 `课程不存在：id=<id>`
+
+### 24. GET `/api/readings/stats` ★
+阅读统计（缺口 **R1**）。`readings` / `reading_pieces` / `reading_questions` 三表 2026-09-30 建，数据由 `read/*.md` 回填。
+
+**Query**：`studentId`
+
+**实测响应**
+```json
+{ "code": 200, "message": "success", "data": {
+  "totalDays": 4, "pieceCount": 11, "wordCountTotal": 362,
+  "byMonth": { "2026-09": 11 },
+  "lastReadDate": "2026-09-29", "currentStreakDays": 4, "today": "2026-09-30" } }
+```
+- `wordCountTotal` = 各篇 `word_count` 之和（`word_count` 由导出器按**英文词数**统计，不含中文）
+- `currentStreakDays` 是**截至 `lastReadDate`** 的连续天数，**不要求 `lastReadDate` 就是今天**。
+  「今天有没有读」由调用方比 `lastReadDate === today` 判断——接口不替调用方下结论
+- `byMonth` 的键为 `YYYY-MM`，值为该月**篇数**；无阅读时返回 `{ "totalDays": 0, "pieceCount": 0, "wordCountTotal": 0, "byMonth": {}, "lastReadDate": null, "currentStreakDays": 0 }`
+
+### 25. GET `/api/readings`
+阅读日清单，**按日期倒序**（便于取首条判断「当天是否已生成」）。
+
+**Query**：`page` / `size`（默认 20，上限 200）/ `from` / `to`（`YYYY-MM-DD`，作用于 `read_date`）、`studentId`
+```json
+{ "code": 200, "message": "success", "data": {
+  "list": [ { "date": "2026-09-29", "sourceFile": "2026-09-29-read.md",
+              "pieceCount": 3, "titles": ["Yesterday", "Tom's Bad Day", "Where Were You?"] } ],
+  "total": 4, "page": 1, "size": 20 } }
+```
+- `titles` 按篇号升序；篇标题含逗号也不会切错（内部分隔符用不可见字符）
+- `sourceFile` 保留来源 md 文件名，便于回溯迁移
+
+### 26. GET `/api/readings/:date` ★
+某一天的阅读全文：篇 + **段落级英中对照** + 理解题。
+
+**路径**：`date` 必须是 `YYYY-MM-DD`　**Query**：`studentId`
+```json
+{ "code": 200, "message": "success", "data": {
+  "date": "2026-09-29", "sourceFile": "2026-09-29-read.md", "pieceCount": 3,
+  "pieces": [ { "pieceNo": 1, "title": "Yesterday", "levelCode": "Level 2", "source": "自编",
+                "wordCount": 43,
+                "paragraphs": [ { "en": "Yesterday was a busy day for me.", "zh": "昨天对我来说是忙碌的一天。" } ],
+                "vocabularyNotes": "busy 忙的 / from ... to ... 从……到……",
+                "questions": [ { "questionNo": 1, "question": "Where was the writer at night?",
+                                 "answer": "He was at home." } ] } ] } }
+```
+- `paragraphs` 由落库的 `body_md`（英文行 + `> 中文` 行）还原；`zh` 缺失时为 `null`
+- `questions[].answer` 无答案时为 `null`；**题干与答案必须成对**——早期解析把 `<details>` 答案行误当新题会让题数翻倍（已修，见 04-migration 五之三）
+- **Error**：400 `日期格式必须是 YYYY-MM-DD`；404 `该日期没有阅读：<date>`
+
+> **尚未提供**：`POST /api/readings`（教学侧写入当天阅读，同日已存在 → 409）。
+> 当前阅读的**写路径**是 `db/migration/import_json.js`（md → 库，幂等）；
+> 是否开放在线写入接口待项目负责人确认后再定（涉及「当天不覆盖」口径与鉴权）。
 
 ---
 

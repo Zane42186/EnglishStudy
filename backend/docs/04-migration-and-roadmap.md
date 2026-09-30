@@ -14,24 +14,42 @@
 
 ---
 
-## 二、为什么不重写解析器
+## 二、解析器归属（2026-09-30 更新：已改为自包含）
 
-现有 `build_board.py` 里已经有一套**经过生产验证**的 Markdown 解析规则（`LESSON_RE` / `SUMMARY_RE` / `SECTION_ORDER` / `parse_vocab` / `parse_piece` / `parse_wrong_words`）。重写一份 JS 解析器会造成规则漂移（两套正则不一致 → 数据对不上）。
+`build_board.py` 里曾有一套经过生产验证的 Markdown 解析规则（`LESSON_RE` / `SUMMARY_RE` / `SECTION_ORDER` / `parse_vocab` / `parse_piece` / `parse_wrong_words`）。原计划是**复用**它以避免规则漂移。
 
-**方案：复用 Python 解析、Node 只负责入库。**
+**现状已变**：`build_board.py` 已退役待清理（见 `docs/skills.md` 7.3），其删除前置条件是「不再有脚本 import 它」。因此 `export_md_to_json.py` 已改为**内联所需正则与解析函数、零外部依赖**——正则语义与 `build_board.py` 保持一致，但不再 import。
+
+**同时数据源已从「md 单一来源」改为「md 题面 + `records/` 判定」双源**：
 
 ```
-notes/*.md  read/*.md  wrong-words.md  progress.md
+notes/*.md（题面 / 小节正文 / 词汇）   records/lesson-NN.*.json（逐题判定）
+read/*.md（阅读）   wrong-words.md（错词本·权威）   progress.md（级别）
         │
-        ▼  export_md_to_json.py   ← 复用 build_board.py 的纯解析函数，不写文件
-   snapshot.json（结构化快照）
+        ▼  export_md_to_json.py   ← 自包含解析，只读，不写任何 md
+   _snapshot.json（结构化快照，含对账统计）
         │
-        ▼  import_json.js         ← 事务 + 幂等 upsert
+        ▼  import_json.js         ← 单事务 + 幂等 upsert
       MySQL
+        │
+        ▼  /api/readings · /api/agent/snapshot …
+     前端 / Amy 教学读取
 ```
 
-- `export_md_to_json.py`：import `build_board` 的 `parse_notes` / `parse_read_dir` / `parse_wrong_words` / `read_level`，打印 JSON 到 stdout 或写 `db/_snapshot.json`（**只读 md，不改任何文件**）。
-- `import_json.js`：单个事务内按依赖顺序 upsert：`users → user_progress → courses → course_sections → vocabulary → course_vocabulary → exercises → readings → reading_pieces → reading_questions → mistakes`。
+- `export_md_to_json.py`：**只读**，产出 `_snapshot.json`（已加 `.gitignore`）。md 供**题面**，`records/` 供**判定**；`wrong-words.md` 是错词的唯一权威，`records` 的 `mistakeCandidates` 只做交叉校验、**不得新建错词**。
+- `import_json.js`：单个事务内按依赖顺序 upsert。**实际写入范围**（2026-09-30 落地）：
+
+  | 表 | 动作 | 幂等键 |
+  |---|---|---|
+  | `lessons` | 仅补 `lesson_date IS NULL`（含「同日沿用当日日期」），**绝不覆盖 `error_count` 等历史值** | `uk_lessons_no` |
+  | `lesson_sections` | upsert md 原文小节（含 `backfill`） | `uk_section (lesson_id, section_type)` |
+  | `lesson_exercises` | upsert 逐题（题干 + 判定 + `selfCheck` + `target_point`） | `uk_exercise (lesson_id, block_kind, block_no, exercise_no)` |
+  | `readings` / `reading_pieces` / `reading_questions` | 按天整体重建（阅读是 md 派生物，子行先删后插） | `uk_reading_day` / `uk_piece` / `uk_rq` |
+  | `study_records` | 把 `recordsSummary.homework.byType` 合并进 `record_type='grade'` 的 `payload`（已有则不覆盖） | 按 `(student_id, lesson_id, record_type)` 定位 |
+  | `mistakes` | **不写** | — |
+  | `vocabulary` / `lesson_vocabulary` | **不写**（库内已一致，仅做计数断言） | — |
+
+- 未在本脚本内的表（`progress`、`mistake_events`、`students`）由 `db/seed.js` 与写接口负责，回填器不碰。
 
 ---
 
@@ -137,35 +155,67 @@ COMMIT;
 
 ---
 
-## 五之三、M2 现状实测（2026-09-30）：只读导出 + 只读比对已落地
+## 五之三、M2 迁移实测（2026-09-30）：只读导出 → 幂等写库，已闭环
 
-**已完成（全程只读：不改任何 md，不写任何表）**
+**三段式链路（全部已落地实测）**
 
-- `backend/db/migration/export_md_to_json.py` —— 复用 `build_board.py` 的 `parse_notes` / `parse_read_dir` / `parse_wrong_words` / `read_level`（**不重写解析器**）
-- `backend/db/migration/compare_snapshot.js` —— 把产物与库内逐项比对
-- 产物：`backend/db/migration/_snapshot.json`（`M2_EXPORT_OK lessons=6 vocab=52 exercises=25 mistakes=19 readings=4(pieces=11) warnings=10`）
+| 段 | 文件 | 性质 | 命令 |
+|---|---|---|---|
+| 导出 | `backend/db/migration/export_md_to_json.py` | **只读**：md + records + 错词本 + read/ → `_snapshot.json` | `npm run db:export` |
+| 比对 | `backend/db/migration/compare_snapshot.js` | **只读**：产物 vs 库内逐项验收 | `npm run db:compare` |
+| 写库 | `backend/db/migration/import_json.js` | **写库**：单事务、幂等 upsert | `npm run db:import` |
 
-**逐项比对结果**
+- 导出器**自包含、零外部依赖**（不再 import `build_board.py`），产物 `_snapshot.json` 已被 `.gitignore` 排除（属中间物）。
+- 写库器只消费 `_snapshot.json` 一个文件：`records/*.json` 的 `summary.byType` / `historicalErrorCount` 由导出器并入
+  `lessons[].recordsSummary`，写库器**不再自己读 `records/`**，避免两条读取路径漂移。
+- 写库器支持 `--dry-run`（全程执行后整体回滚，只报告不改库）与 `--student`；**它不会写 `mistakes`**
+  （权威是 `wrong-words.md`，且 records 候选与错词本有 8 条同义不同文本，须 amy 复核后再定）。
+
+**写库前后实测（`npm run db:import`）**
+
+| 表 | 前 | 后 |
+|---|---|---|
+| `lesson_sections` | 12 | **51**（每课 8 类 + 有补漏块的 3 课各加 1 条 `backfill`） |
+| `lesson_exercises` | 0 | **34**（作业 25 + 补漏块 9；`block_no` = 1/2/3） |
+| `readings` / `reading_pieces` / `reading_questions` | 0 / 0 / 0 | **4 / 11 / 22** |
+| `study_records.payload.byType` | 0 / 18 条 | **6 课的 grade 记录已补**（第 1—6 课） |
+| `lessons` / `vocabulary` / `lesson_vocabulary` / `mistakes` | 6 / 51 / 52 / 19 | **未变**（含 `mistakes` md5 `7f9ad9e7…`） |
+
+**幂等证明**：连续两次 `npm run db:import`，第二次全部 `±0`、`byType=0`、无新行。
+**`db:init` 不打架**：`db/seed.js` 的 `lesson_sections` 写入改为**冲突时空操作**
+（`content_md = lesson_sections.content_md`）——原先的 `VALUES()` 会在重跑 `db:init` 时把回填进去的
+md 原文打回 seed 的简化版。实测重跑 `db:init` 后 `lesson_sections`（51）、`lesson_exercises`（34）、
+`study_records.payload`、`lessons` 四处 md5 **全部未变**。
+**正确顺序**：`db:init` → `db:export` → `db:import`（首次建库）；日常只跑后两步。
+
+**逐项验收（`npm run db:compare`）**：`match=13 diff=1 gap=1`
 
 | 项 | 结论 | 说明 |
 |---|---|---|
-| lessons 课数 | ✅ 6 = 6 | |
-| `lessons.lesson_date` | ⛔ 2 处差 | md 第 2、4 课**无日期**（写作 `## 第 2 课`），库内为 2026-09-26 / 2026-09-27 → 需实现「同日第二课沿用当日日期」规则，属**规则缺失**而非数据错 |
-| vocabulary 去重词数 | ✅ 51 = 51 | md 按课累计 52 |
-| lesson_vocabulary | ✅ 52 = 52 | |
-| mistakes 条数 / status 分布 | ✅ 19；passed 4 / pending 15 | 与库内完全一致 |
-| `mistakes.wrong_text` 集合 | ⚠️ 2 条不一致 | 库内是**手工归一化**过的文本：库 `play game（第 3 次犯：…）` vs md `play game（累计第 3 次，…）`；库 `What were you yesterday.（问「昨天怎么样」）` vs md `What were you yesterday.`。因 `uk_mistakes_text` 已是判重键，**按 md 直接导入会新增 2 行** |
-| lesson_sections | ⚠️ 48 vs 12 | md 每课 8 类小节；库内只存 `grammar` + `feedback`。M2 全量导入会把 12 → 48 |
-| lesson_exercises | ⛔ 25 vs 0 | 表空；`isCorrect` / `errorType` / `errorNote` / `selfCheck` 均无法从 md 推导 |
-| readings | ⛔ 表不存在 | md 有 4 天 / 11 篇；P1 表未建，看板「阅读篇数」恒为 `—` |
+| lessons 课数 / `lesson_date` | ✅ | 「同日沿用当日日期」规则已实现：md 无日期的第 2、4 课沿用上一课日期，与库内一致 |
+| vocabulary / lesson_vocabulary | ✅ | 51 / 52 |
+| mistakes 条数 / status 分布 | ✅ | 19；passed 4 / pending 15 |
+| `mistakes.wrong_text` 集合 | ⚠️ **2 条** | 库内是手工归一化过的文本（`play game（第 3 次犯：…）`、`What were you yesterday.（问「昨天怎么样」）`）vs md 的简写。**按「以错词本为准」不自动写库**，待 amy 统一措辞 |
+| lesson_sections 条数 | ✅ | 51 |
+| lesson_exercises 条数 / 题块拆分 / 批改覆盖 | ✅ | 34；homework 25 / backfill 9；`is_correct` 无 NULL，答错 10 条 |
+| `lesson_exercises.error_type` | ⛔ **0 / 34** | 需 amy 先统一 `records.mistakeCandidates` 与错词本措辞（**8 条同义不同文本**），对账后才能逐题判定。**当前 34 条 `error_type` 全为 NULL 是预期状态**，不是漏写 |
+| readings 天数 / 篇数 / 题数 | ✅ | 4 / 11 / 22 |
 
-**M2 的硬阻塞（后端无法独力解决，需他人配合）**
+**发现的解析缺陷（已修）**：`read/*.md` 的理解题是「题干行 + `<details>` 答案行」两行一题，
+早期解析按行切分 → **每题的答案行被当成一道新题**（题数与空题干都翻倍，第 1 篇 2 题被解析成 4 条）。
+已改为「答案行并入上一题」，并在比对脚本中固化断言（`reading_questions` 题数必须 = md 题数）。
 
-1. **`error_type` 与 `wrong_count` 无法从 md 推导** —— `wrong-words.md` 表头只有「课号/错误点/正确形式/错因/连续答对/状态」，没有这两列（累计次数仅在「错因」散文里偶现）。→ 需 **amy** 判定。
-2. **`is_correct` / `error_note` 无法从 md 推导** —— 「批改」小节是自由文本散文（如「两处错误。用词：中文的「看」…」）。→ 需 **amy** 判定（即 `docs/skills.md` 记录的反面案例：语义关联不能用文本匹配替代）。
-3. **`补漏块 N · …` 小节会被 `parse_notes` 静默丢弃** —— `SECTION_ORDER` 白名单不含它，`lesson_sections.uk_section=(lesson_id, section_type)` 也无对应枚举。→ 需 **skill-designer** 定归置口径（新增 SectionType，或并入 `homework`）。
-4. **导出脚本依赖被 gitignore 的 `.workbuddy/`** —— `export_md_to_json.py` 要 import `build_board.py`，而 `.workbuddy/` 整体忽略 → 脚本在 CI / 他人机器上跑不起来。→ 需先执行已批准的「Skill 源码入库 `skills/english-daily/`」，**skill-designer + git-manager**。
-5. **`lesson_exercises` 没有任何写入路径** —— 无 repository / service / route，M2 只能直连 SQL 导入。→ 需后端补写接口，或明确 import 允许直连 SQL。
+**仍未闭环（两处，均卡在 amy 侧，非后端可自解）**
+
+- ⛔ `lesson_exercises.error_type` 全 NULL（缺 34 条的逐题判定）
+- ⚠️ `mistakes.wrong_text` 2 条文本不对齐
+
+**新增待办**
+
+- `study_records(grade).payload.byType` 已回填第 1—6 课；**第 7 课起由 amy 在批改 payload 里带 `byType`**（口径见 `docs/skills.md` 8.2）。
+- `lessons.error_count` 保留历史值（3/4/2/6/2/5），重算值为 5/4/2/6/1/6；从第 7 课起严格按新口径（§11.4）。
+- `schema.full.design.sql` 落后实际表（`readings` 仍用 `users` 命名、`exercises` 缺列等），需整体重审后再动。
+- `POST /api/readings`（教学侧在线写当天阅读）**未实现**：当前写路径是 `db:import`；是否开放待确认。
 
 ---
 

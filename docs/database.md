@@ -80,13 +80,24 @@
 
 ## 四、迁移现状
 
-**本期未执行 Markdown → 数据库的自动迁移**：种子数据是依据 `progress.md` / `wrong-words.md` / `notes/day-01-07.md` 手工整理后写入 `seed.js` 的。
-自动迁移（复用 `build_board.py` 解析规则：Python 导出 JSON → Node 入库）仍在 `04-migration-and-roadmap.md` 的 **M2** 阶段，待后续实施。
+**M2 自动迁移已闭环**（2026-09-30）。链路三段，命令都在 `backend/`：
 
-当前 `seed.js` 的两条写入约束（已实现）：
+| 段 | 命令 | 性质 |
+|---|---|---|
+| 导出 | `npm run db:export` | 只读：md + `records/` + 错词本 + `read/` → `db/migration/_snapshot.json` |
+| 验收 | `npm run db:compare` | 只读：快照 vs 库内逐项比对 |
+| 写库 | `npm run db:import` | 写库：单事务 + 幂等 upsert（支持 `--dry-run`） |
+
+首次建库顺序：`npm run db:init` → `npm run db:export` → `npm run db:import`。
+实测 `db:init` 重跑不会回退回填内容（`seed.js` 的 `lesson_sections` 写入已改为冲突时空操作）。
+明细与逐项验收见 `backend/docs/04-migration-and-roadmap.md` §五之三。
+
+`seed.js` 的两条写入约束（已实现）：
 
 1. **非错题不导入（DQ1 规则）** —— `correct` 为空 / `—` / `-` / `n/a` 或 `wrong_count = 0` 的行不入库（实测 21 条来源 → 19 条入库）。
 2. **按 `uk_mistakes_text` 幂等** —— 重跑 `db:init` 不会让 `mistakes` 翻倍。
+3. **小节内容冲突时不覆盖** —— `lesson_sections` 的 `grammar` / `feedback` 只在缺失时写入，
+   已存在的（含 `db:import` 回填的 md 原文）保持不变。
 
 ---
 
@@ -273,8 +284,12 @@ FROM students s;
 
 ## 九、待补充（TODO）
 
-- [ ] 自动迁移脚本已落地为**只读**的 `export_md_to_json.py` + `compare_snapshot.js`（`backend/db/migration/`）；**写库器 `import_json.js` 待建**（M2 历史回填第二步）
+- [x] 自动迁移链路已全落地：只读导出 `export_md_to_json.py` + 只读验收 `compare_snapshot.js` + **写库器 `import_json.js`**（`backend/db/migration/`，2026-09-30）
 - [x] `readings` / `reading_pieces` / `reading_questions` 三张表（P1，见第八节，2026-09-30 已建）
-- [ ] 长期设计中的其余表（知识点地图、Skill 运行记录等）
+- [x] 阅读数据回填（4 天 / 11 篇 / 22 题）+ `v_dashboard_stats` 加 `reading_piece_count` / `reading_day_count`
+- [ ] `lesson_exercises.error_type` 全为 NULL（34/34）——待 amy 统一 `records.mistakeCandidates` 与错词本措辞后逐题判定
+- [ ] `mistakes.wrong_text` 有 2 条与 md 文本不对齐（库内为手工归一化版）——待 amy 复核措辞
+- [ ] `POST /api/readings`（教学侧在线写当天阅读）—— 是否开放待确认；当前写路径是 `db:import`
+- [ ] 长期设计中的其余表（知识点地图 `knowledge_points`、Skill 运行记录等）
 - [ ] 备份与恢复策略（学习数据为长期资产，需明确频率与存放位置）
-- [ ] `schema.full.design.sql` 同步业务唯一键 `uk_mistakes_text`、`self_check`、`block_kind` / `block_no` 与 `backfill`；注意该设计稿仍用已废弃的 `courses`/`user_*` 命名，且 `exercises` 表还缺 `target_point` / `revised_answer`，**已落后实际表 7 个字段**，需整体重审后再动
+- [ ] `schema.full.design.sql` 同步业务唯一键 `uk_mistakes_text`、`self_check`、`block_kind` / `block_no` 与 `backfill`，并把 `readings` 三表的 `users` 命名改为 `students`；该设计稿仍用已废弃的 `courses`/`user_*` 命名，且 `exercises` 表还缺 `target_point` / `revised_answer`，**已落后实际表 7 个字段**，需整体重审后再动

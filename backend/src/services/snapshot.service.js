@@ -4,6 +4,7 @@ const progressService = require('./progress.service');
 const lessonService = require('./lesson.service');
 const mistakeService = require('./mistake.service');
 const studyRecordService = require('./studyRecord.service');
+const readingService = require('./reading.service');
 const lessonRepository = require('../repositories/lesson.repository');
 
 /**
@@ -22,6 +23,7 @@ async function getSnapshot(studentId, { recent = 3 } = {}) {
     errorTrend,
     lastRecommendation,
     catalogRows,
+    readingCatalog,
   ] = await Promise.all([
     progressService.getProgress(studentId),
     lessonService.listLessons(studentId, {}, { offset: 0, size: recent }),
@@ -30,6 +32,8 @@ async function getSnapshot(studentId, { recent = 3 } = {}) {
     lessonService.getErrorTrend(studentId, 6),
     studyRecordService.getLastRecommendation(studentId),
     lessonRepository.listAll(studentId, {}),
+    // 阅读日清单（2026-09-30 起有真实数据源：readings 三表）
+    readingService.getCatalog(studentId, 30),
   ]);
 
   const courseCatalog = catalogRows.map((row) => ({
@@ -70,7 +74,9 @@ async function getSnapshot(studentId, { recent = 3 } = {}) {
   const affected = [];
   const hasByType = errorTrend.byLesson.some((item) => item.byType);
   if (!hasByType) affected.push('errorTrend.byType');
-  affected.push('backlog', 'readingCatalog');
+  // readingCatalog 自 2026-09-30 起有真实数据源（readings 三表），空数组代表「确实没阅读」，
+  // 因此不再计入 degradation；只有 backlog 仍缺数据源。
+  affected.push('backlog');
   if (!lastRecommendation) affected.push('lastRecommendation', 'lastIncomplete');
 
   const snapshot = {
@@ -90,7 +96,7 @@ async function getSnapshot(studentId, { recent = 3 } = {}) {
     pendingMistakes: pending,
     pendingMistakeStats: pendingStats,
     errorTrend,
-    readingCatalog: [],
+    readingCatalog,
     backlog: null,
     lastIncomplete: lastRecommendation
       ? { lessonNo: lastRecommendation.lessonNo, nextRecommendation: lastRecommendation.text }
@@ -99,7 +105,7 @@ async function getSnapshot(studentId, { recent = 3 } = {}) {
     degradation: affected.length
       ? {
           degraded: true,
-          reason: `以下字段暂无数据来源，已降级返回（${affected.join(' / ')}）：待 knowledge_points / readings 建表与教学侧写入 byType / nextRecommendation 后自动补齐`,
+          reason: `以下字段暂无数据来源，已降级返回（${affected.join(' / ')}）：待 knowledge_points 建表与教学侧写入 nextRecommendation 后自动补齐`,
           affected,
         }
       : { degraded: false, affected: [] },
