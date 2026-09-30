@@ -440,6 +440,17 @@ async function cleanup(studentId) {
     check('RW13b 400 带字段级明细', Array.isArray(r.json && r.json.data) && r.json.data.length >= 2,
       JSON.stringify(r.json && r.json.data));
 
+    // §11.10：理解题答案必填且非空 —— 空串 / 纯空白属数据缺陷，后端必须拒收（不产 null）
+    const emptyAnswer = JSON.parse(JSON.stringify(readingPayload));
+    emptyAnswer.date = '1990-01-02';
+    emptyAnswer.pieces[0].questions[0].answer = '   ';
+    r = await post(`/api/readings?studentId=${testStudentId}`, emptyAnswer);
+    check('RW13c 理解题答案为空/纯空白 → 400（§11.10 答案必填）', r.status === 400, `status=${r.status}`);
+    check('RW13d 失败明细指向 questions[].answer',
+      Array.isArray(r.json && r.json.data) && r.json.data.some((e) => /questions\[\d+\]\.answer/.test(String(e.field))),
+      JSON.stringify(r.json && r.json.data));
+    eq('RW13e 校验失败未写入任何阅读', (await cnt()).days, 1);
+
     const threeQ = JSON.parse(JSON.stringify(readingPayload));
     threeQ.pieces[0].questions.push({ questionNo: 3, question: 'Q3?', answer: 'A3.' });
     r = await post(`/api/readings?studentId=${testStudentId}`, threeQ);

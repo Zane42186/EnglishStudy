@@ -252,7 +252,7 @@ md 原文打回 seed 的简化版。实测重跑 `db:init` 后 `lesson_sections`
 | 「当天不覆盖」 | 同日已存在 → **409**；仅 `?force=true` 显式例外（重出），此时同事务删子行重建、`readings` 行复用 |
 | 字段丢失修复 | 顺带补 `reading_pieces.source_url` 列——此前 `sourceUrl` 在写路径**被静默丢弃**（见 `docs/database.md` 第八之二节） |
 
-**回归**：`npm run test:write` 新增 E2 段 **RW1—RW18**（201 / 三表落库 / 读回 / 409 不覆盖 / force 重出 / 400 字段级明细 / 学生隔离 / 清理零残留），全套 **63/63**；`npm run test:api` **49/49**。
+**回归**：`npm run test:write` 新增 E2 段 **RW1—RW18**（201 / 三表落库 / 读回 / 409 不覆盖 / force 重出 / 400 字段级明细 / 学生隔离 / 清理零残留），全套 **66/66**；`npm run test:api` **49/49**。
 
 **两条写路径的分工**（教学侧据此选型）
 

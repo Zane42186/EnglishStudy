@@ -2,7 +2,7 @@
 
 > 状态：**已实现并实测**（2026-09-29）。本文档描述的是**可运行的真实接口**，非设计稿。
 > 服务地址：`http://localhost:4000`　接口前缀：`/api`
-> 冒烟测试：`npm run test:api`（**49 项全部通过**）；写接口正向验证：`npm run test:write`（**63 项全部通过**）
+> 冒烟测试：`npm run test:api`（**49 项全部通过**）；写接口正向验证：`npm run test:write`（**66 项全部通过**）
 >
 > 变更记录：
 > - 2026-09-29 · 第一批写接口与聚合快照落地：`GET /api/lessons/all`、`POST /api/mistakes/:id/review`、
