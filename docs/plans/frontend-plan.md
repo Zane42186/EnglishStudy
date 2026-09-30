@@ -36,6 +36,8 @@
 | 5 | `review/readIndex.html` | 阅读日期目录（4 天），以 iframe 嵌入 `reading.html`，用 `postMessage`（`reading-select` / `reading-active` / `reading-toc-height`）双向通信 | **硬编码 HTML**；**不在 `build_board.py` 的输出列表中**（outputs 只含 index/reading/words/wrong + lesson 页） | ❌ | **高**（同 #4，且 iframe 架构本身需重评） | 【静态证据】脚本 `outputs` 字典无此键；`reading.html:83` iframe `src="readIndex.html"` |
 | 6 | `review/lessons/lesson-1..6.html` | 6 个课程详情页，每页 8 个 `<h4>` 小节：复习 / 今日语法 / 词汇 / 例句 / 作业 / 我的作答 / 批改 / 难度反馈 | **硬编码 HTML**，由 `render_lesson_page(lesson)` 从 `notes/` 生成 | ❌ | 中（字段齐全，但要改「每课一个文件」为「一页 + 参数」） | 【静态证据】`lesson-6.html` 的 8 个 `<h4>` 与 `05-api-reference.md` 的 `sections[].sectionType` 8 个枚举一一对应 |
 
+> 本表是**迁移前的审计快照**（保留原样，不改写，以免丢失基线与依据）。**当前实际状态**：`review/` 下全部页面均已 API 驱动（`#4`/`#5` 已于 P4 完成，`#5` 自第二轮起成为孤儿页），详见 §10—§11；`build_board.py` 已于 v2.3.0 删除，不存在生成物覆盖问题。
+
 非页面数据源（当前真相源，迁移期间仍需保留供 Skill 与生成脚本读取）【静态证据】：
 `INDEX.md`、`digest.md`、`progress.md`、`wrong-words.md`、`notes/day-01-07.md`、`read/2026-09-26..29-read.md`。
 
@@ -492,3 +494,76 @@ team-lead 转述为「**不展示「是否有诊断」标记**」，而 Amy 原�
 - `reading.html` / `readIndex.html` **未迁移**：`GET /api/readings` 仍 404（P4 阻塞）；Amy 关于阅读的裁定（去掉 iframe、中文默认隐藏、先答再看答案、生词注释不跳转）**尚未实施**。
 - 课程详情 6 节正文仍为占位（G-2）。
 - F4-a 真实数据（待建表 + M2 导入）。
+
+---
+
+## 11. 实施记录（2026-09-30，P4 阅读模块迁移）
+
+> 背景：be-dev 已交付 `GET /api/readings`、`/readings/stats`、`/readings/:date`（`05-api-reference.md` §24—26），并宣布 **R1 可接**（`docs/skills.md` §8.2）。本节记录前端已落地内容、**待验证项**与需后端配合项。
+
+### 11.1 已交付
+
+| 文件 | 动作 | 说明 |
+|---|---|---|
+| `review/reading.html` | 重写 | 改为 API 驱动：日期清单 `/readings`（倒序）→ 默认最新一天；当天全文 `/readings/:date` 渲染卡片。**保留**左目录 iframe、左右箭头 + 键盘 ←→、`#date` 深链、`postMessage` 联动、整篇看中文、生词注释、理解题折叠 |
+| `review/readIndex.html` | 重写 | 目录改为 `/readings` 驱动（日期 + 篇数 + 篇名 tooltip）；保留 `reading-select` / `reading-active` / `reading-toc-height` 三通道；独立打开仍跳 `reading.html#日期`；**删除**从旧看板脚本抄来的死代码（`nav button` / `main section` / `.wcard` / `#q` 段）|
+| `review/assets/board.css` | 追加 | 阅读板块样式（`.reading-layout` / `.stage-*` / `.navbtn` / `.rcard` / `.rtoc-item` / `body.rtoc-embed`）；按 §6.3 硬规则显式声明 `.rcard.hide` |
+| `review/index.html` | 改 1 处 | 「阅读篇数」由占位 `—` 改为 `/readings/stats` 的 `pieceCount`；`title` 附带「读了 N 天 ｜ 最近日期 ｜ 连续天数 ｜ 今天已读」 |
+
+实现要点（与共享层约定一致）：
+- 取数只经 `API.getPage` / `API.get`；渲染走 `UI.esc` / `UI.stateHTML` / `UI.partError` / `UI.onRetry`，无新增内联样式与重复封装。
+- 四态齐全：Loading / Error（横幅 + 重试，局部降级不整页报错）/ Empty（还没有阅读、这一天没有内容）/ 正常。
+- 按日期缓存（`cache[date]`），目录来回切换不重复请求；「整篇看中文」改**事件委托**（旧版逐卡绑定，卡片动态渲染后会失效）。
+- 卡片结构沿用静态版（`第 N 篇 · 标题` / 级别 ｜ 来源 ｜ 词数 / `.pairs` 英中对照 / 生词注释 / 理解题 `<details>`）。
+
+**错误态实测：10/10 通过**【实测】——后端未启动（端口 4000 空）时：三个页面均无 JS 运行时错误；阅读页横幅显示「阅读加载失败：Failed to fetch（请确认后端服务是否在运行）」、正文区给失败提示且**不残留假卡片**；目录页给失败提示 + 重试按钮；首页「阅读篇数」降级为 `—` 且 `title` 说明原因，其余统计卡不受影响。截图：`.workbuddy/tmp/r1-error-state.png`。
+
+### 11.2 ⏳ 待验证（阻塞：后端 4000 未在线）
+
+**正常链路（真机约 26 项断言）尚未执行**，原因是端口 4000 当前无服务。按项目约定「服务默认停止、唯一 owner = be-dev、其他角色只读不启动」，前端**不自行启动后端**，故本轮不声明正常链路通过。
+
+> 补充（2026-09-30 第二轮）：**渲染层**已用路由拦截喂假数据验证通过 17/17（§11.6，`.workbuddy/tmp/e2e-reading-mock.js`），可在后端离线时回归 UI 与交互；但它**不能替代**真机联调（不校验真实接口字段与数据库口径）。
+
+- 脚本（已就绪，可直接复用）：`.workbuddy/tmp/e2e-reading.js`（`--down` 已跑 13/13，`--up` 待跑）
+- 运行：`NODE_PATH="C:\Users\lenovo\.workbuddy\binaries\node\workspace\node_modules" node.exe .workbuddy/tmp/e2e-reading.js up`
+- 覆盖断言：首页阅读篇数=11 + title 含「读了 4 天」；阅读页默认最新一天、**当天只渲染 3 篇**、计数「第 1 / 3 篇」、源文件 `read\2026-09-29-read.md`、英中对照与 `zh` 默认隐藏、有中文按钮可用/无中文按钮置灰、理解题折叠 + 作答框、作答 localStorage 留存、箭头/键盘翻页与禁用态；**同页目录** 4 天 + `.on` 高亮 + 点击切日期；**逐日遍历 4 天累计 11 篇 = `stats.pieceCount`**；F8 今日提示可见；`#2026-09-26` 深链（2 篇）；全流程无错误横幅。
+
+### 11.3 需后端配合 / 确认（本轮新增，编号接 §4.1）
+
+| # | 事项 | 需要谁 | 状态 |
+|---|---|---|---|
+| **V1** | 后端启动后跑一次 §11.2 的正常链路验证（脚本已备，可前端跑也可后端跑） | be-dev | ⏳ 待后端在线 |
+| **C6** | `questions[].answer` 为 `null` 时，前端**只渲染题干 + 「暂无答案」、不给「看答案」折叠**（无答案不伪造）——前端已按此**防御性实现**【实测见 §11.6】，仍需教学侧/后端确认口径 | be-dev / amy | ⏳ 行为已实现，口径待确认 |
+| **C7** | 「今天是否已读」前端按 `lastReadDate === today` 自判（契约 §24 明确接口不下结论），已按契约实现 | be-dev | ✅ 按契约实现，仅备案 |
+| **C8** | ~~`POST /api/readings` 未开放 → 前端无阅读写入口~~ → **be-dev 已于 2026-09-30 下午开放**（`05-api-reference.md` §27，201 / 409 / `?force=true`）。前端本轮**仍不做写入口**（阅读由教学侧产出，属 amy→后端链路），如后续需要再议 | be-dev ✅ / 前端待议 | ✅ 接口已开放 |
+| **C9** | 阅读数据是 `read/*.md` 回填结果；若与 md 原文出现不一致，以哪边为准需明确（前端只读 API） | be-dev / amy | ⏳ 待确认 |
+| **C10** | 首页取值口径：用 `pieceCount` 作文案「阅读篇数」、`totalDays` 与 `currentStreakDays` 放 `title`（对齐 §4.1 的 D3） | be-dev | ✅ 已按 D3 暂定实现，待最终确认 |
+
+### 11.4 与 Amy 裁定的关系（**已按裁定落地**，2026-09-30 第二轮）
+
+`§10.7` / `amy-teaching-plan.md §B.3.4` 记录 Amy 的阅读裁定四条：① 去掉 iframe 改同页渲染；② 中文翻译默认隐藏、某篇无中文时按钮**置灰**（非消失）；③ 理解题「先答再看答案」，作答仅前端本地留存、**暂不落库**；④ 生词注释内联、不跳词汇页。
+
+**本轮已全部落地**（详见 §11.6）。此前项目负责人要求保留 iframe 的「伪前后端关联」结构，与裁定① 冲突；本轮**按裁定① 去掉 iframe**。
+
+> 副作用：`review/readIndex.html` 自本轮起**不再被任何页面引用**（原为 `reading.html` 的目录 iframe 源）。该页仍可独立打开、功能正常，但已成为「孤儿页」。**处置（删除 / 保留为独立大目录页）属结构决策，前端不自行删除**，请项目负责人拍板。样式类 `.rtoc-item` / `.rtoc-title` 仍被同页目录复用，未受影响。
+
+### 11.5 本轮未做（明确声明）
+
+- 正常链路**真机**验证（§11.2，等后端 4000 在线）。已用路由拦截做**渲染层**等价验证（§11.6），不等同于真机联调。
+- 其余页面（`words` / `wrong` / `lessons`）本轮无改动。
+
+### 11.6 amy 裁定落地（2026-09-30 第二轮，前端）
+
+| 文件 | 动作 | 说明 |
+|---|---|---|
+| `review/reading.html` | 重写 | **去掉 iframe**，左侧目录改为同页渲染（`<nav class="rtoc-list" id="tocList">`，`/readings` 驱动，点击切日期 + `.on` 高亮跟随）；删除全部 `postMessage` 收发与高度同步代码 |
+| — | 新增 | 裁定②：`paragraphs` 全无 `zh` 时渲染 `<button class="zhbtn" disabled title="本篇没有中文对照">`（**置灰可见**，非隐藏） |
+| — | 新增 | 裁定③：理解题题干下加 `<textarea class="qans" data-key="date#pieceNo#questionNo">`（先作答），答案仍走 `<details class="qbox">`；作答存 `localStorage['reading-answers']`，**不写库**；`answer` 为 `null` 时只渲染题干 + `暂无答案`，不给折叠 |
+| — | 保留 | `postMessage` 之外的硬要求：F8「今日是否已生成」提示（`#todayNote`，按 `/readings/stats` 的 `lastReadDate === today` 分 `ok` / `miss` 两态）、键盘 ←→、`#date` 深链与 `hashchange` |
+| `review/assets/board.css` | 追加 | `.rtoc-list`、`.f8note`（含显式 `.f8note.hide{display:none}` 兜底，遵 §6.3 硬规则）、`button.zhbtn:disabled`、`.vnotes`、`.qitem` / `.qtext` / `.qans` / `.qfoot` / `.qbox` / `.qansbox` / `.qnoans` / `.qhint`；删除失效的 `.reading-toc iframe` 规则 |
+
+**验证**【实测 + 静态证据】：
+- 错误态真机（后端离线）：`.workbuddy/tmp/e2e-reading.js down` → **13/13 通过**（新增「无 iframe」「今日提示隐藏」「目录区失败提示」断言）。
+- 渲染层等价验证（**路由拦截喂假数据**，不依赖后端）：`.workbuddy/tmp/e2e-reading-mock.js` → **17/17 通过**。覆盖：同页目录 4 天 + 首条最新 + `.on` 唯一高亮；F8 两分支（已生成 `ok` / 未生成 `miss`）；有中文按钮可用 vs 无中文按钮置灰；理解题「有答案→折叠 / 无答案→暂无答案」+ 作答框 key；**逐日遍历 4 天累计 11 篇 = `stats.pieceCount`（内容零丢失）**；整篇看中文展开与文案；作答刷新后仍在（localStorage）；目录点击切日期 + hash/高亮同步。截图 `.workbuddy/tmp/r1-reading-mock.png`。
+- **修正**：早期 `--up` 脚本断言「DOM 内 11 篇」有误——页面**按天懒加载**，DOM 只含当天卡片；已改为「当天 3 篇 + 逐日遍历累计 11 篇」。
+- ⏳ 仍缺：后端在线后的**真机**正常链路（§11.2 V1）。

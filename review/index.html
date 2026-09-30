@@ -37,7 +37,7 @@
 <script src="assets/ui.js"></script>
 <script>
 /* 首页 · API 驱动
- * 统计：/lessons（取 total）、/progress、/vocabulary/stats、/mistakes/stats；阅读篇数等 /readings/stats（缺口，占位）
+ * 统计：/lessons（取 total）、/progress、/vocabulary/stats、/mistakes/stats、/readings/stats（R1）
  * 趋势：/lessons/error-trend?limit=6（Amy F6）
  * 课程：/lessons/all（含 grammarPoint，API.lessonIndex 优先用它、失败回退分页全量）
  * 建议：/agent/snapshot 的 lastRecommendation（Amy：替代 progress.note 原文；无数据不显示） */
@@ -57,10 +57,19 @@
       API.get('/vocabulary/stats').then(function (d) { UI.setText('statVocab', d.total); })
         .catch(function (e) { UI.setUnknown('statVocab', '加载失败：' + e.message); UI.partError('累计生词', e); }),
       API.get('/mistakes/stats').then(function (d) { UI.setText('statMistakes', d.pending); })
-        .catch(function (e) { UI.setUnknown('statMistakes', '加载失败：' + e.message); UI.partError('未过关错词', e); })
+        .catch(function (e) { UI.setUnknown('statMistakes', '加载失败：' + e.message); UI.partError('未过关错词', e); }),
+      /* 阅读篇数（R1 已可接）：pieceCount；tooltip 附带天数 / 最近阅读 / 连续天数
+       * 「今天有没有读」由前端比 lastReadDate === today 判断，接口不下结论 */
+      API.get('/readings/stats').then(function (d) {
+        UI.setText('statReading', d.pieceCount);
+        var bits = [];
+        if (d.totalDays) { bits.push('读了 ' + d.totalDays + ' 天'); }
+        if (d.lastReadDate) { bits.push('最近 ' + d.lastReadDate); }
+        if (d.currentStreakDays) { bits.push('连续 ' + d.currentStreakDays + ' 天'); }
+        if (d.lastReadDate && d.lastReadDate === d.today) { bits.push('今天已读'); }
+        if (bits.length) { UI.el('statReading').title = bits.join(' ｜ '); }
+      }).catch(function (e) { UI.setUnknown('statReading', '加载失败：' + e.message); UI.partError('阅读篇数', e); })
     ];
-    // 阅读篇数：后端暂无阅读统计接口（缺口 R1），显示占位而不是报错
-    UI.setUnknown('statReading', '后端暂未提供阅读统计接口（API 缺口 R1）');
     return Promise.all(jobs);
   }
 

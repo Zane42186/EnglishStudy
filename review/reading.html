@@ -1,415 +1,302 @@
-<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>阅读</title><style>
-:root { color-scheme: light; }
-* { box-sizing: border-box; }
-body { margin: 0; padding: 24px; background: #f7f7f5; color: #2c2c2a;
-  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 15px; line-height: 1.7; }
-.wrap { max-width: 900px; margin: 0 auto; }
-h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
-h2 { font-size: 16px; font-weight: 600; margin: 24px 0 8px; }
-h3 { font-size: 15px; font-weight: 600; margin: 0; }
-h4 { font-size: 13px; font-weight: 600; color: #6b6b66; margin: 14px 0 4px; }
-.sub { color: #6b6b66; font-size: 13px; margin: 0 0 16px; }
-.stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
-.stat { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 14px; min-width: 110px; }
-.stat b { display: block; font-size: 18px; font-weight: 600; }
-.stat span { color: #6b6b66; font-size: 12px; }
-.entries { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 16px 0 4px; }
-a.entry { display: block; background: #fff; border: 1px solid #d9d8d2; border-radius: 10px;
-  padding: 10px 14px; text-decoration: none; color: #2c2c2a; }
-a.entry:hover { border-color: #185fa5; }
-a.entry b { display: block; font-size: 15px; font-weight: 500; }
-a.entry span { color: #6b6b66; font-size: 12px; }
-#q { width: 100%; padding: 8px 12px; border: 1px solid #d9d8d2; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
-.card { background: #fff; border: 1px solid #e3e2dc; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
-.card .meta { color: #6b6b66; font-size: 12px; margin: 4px 0 8px; }
-.sum { color: #3d3d38; margin: 4px 0 8px; font-size: 14px; }
-a.btn { display: inline-block; background: #eef4fb; border: 1px solid #c9dcef; color: #185fa5;
-  border-radius: 8px; padding: 4px 12px; font-size: 13px; text-decoration: none; }
-a.btn:hover { background: #e0ecfa; }
-a.plain { color: #185fa5; }
-details summary { cursor: pointer; color: #185fa5; font-size: 14px; }
-details { margin-top: 8px; }
-table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 14px; }
-th, td { border: 1px solid #e3e2dc; padding: 6px 8px; text-align: left; }
-th { background: #f1efe8; font-weight: 600; }
-blockquote { margin: 0; padding-left: 10px; border-left: 3px solid #d9d8d2; color: #4a4a45; }
-.en { margin: 0 0 2px; }
-.zh { margin: 0 0 12px; color: #4a4a45; }
-.zh[hidden] { display: none; }
-button.zhbtn { background: #eef4fb; border: 1px solid #c9dcef; border-radius: 6px; padding: 2px 10px;
-  font-size: 12px; cursor: pointer; color: #185fa5; margin-bottom: 8px; }
-.words { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-.idx { display: flex; flex-wrap: wrap; gap: 4px; margin: 12px 0 4px; }
-.idx a { display: inline-block; min-width: 24px; text-align: center; background: #fff; border: 1px solid #d9d8d2;
-  border-radius: 6px; padding: 2px 6px; font-size: 13px; color: #185fa5; text-decoration: none; }
-.idx a:hover { border-color: #185fa5; }
-h2 .count { color: #6b6b66; font-size: 12px; font-weight: 400; margin-left: 8px; }
-.wcard { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
-.wcard .w { font-weight: 600; }
-.wcard .p { color: #6b6b66; font-size: 12px; }
-.wcard .c, .wcard .e { display: none; font-size: 13px; margin-top: 4px; }
-.wcard.show .c, .wcard.show .e { display: block; }
-.wcard .e { color: #4a4a45; }
-.hide { display: none; }
-/* 阅读页双栏布局：左侧目录 + 右侧单篇卡片 */
-.reading-layout { display: flex; gap: 16px; align-items: flex-start; }
-.reading-toc { flex: 0 0 190px; position: sticky; top: 16px; background: #fff;
-  border: 1px solid #e3e2dc; border-radius: 12px; overflow: hidden; }
-.reading-toc iframe { display: block; width: 100%; height: 260px; border: 0; }
-.reading-stage { flex: 1 1 auto; min-width: 0; }
-.stage-head { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 2px; }
-.stage-head h2 { margin: 0; }
-.stage-count { color: #6b6b66; font-size: 13px; }
-.stage-file { color: #88877f; font-size: 12px; margin: 0 0 10px; }
-.stage-body { display: flex; align-items: center; gap: 10px; }
-.navbtn { flex: 0 0 36px; height: 36px; border-radius: 50%; border: 1px solid #d9d8d2;
-  background: #fff; color: #185fa5; font-size: 16px; cursor: pointer; line-height: 1; }
-.navbtn:hover:not(:disabled) { border-color: #185fa5; background: #eef4fb; }
-.navbtn:disabled { opacity: .35; cursor: default; }
-.stage-viewport { flex: 1 1 auto; min-width: 0; }
-.rcard { margin-bottom: 0; animation: cardin .18s ease; }
-.rcard h3 { margin: 0 0 2px; font-size: 17px; }
-@keyframes cardin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-@media (max-width: 720px) {
-  .reading-layout { flex-direction: column; }
-  .reading-toc { position: static; flex: none; width: 100%; }
-  .reading-toc iframe { height: 150px; }
-}
-footer { color: #88877f; font-size: 12px; margin: 24px 0; }
-</style><style>.wrap { max-width: 1080px; }</style></head><body><div class="wrap"><h1>阅读</h1>
-<p><a class="plain" href="index.html">← 返回看板</a></p>
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>阅读</title>
+<link rel="stylesheet" href="assets/board.css">
+<style>.wrap { max-width: 1080px; }</style>
+</head><body><div class="wrap">
+<h1>阅读</h1>
+<p><a class="back" href="index.html">← 返回看板</a></p>
 <p class="sub">左侧选择日期，中间每次显示一篇；用左右箭头按钮或键盘 ←/→ 在当天文章间翻页。</p>
+
+<div id="apiError" class="api-error hide"><span id="apiErrorMsg"></span><button id="apiRetry" type="button">重试</button></div>
+
 <div class="reading-layout">
-<aside class="reading-toc"><iframe id="readingToc" src="readIndex.html" title="阅读目录"></iframe></aside>
+<aside class="reading-toc">
+<div class="rtoc-title">阅读目录</div>
+<nav class="rtoc-list" id="tocList"><p class="state loading">正在加载目录…</p></nav>
+</aside>
 <section class="reading-stage">
 <div class="stage-head"><h2 id="stageDate"></h2><span class="stage-count" id="stageCount"></span></div>
 <p class="stage-file" id="stageFile"></p>
+<p class="f8note hide" id="todayNote"></p>
 <div class="stage-body">
-<button class="navbtn" id="navPrev" aria-label="上一篇">&#8592;</button>
-<div class="stage-viewport">
-<article class="card rcard" data-date="2026-09-29" data-file="read\2026-09-29-read.md">
-<h3>第 1 篇 · Yesterday</h3>
-<p class="meta">级别：Level 2 ｜ 来源：自编</p>
-<button class="zhbtn">整篇看中文</button>
-<div class="pairs">
-<p class="en">Yesterday was a busy day for me. I was at work from nine to six.</p>
-<p class="zh" hidden>昨天对我来说是忙碌的一天。我从九点工作到六点。</p>
-<p class="en">At night, I was at home. I was tired, but I was happy.</p>
-<p class="zh" hidden>晚上我在家。我很累，但很开心。</p>
-<p class="en">Were you busy yesterday? I was not busy last week, but this week is different.</p>
-<p class="zh" hidden>你昨天忙吗？我上周不忙，但这周不一样了。</p>
-</div>
-<h4>生词注释</h4>
-<p>busy 忙的 / from ... to ... 从……到…… / at night 在晚上 / different 不同的 / last week 上周</p>
-<h4>理解题</h4>
-<ol><li>Where was the writer at night?</li></ol>
-<details><summary>看答案</summary>He was at home.</details>
-2. Was the writer busy last week?
-<details><summary>看答案</summary>No, he wasn't.</details>
-</article>
-<article class="card rcard" data-date="2026-09-29" data-file="read\2026-09-29-read.md">
-<h3>第 2 篇 · Tom's Bad Day</h3>
-<p class="meta">级别：Level 2 ｜ 来源：自编</p>
-<button class="zhbtn">整篇看中文</button>
-<div class="pairs">
-<p class="en">Tom was late this morning. He was not happy.</p>
-<p class="zh" hidden>Tom 今天早上迟到了。他不开心。</p>
-<p class="en">His bag was on the bus, but he was at school.</p>
-<p class="zh" hidden>他的包在公交车上，但他在学校。</p>
-<p class="en">His teacher was kind. She was not angry.</p>
-<p class="zh" hidden>他的老师很和蔼。她没有生气。</p>
-</div>
-<h4>生词注释</h4>
-<p>late 迟到的 / bus 公交车 / kind 和蔼的 / angry 生气的 / this morning 今天早上</p>
-<h4>理解题</h4>
-<ol><li>Why was Tom not happy?</li></ol>
-<details><summary>看答案</summary>Because he was late and his bag was on the bus.</details>
-2. Was his teacher angry?
-<details><summary>看答案</summary>No, she wasn't.</details>
-</article>
-<article class="card rcard" data-date="2026-09-29" data-file="read\2026-09-29-read.md">
-<h3>第 3 篇 · Where Were You?</h3>
-<p class="meta">级别：Level 2 ｜ 来源：自编</p>
-<button class="zhbtn">整篇看中文</button>
-<div class="pairs">
-<p class="en">Where were you last night? I was in a small kitchen.</p>
-<p class="zh" hidden>你昨晚在哪里？我在一个小厨房里。</p>
-<p class="en">Who was with you? My friend Tom was with me.</p>
-<p class="zh" hidden>谁和你在一起？我的朋友 Tom 和我在一起。</p>
-<p class="en">We were not playing games. We were studying English.</p>
-<p class="zh" hidden>我们没在打游戏。我们在学英语。</p>
-</div>
-<h4>生词注释</h4>
-<p>last night 昨晚 / with 和……一起 / kitchen 厨房 / study 学习 / where 在哪里</p>
-<h4>理解题</h4>
-<ol><li>Where was the writer last night?</li></ol>
-<details><summary>看答案</summary>In a small kitchen.</details>
-2. What were they doing?
-<details><summary>看答案</summary>They were studying English.</details>
-</article>
-<article class="card rcard" data-date="2026-09-28" data-file="read\2026-09-28-read.md">
-<h3>第 1 篇 · My Day, My Way</h3>
-<p class="meta">级别：Level 2 ｜ 来源：自编</p>
-<button class="zhbtn">整篇看中文</button>
-<div class="pairs">
-<p class="en">I usually get up at seven o'clock. I read English every morning.</p>
-<p class="zh" hidden>我通常七点起床。我每天早上读英语。</p>
-<p class="en">I work in a small office. I am busy today, so I am working late now.</p>
-<p class="zh" hidden>我在一个小办公室上班。我今天很忙，所以现在我还在加班。</p>
-<p class="en">On the weekend, I play games with my friends. But now I am studying English.</p>
-<p class="zh" hidden>周末我和朋友打游戏。但现在我正在学英语。</p>
-</div>
-<h4>生词注释</h4>
-<p>get up 起床 / o'clock 点钟 / late 晚；迟 / on the weekend 在周末 / with 和……一起</p>
-<h4>理解题</h4>
-<ol><li>What does the writer do every morning?</li></ol>
-<details><summary>看答案</summary>He reads English.</details>
-2. Is the writer studying English now?
-<details><summary>看答案</summary>Yes, he is.</details>
-</article>
-<article class="card rcard" data-date="2026-09-28" data-file="read\2026-09-28-read.md">
-<h3>第 2 篇 · Amy Is Busy</h3>
-<p class="meta">级别：Level 2 ｜ 来源：自编</p>
-<button class="zhbtn">整篇看中文</button>
-<div class="pairs">
-<p class="en">Amy is my English teacher. She usually works from nine to six.</p>
-<p class="zh" hidden>Amy 是我的英语老师。她通常从九点工作到六点。</p>
-<p class="en">Today she is very busy. She is writing a long email now.</p>
-<p class="zh" hidden>今天她很忙。她正在写一封很长的邮件。</p>
-<p class="en">Does she like her job? Yes, she does. She likes teaching English.</p>
-<p class="zh" hidden>她喜欢她的工作吗？是的，她喜欢。她喜欢教英语。</p>
-</div>
-<h4>生词注释</h4>
-<p>from ... to ... 从……到…… / long 长的 / job 工作 / teach 教 / busy 忙的</p>
-<h4>理解题</h4>
-<ol><li>What is Amy doing now?</li></ol>
-<details><summary>看答案</summary>She is writing a long email.</details>
-2. Does Amy like her job?
-<details><summary>看答案</summary>Yes, she does.</details>
-</article>
-<article class="card rcard" data-date="2026-09-28" data-file="read\2026-09-28-read.md">
-<h3>第 3 篇 · Weekend and Now</h3>
-<p class="meta">级别：Level 2 ｜ 来源：自编</p>
-<button class="zhbtn">整篇看中文</button>
-<div class="pairs">
-<p class="en">My friend Tom and I usually play football on the weekend.</p>
-<p class="zh" hidden>我和朋友 Tom 通常在周末踢足球。</p>
-<p class="en">He runs very fast and he plays well.</p>
-<p class="zh" hidden>他跑得很快，踢得也好。</p>
-<p class="en">Now we are not playing football. We are sitting in a small kitchen and eating dinner.</p>
-<p class="zh" hidden>现在我们没在踢足球。我们坐在一个小厨房里吃晚饭。</p>
-</div>
-<h4>生词注释</h4>
-<p>fast 快地 / well 好地 / eat 吃 / kitchen 厨房 / on the weekend 在周末</p>
-<h4>理解题</h4>
-<ol><li>What do they usually do on the weekend?</li></ol>
-<details><summary>看答案</summary>They play football.</details>
-2. What are they doing now?
-<details><summary>看答案</summary>They are sitting in a kitchen and eating dinner.</details>
-</article>
-<article class="card rcard" data-date="2026-09-27" data-file="read\2026-09-27-read.md">
-<h3>第 1 篇 · My Friend Tom</h3>
-<p class="meta">级别：Level 1 ｜ 来源：自编</p>
-<button class="zhbtn">整篇看中文</button>
-<div class="pairs">
-<p class="en">Tom is my friend. His bag is big.</p>
-<p class="zh" hidden>Tom 是我的朋友。他的包很大。</p>
-<p class="en">He is a student. His school is near my home.</p>
-<p class="zh" hidden>他是学生。他的学校在我家附近。</p>
-<p class="en">We study English together after work.</p>
-<p class="zh" hidden>我们下班后一起学英语。</p>
-</div>
-<h4>生词注释</h4>
-<p>friend 朋友 / near 在……附近 / home 家 / together 一起 / after work 下班后</p>
-<h4>理解题</h4>
-<ol><li>Is Tom's bag big?</li></ol>
-<details><summary>看答案</summary>Yes, it is.</details>
-2. What do they do together after work?
-<details><summary>看答案</summary>They study English together.</details>
-</article>
-<article class="card rcard" data-date="2026-09-27" data-file="read\2026-09-27-read.md">
-<h3>第 2 篇 · My Room</h3>
-<p class="meta">级别：Level 1 ｜ 来源：自编</p>
-<button class="zhbtn">整篇看中文</button>
-<div class="pairs">
-<p class="en">There is a bed in my room. There is a desk near the bed.</p>
-<p class="zh" hidden>我的房间里有一张床。床边有一张书桌。</p>
-<p class="en">There are two books on the desk. My computer is on the desk, too.</p>
-<p class="zh" hidden>桌上有两本书。我的电脑也在桌上。</p>
-<p class="en">My bag is under the desk. I like my room.</p>
-<p class="zh" hidden>我的包在桌子下面。我喜欢我的房间。</p>
-</div>
-<h4>生词注释</h4>
-<p>bed 床 / desk 书桌 / near 在……附近 / under 在……下面 / too 也</p>
-<h4>理解题</h4>
-<ol><li>How many books are on the desk?</li></ol>
-<details><summary>看答案</summary>Two.</details>
-2. Where is the writer's bag?
-<details><summary>看答案</summary>It is under the desk.</details>
-</article>
-<article class="card rcard" data-date="2026-09-27" data-file="read\2026-09-27-read.md">
-<h3>第 3 篇 · My Work Day</h3>
-<p class="meta">级别：Level 1 ｜ 来源：自编</p>
-<button class="zhbtn">整篇看中文</button>
-<div class="pairs">
-<p class="en">I work in a small company. I am busy every day.</p>
-<p class="zh" hidden>我在一家小公司上班。我每天都很忙。</p>
-<p class="en">I study English after work. My teacher is Amy.</p>
-<p class="zh" hidden>下班后我学英语。我的老师是 Amy。</p>
-<p class="en">Her class is interesting, and I like my English class.</p>
-<p class="zh" hidden>她的课很有趣，我喜欢我的英语课。</p>
-</div>
-<h4>生词注释</h4>
-<p>company 公司 / busy 忙的 / interesting 有趣的 / after work 下班后 / class 课</p>
-<h4>理解题</h4>
-<ol><li>Where does the writer work?</li></ol>
-<details><summary>看答案</summary>In a small company.</details>
-2. Who is the writer's English teacher?
-<details><summary>看答案</summary>Amy.</details>
-</article>
-<article class="card rcard" data-date="2026-09-26" data-file="read\2026-09-26-read.md">
-<h3>第 1 篇 · My Day</h3>
-<p class="meta">级别：Level 1 ｜ 来源：自编</p>
-<button class="zhbtn">整篇看中文</button>
-<div class="pairs">
-<p class="en">I like music. I study English every day.</p>
-<p class="zh" hidden>我喜欢音乐。我每天学英语。</p>
-<p class="en">I work in a small company. I play games after work.</p>
-<p class="zh" hidden>我在一家小公司上班。下班后我打游戏。</p>
-<p class="en">I need help with my English.</p>
-<p class="zh" hidden>我的英语需要有人帮我。</p>
-</div>
-<h4>生词注释</h4>
-<p>every day 每天 / company 公司 / after work 下班后 / play games 打游戏 / with 在……方面</p>
-<h4>理解题</h4>
-<ol><li>What does the writer study every day?</li></ol>
-<details><summary>看答案</summary>English.</details>
-2. What does the writer do after work?
-<details><summary>看答案</summary>He plays games.</details>
-</article>
-<article class="card rcard" data-date="2026-09-26" data-file="read\2026-09-26-read.md">
-<h3>第 2 篇 · My Teacher and I</h3>
-<p class="meta">级别：Level 1 ｜ 来源：自编</p>
-<button class="zhbtn">整篇看中文</button>
-<div class="pairs">
-<p class="en">I am a student. I study English every day.</p>
-<p class="zh" hidden>我是学生。我每天学英语。</p>
-<p class="en">My teacher is Amy. She is kind and patient.</p>
-<p class="zh" hidden>我的老师是 Amy。她又和蔼又有耐心。</p>
-<p class="en">We are busy after work. I am tired, but I am happy.</p>
-<p class="zh" hidden>我们下班后很忙。我很累，但我很开心。</p>
-</div>
-<h4>生词注释</h4>
-<p>kind 和蔼的 / patient 有耐心的 / but 但是 / every day 每天 / after work 下班后</p>
-<h4>理解题</h4>
-<ol><li>What is Amy like?</li></ol>
-<details><summary>看答案</summary>She is kind and patient.</details>
-2. Is the writer happy?
-<details><summary>看答案</summary>Yes, he is tired but happy.</details>
-</article>
-</div>
-<button class="navbtn" id="navNext" aria-label="下一篇">&#8594;</button>
+<button class="navbtn" id="navPrev" type="button" aria-label="上一篇" title="上一篇（←）" disabled>&#8592;</button>
+<div class="stage-viewport" id="stageViewport"><p class="state loading">正在加载阅读…</p></div>
+<button class="navbtn" id="navNext" type="button" aria-label="下一篇" title="下一篇（→）" disabled>&#8594;</button>
 </div>
 </section>
-</div></div><script>
-var tabs = document.querySelectorAll('nav button');
-tabs.forEach(function (btn) {
-  btn.addEventListener('click', function () {
-    tabs.forEach(function (b) { b.classList.remove('on'); });
-    btn.classList.add('on');
-    document.querySelectorAll('main section').forEach(function (s) { s.classList.add('hide'); });
-    document.getElementById('tab-' + btn.dataset.tab).classList.remove('hide');
-  });
-});
-document.querySelectorAll('.zhbtn').forEach(function (b) {
-  b.addEventListener('click', function () {
-    var scope = b.parentElement;
-    var blocks = scope.querySelectorAll('.zh');
-    var hidden = 0;
-    blocks.forEach(function (z) { if (z.hasAttribute('hidden')) { hidden += 1; } });
-    blocks.forEach(function (z) {
-      if (hidden > 0) { z.removeAttribute('hidden'); } else { z.setAttribute('hidden', ''); }
-    });
-    b.textContent = hidden > 0 ? '收起中文' : '整篇看中文';
-  });
-});
-document.querySelectorAll('.wcard').forEach(function (c) {
-  c.addEventListener('click', function () { c.classList.toggle('show'); });
-});
-var q = document.getElementById('q');
-if (q) {
-  q.addEventListener('input', function () {
-    var v = q.value.trim().toLowerCase();
-    document.querySelectorAll('.lesson').forEach(function (card) {
-      card.classList.toggle('hide', v !== '' && card.dataset.text.indexOf(v) === -1);
-    });
-  });
-}
-</script>
+</div>
+
+<footer>提示：先自己读一遍，再点「整篇看中文」核对；理解题先作答，再展开对照答案（作答只存本机）。</footer>
+</div>
+
+<script src="assets/api.js"></script>
+<script src="assets/ui.js"></script>
 <script>
+/* 阅读页 · API 驱动
+ * 日期清单：GET /api/readings（倒序，首条即最新一天）
+ * 今日状态：GET /api/readings/stats（used 于「今天是否已生成」提示）
+ * 当天全文：GET /api/readings/:date（段落级英中对照 + 生词注释 + 理解题）
+ * 保留能力：默认最新一天、左右箭头 / 键盘 ←→ 翻页、整篇看中文、
+ *           生词注释内联、理解题「先答再看答案」、URL hash 同步（可刷新、可分享直达）。
+ * 教学裁定（amy-teaching-plan §B.3.4）：① 同页目录，不嵌 iframe；
+ *   ② 无中文对照时「整篇看中文」置灰而非消失；③ 理解题作答仅前端本地留存，暂不落库。
+ * 四态：Loading / Error（横幅 + 重试）/ Empty（还没有阅读）/ 正常。
+ */
 (function () {
-  var frame = document.getElementById('readingToc');
-  var cards = Array.prototype.slice.call(document.querySelectorAll('.rcard'));
-  var elDate = document.getElementById('stageDate');
-  var elCount = document.getElementById('stageCount');
-  var elFile = document.getElementById('stageFile');
-  var btnPrev = document.getElementById('navPrev');
-  var btnNext = document.getElementById('navNext');
-  var dates = [];
-  var byDate = {};
-  cards.forEach(function (c) {
-    var d = c.dataset.date;
-    if (!byDate[d]) { byDate[d] = []; dates.push(d); }
-    byDate[d].push(c);
-  });
-  var curDate = '', curIdx = 0;
+  'use strict';
+  var viewport = UI.el('stageViewport');
+  var tocList = UI.el('tocList');
+  var elDate = UI.el('stageDate');
+  var elCount = UI.el('stageCount');
+  var elFile = UI.el('stageFile');
+  var elToday = UI.el('todayNote');
+  var btnPrev = UI.el('navPrev');
+  var btnNext = UI.el('navNext');
+
+  var dates = [];      // 日期倒序，来自 /readings
+  var cache = {};      // date -> { sourceFile, pieces }，来回切换不重复请求
+  var curDate = '';
+  var curIdx = 0;
+
+  var ANS_KEY = 'reading-answers';   // 理解题作答本地留存（本期不落库）
+
+  function currentList() {
+    var day = cache[curDate];
+    return (day && day.pieces) || [];
+  }
+
+  /* ---------- 理解题作答：仅存本机 ---------- */
+  function loadAnswers() {
+    try { return JSON.parse(localStorage.getItem(ANS_KEY) || '{}') || {}; }
+    catch (e) { return {}; }
+  }
+  function saveAnswer(key, val) {
+    var all = loadAnswers();
+    if (val) { all[key] = val; } else { delete all[key]; }
+    try { localStorage.setItem(ANS_KEY, JSON.stringify(all)); } catch (e) { /* 隐私模式等，静默忽略 */ }
+  }
+  function fillAnswers() {
+    var all = loadAnswers();
+    Array.prototype.forEach.call(viewport.querySelectorAll('.qans'), function (t) {
+      if (!t.dataset.key) { return; }
+      if (all[t.dataset.key] != null) { t.value = all[t.dataset.key]; }
+    });
+  }
+
+  /* ---------- 渲染：左侧目录 ---------- */
+  function renderToc(list) {
+    if (!list.length) {
+      tocList.innerHTML = UI.stateHTML('empty', '还没有阅读');
+      return;
+    }
+    tocList.innerHTML = list.map(function (x) {
+      return '<button class="rtoc-item" type="button" data-date="' + UI.esc(x.date) + '">'
+        + '<b>' + UI.esc(x.date) + '</b>'
+        + '<span>' + (x.pieceCount || 0) + ' 篇</span></button>';
+    }).join('');
+  }
+  function markToc(date) {
+    Array.prototype.forEach.call(tocList.querySelectorAll('.rtoc-item'), function (b) {
+      b.classList.toggle('on', b.dataset.date === date);
+    });
+  }
+
+  /* ---------- 渲染：一篇 = 一张卡片 ---------- */
+  function ansKey(date, pieceNo, questionNo) {
+    return date + '#' + (pieceNo == null ? '' : pieceNo) + '#' + (questionNo == null ? '' : questionNo);
+  }
+  function pieceHTML(p, date) {
+    var paras = p.paragraphs || [];
+    var hasZh = paras.some(function (x) { return !!x.zh; });
+    var out = '<article class="card rcard" data-date="' + UI.esc(date) + '">'
+      + '<h3>第 ' + UI.esc(String(p.pieceNo == null ? '' : p.pieceNo)) + ' 篇 · ' + UI.esc(p.title || '未命名') + '</h3>'
+      + '<p class="meta">级别：' + UI.esc(p.levelCode || '未标注')
+      + ' ｜ 来源：' + UI.esc(p.source || '未标注')
+      + (p.wordCount ? ' ｜ ' + p.wordCount + ' 词' : '') + '</p>';
+    /* 裁定②：无中文对照时按钮置灰（保留可见），而不是隐藏 */
+    out += hasZh
+      ? '<button class="zhbtn" type="button">整篇看中文</button>'
+      : '<button class="zhbtn" type="button" disabled title="本篇没有中文对照">整篇看中文</button>';
+    out += '<div class="pairs">';
+    paras.forEach(function (x) {
+      out += '<p class="en">' + UI.esc(x.en) + '</p>';
+      if (x.zh) { out += '<p class="zh" hidden>' + UI.esc(x.zh) + '</p>'; }
+    });
+    out += '</div>';
+    if (p.vocabularyNotes) {
+      /* 裁定④：生词注释内联，不跳词汇页 */
+      out += '<h4>生词注释</h4><p class="vnotes">' + UI.esc(p.vocabularyNotes) + '</p>';
+    }
+    var qs = p.questions || [];
+    if (qs.length) {
+      out += '<h4>理解题</h4>';
+      qs.forEach(function (q) {
+        var no = q.questionNo ? q.questionNo + '. ' : '';
+        out += '<div class="qitem">'
+          + '<p class="qtext">' + UI.esc(no + (q.question || '')) + '</p>'
+          /* 裁定③：先作答，再展开对照答案 */
+          + '<textarea class="qans" rows="2" data-key="' + UI.esc(ansKey(date, p.pieceNo, q.questionNo)) + '"'
+          + ' placeholder="先写你的答案，再展开对照"></textarea>'
+          + '<div class="qfoot">';
+        if (q.answer) {
+          out += '<details class="qbox"><summary>看答案</summary><div class="qansbox">' + UI.esc(q.answer) + '</div></details>';
+        } else {
+          out += '<span class="qnoans">暂无答案</span>';
+        }
+        out += '<span class="qhint">作答只存本机</span></div></div>';
+      });
+    }
+    return out + '</article>';
+  }
+
   function render() {
-    var list = byDate[curDate] || [];
-    cards.forEach(function (c) { c.classList.toggle('hide', c.dataset.date !== curDate); });
+    var list = currentList();
+    Array.prototype.forEach.call(viewport.querySelectorAll('.rcard'), function (c) {
+      c.classList.toggle('hide', c.dataset.date !== curDate);
+    });
     elDate.textContent = curDate;
     elCount.textContent = list.length ? '第 ' + (curIdx + 1) + ' / ' + list.length + ' 篇' : '';
-    elFile.textContent = list[0] ? (list[0].dataset.file || '') : '';
+    var file = (cache[curDate] && cache[curDate].sourceFile) || '';
+    elFile.textContent = file ? ('read\\' + file) : '';
     btnPrev.disabled = curIdx <= 0;
     btnNext.disabled = curIdx >= list.length - 1;
-    if (frame && frame.contentWindow) {
-      frame.contentWindow.postMessage({ type: 'reading-active', date: curDate }, '*');
+    markToc(curDate);
+  }
+
+  /* ---------- F8：「今天是否已生成」可见（硬要求，不可回退） ---------- */
+  function setTodayNote(stats) {
+    if (!elToday) { return; }
+    if (!stats) { elToday.className = 'f8note hide'; return; }
+    var today = stats.today || '';
+    if (today && stats.lastReadDate === today) {
+      elToday.className = 'f8note ok';
+      elToday.textContent = '今日阅读已生成（' + today + '）';
+    } else {
+      elToday.className = 'f8note miss';
+      elToday.textContent = '今日阅读尚未生成'
+        + (stats.lastReadDate ? '，最近一次：' + stats.lastReadDate : '');
     }
   }
+
+  function fetchDay(date) {
+    if (cache[date]) { return Promise.resolve(cache[date]); }
+    return API.get('/readings/' + encodeURIComponent(date)).then(function (d) {
+      cache[date] = d || {};
+      return cache[date];
+    });
+  }
+
   function showDay(date) {
     if (dates.indexOf(date) === -1) { date = dates[0]; }
-    if (!date) { return; }
+    if (!date) { return Promise.resolve(); }
     curDate = date;
     curIdx = 0;
-    if (history.replaceState) { history.replaceState(null, '', '#' + encodeURIComponent(date)); }
-    render();
+    try {
+      history.replaceState(null, '', '#' + encodeURIComponent(date));
+    } catch (err) {
+      location.hash = date;                       // file:// 等场景的兜底
+    }
+    elCount.textContent = '';
+    elFile.textContent = '';
+    viewport.innerHTML = UI.stateHTML('loading', '正在加载阅读…');
+    return fetchDay(date).then(function (day) {
+      var pieces = day.pieces || [];
+      viewport.innerHTML = pieces.length
+        ? pieces.map(function (p) { return pieceHTML(p, date); }).join('')
+        : UI.stateHTML('empty', '这一天还没有阅读内容');
+      fillAnswers();
+      render();
+    }).catch(function (e) {
+      viewport.innerHTML = UI.stateHTML('empty', '阅读加载失败：' + e.message);
+      UI.partError('阅读正文', e);
+    });
   }
+
   function step(delta) {
-    var list = byDate[curDate] || [];
+    var list = currentList();
     var next = curIdx + delta;
     if (next < 0 || next > list.length - 1) { return; }
     curIdx = next;
     render();
   }
+
+  /* ---------- 交互 ---------- */
+  /* 「整篇看中文」：卡片动态渲染，用事件委托 */
+  viewport.addEventListener('click', function (e) {
+    var target = e.target;
+    var btn = target && target.closest ? target.closest('.zhbtn') : null;
+    if (!btn || btn.disabled) { return; }
+    var scope = btn.closest('.rcard') || viewport;
+    var blocks = scope.querySelectorAll('.zh');
+    if (!blocks.length) { return; }
+    var hidden = 0;
+    Array.prototype.forEach.call(blocks, function (z) {
+      if (z.hasAttribute('hidden')) { hidden += 1; }
+    });
+    Array.prototype.forEach.call(blocks, function (z) {
+      if (hidden > 0) { z.removeAttribute('hidden'); } else { z.setAttribute('hidden', ''); }
+    });
+    btn.textContent = hidden > 0 ? '收起中文' : '整篇看中文';
+  });
+
+  /* 理解题作答：输入即存本机 */
+  viewport.addEventListener('input', function (e) {
+    var t = e.target;
+    if (t && t.classList && t.classList.contains('qans') && t.dataset.key) {
+      saveAnswer(t.dataset.key, t.value.trim() ? t.value : '');
+    }
+  });
+
+  /* 左侧目录：点击切换日期 */
+  tocList.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('.rtoc-item') : null;
+    if (btn && btn.dataset.date && btn.dataset.date !== curDate) { showDay(btn.dataset.date); }
+  });
+
   btnPrev.addEventListener('click', function () { step(-1); });
   btnNext.addEventListener('click', function () { step(1); });
   document.addEventListener('keydown', function (e) {
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { return; }
     if (e.key === 'ArrowLeft') { step(-1); }
     if (e.key === 'ArrowRight') { step(1); }
   });
-  window.addEventListener('message', function (event) {
-    var data = event.data || {};
-    if (data.type === 'reading-select' && data.date) { showDay(data.date); }
-    if (data.type === 'reading-toc-height' && frame && data.height) {
-      frame.style.height = data.height + 'px';
-    }
-  });
+
   window.addEventListener('hashchange', function () {
     var want = decodeURIComponent((location.hash || '').replace(/^#/, ''));
     if (want && want !== curDate) { showDay(want); }
   });
-  if (frame) { frame.addEventListener('load', render); }
-  var want = decodeURIComponent((location.hash || '').replace(/^#/, ''));
-  showDay(dates.indexOf(want) !== -1 ? want : dates[0]);
+
+  /* ---------- 启动 ---------- */
+  function boot() {
+    UI.clearError();
+    viewport.innerHTML = UI.stateHTML('loading', '正在加载阅读…');
+    tocList.innerHTML = UI.stateHTML('loading', '正在加载目录…');
+    return Promise.all([
+      API.getPage('/readings', 1, 200),
+      API.get('/readings/stats').catch(function () { return null; })
+    ]).then(function (res) {
+      var d = res[0] || {};
+      var list = d.list || [];
+      dates = list.map(function (x) { return x.date; });
+      renderToc(list);
+      setTodayNote(res[1]);
+      if (!dates.length) {
+        viewport.innerHTML = UI.stateHTML('empty', '还没有阅读内容');
+        elDate.textContent = '';
+        return;
+      }
+      var want = decodeURIComponent((location.hash || '').replace(/^#/, ''));
+      return showDay(dates.indexOf(want) !== -1 ? want : dates[0]);
+    }).catch(function (e) {
+      tocList.innerHTML = UI.stateHTML('empty', '目录加载失败');
+      viewport.innerHTML = UI.stateHTML('empty', '阅读目录加载失败：' + e.message);
+      UI.partError('阅读', e);
+    });
+  }
+
+  UI.onRetry(boot);
+  boot();
 })();
 </script>
 </body></html>
