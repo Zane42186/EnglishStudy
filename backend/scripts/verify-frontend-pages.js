@@ -40,10 +40,14 @@ async function waitRendered(page, sel, timeout = 8000) {
       const txt = id => (document.getElementById(id) || {}).textContent;
       const cs = n => getComputedStyle(n).display;
       const ms = await API.get('/mistakes/stats');
+      const rs = await API.get('/readings/stats');
       return {
         lessons: txt('statLessons'), level: txt('statLevel'), vocab: txt('statVocab'),
-        reading: txt('statReading'), mistakes: txt('statMistakes'),
+        reading: txt('statReading'), readingTitle: document.getElementById('statReading').title,
+        mistakes: txt('statMistakes'),
         apiPending: String(ms.pending),
+        apiPieces: String(rs.pieceCount),
+        apiDays: String(rs.totalDays),
         cardCount: document.querySelectorAll('#lessonList .lesson').length,
         firstHref: (document.querySelector('#lessonList .lesson a.btn') || {}).getAttribute
           ? document.querySelector('#lessonList .lesson a.btn').getAttribute('href') : null,
@@ -58,7 +62,12 @@ async function waitRendered(page, sel, timeout = 8000) {
     ok('[index] 当前级别 = Level 2', d.level === 'Level 2', 'got=' + d.level);
     ok('[index] 累计生词 = 51（口径 51）', d.vocab === '51', 'got=' + d.vocab);
     ok('[index] 未过关错词 = /mistakes/stats.pending', d.mistakes === d.apiPending, `got=${d.mistakes} api=${d.apiPending}`);
-    ok('[index] 阅读篇数占位 = —', d.reading === '—', 'got=' + d.reading);
+    // 2026-09-30 更新：阅读篇数已由占位 `—` 改为接 `/readings/stats.pieceCount`（前端 18749e1）。
+    // 旧断言仍期望占位符，属**测试滞后**，此处改为与接口值比对（同 mistakes 的写法），
+    // 并顺带校验 title 的「读了 N 天」来自 `totalDays`。
+    ok('[index] 阅读篇数 = /readings/stats.pieceCount 且 title 含「读了 N 天」',
+      d.reading === d.apiPieces && new RegExp(`读了 ${d.apiDays} 天`).test(d.readingTitle || ''),
+      `got=${d.reading} api=${d.apiPieces} title=${d.readingTitle}`);
     ok('[index] 课程卡 6 张', d.cardCount === 6, 'got=' + d.cardCount);
     ok('[index] 课程卡链接指向参数化页 lesson.html?no=', /lessons\/lesson\.html\?no=\d+/.test(d.firstHref || ''), 'href=' + d.firstHref);
     ok('[index] F6 趋势图 6 根柱 + 目标带 2—4', d.trendCols === 6 && d.hasBand, 'cols=' + d.trendCols + ' band=' + d.hasBand);

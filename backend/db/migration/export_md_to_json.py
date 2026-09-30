@@ -389,6 +389,37 @@ def parse_wrong_words(root: Path) -> tuple[list[dict], list[str]]:
     return out, warnings
 
 
+def parse_exercise_error_types(root: Path) -> tuple[dict[tuple[int, str, int], str], list[str]]:
+    """逐题 `error_type` 映射 = `records/exercise-error-types.json`（Amy 产出）。
+
+    `error_type` 一题只有一个值，且**只能由教学侧判定**（用词 vs 语法判不出靠文本匹配），
+    故它不是能从 md 推出来的派生字段 —— 必须由本文件显式给出。
+    键 = (课号, block_kind, 题号)；`kind` 与库内 `block_kind` 同值。
+    """
+    warnings: list[str] = []
+    out: dict[tuple[int, str, int], str] = {}
+    path = root / "records" / "exercise-error-types.json"
+    if not path.exists():
+        warnings.append("records/exercise-error-types.json 不存在，exercise.errorType 将全部为 null")
+        return out, warnings
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"records/exercise-error-types.json 解析失败，已忽略：{exc}")
+        return out, warnings
+    for row in doc.get("rows") or []:
+        no = row.get("lessonNo")
+        kind = row.get("kind")
+        ex_no = row.get("exerciseNo")
+        etype = row.get("errorType")
+        if no is None or kind is None or ex_no is None:
+            warnings.append(f"exercise-error-types 有一行缺 lessonNo/kind/exerciseNo，已跳过：{row}")
+            continue
+        if etype:  # 判对 / 有备注 / 空题 → 不落类型，保持 null
+            out[(int(no), str(kind), int(ex_no))] = str(etype)
+    return out, warnings
+
+
 def parse_progress_md(root: Path) -> dict:
     path = root / "progress.md"
     text = path.read_text(encoding="utf-8") if path.exists() else ""
@@ -407,9 +438,10 @@ def parse_progress_md(root: Path) -> dict:
 
 # ---------------------------------------------------------------- 合并
 
-def build_exercises(lesson: dict, records: dict, warnings: list[str]) -> tuple[list[dict], dict]:
-    """md 提供题面，records 提供判定。逐题按 (blockKind, blockNo, exerciseNo) 对齐。
+def build_exercises(lesson: dict, records: dict, error_types: dict, warnings: list[str]) -> tuple[list[dict], dict]:
+    """md 提供题面，records 提供判定，`exercise-error-types.json` 提供逐题 `error_type`。
 
+    逐题按 (blockKind, blockNo, exerciseNo) 对齐。
     题号是**块内**的：作业与补漏块各自从 1 开始，因此必须带 blockKind / blockNo
     才构成唯一键（lesson_exercises.uk_exercise）。作业 blockNo=0（非补漏块）。
     """
@@ -439,7 +471,7 @@ def build_exercises(lesson: dict, records: dict, warnings: list[str]) -> tuple[l
             "referenceAnswer": ref,
             "userAnswer": (r.get("userAnswer") if r else fallback_answer),
             "isCorrect": VERDICT_MAP.get(r["verdict"]) if r else None,
-            "errorType": None,                 # 由 mistakeCandidates 与错词本对账后回填
+            "errorType": error_types.get((lesson["lessonNo"], block_kind, no)),  # 来自 exercise-error-types.json；判对/空题保持 None
             "errorNote": r.get("errorNote") if r else None,
             "revisedAnswer": r.get("revisedAnswer") if r else None,
             "targetPoint": r.get("targetPoint") if r else None,
@@ -481,11 +513,13 @@ def build_snapshot(root: Path) -> dict:
     warnings += w
     mistakes, w = parse_wrong_words(root)
     warnings += w
+    error_types, w = parse_exercise_error_types(root)
+    warnings += w
 
     out_lessons = []
     totals = {"md": 0, "records": 0, "matched": 0, "mdOnly": 0, "recordsOnly": 0}
     for lesson in lessons:
-        exercises, s = build_exercises(lesson, records, warnings)
+        exercises, s = build_exercises(lesson, records, error_types, warnings)
         for k in totals:
             totals[k] += s[k]
         sections = [
@@ -542,9 +576,10 @@ def build_snapshot(root: Path) -> dict:
     if not mistakes:
         warnings.append("错词本为空，mistakes 回填将无数据")
 
-    warnings += [
-        "exercises.errorType 需由 records.mistakeCandidates 与错词本对账后回填",
-    ]
+    if not error_types:
+        warnings.append(
+            "exercises.errorType 全部为 null：缺少 records/exercise-error-types.json 的逐题回填"
+        )
 
     return {
         "generatedFrom": {
@@ -564,6 +599,7 @@ def build_snapshot(root: Path) -> dict:
             "recordsFiles": len(records),
             "mistakeCandidates": cand_total,
             "mistakeCandidatesNotInBook": len(cand_new),
+            "exerciseErrorTypes": len(error_types),
         },
         "warnings": warnings,
     }
@@ -606,6 +642,7 @@ def main() -> int:
         f"(matched={rec['exercises']['matched']} mdOnly={rec['exercises']['mdOnly']} "
         f"recordsOnly={rec['exercises']['recordsOnly']}) mistakes={len(snapshot['mistakes'])} "
         f"readings={len(snapshot['readings'])}(pieces={pieces}) "
+        f"errorTypes={rec.get('exerciseErrorTypes', 0)} "
         f"candNotInBook={rec['mistakeCandidatesNotInBook']} warnings={len(snapshot['warnings'])}"
     )
     return 0

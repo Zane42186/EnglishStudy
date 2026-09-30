@@ -207,12 +207,42 @@ async function main() {
     `未批改 ${dbExUngraded} 条`,
     `答错 ${dbExWrong} 条`
   );
+  // error_type 的正误口径：**只有判错的题才有类型**，其余（正确/有备注/空题）必须保持 NULL。
+  // 因此不能拿「已填 == 总数」当断言（那是旧的错误期望，会把 24 条本该 NULL 的题当成缺口）。
+  // 这里改为逐题比对值：快照（来自 exercise-error-types.json）× 库内。
+  const dbExTypes = await db.query(
+    `SELECT l.lesson_no, le.block_kind, le.exercise_no, le.error_type
+       FROM lesson_exercises le JOIN lessons l ON l.id = le.lesson_id
+      WHERE l.student_id = ?`,
+    [sid]
+  );
+  const mdTypeByKey = new Map();
+  for (const l of snap.lessons) {
+    for (const e of l.exercises) {
+      mdTypeByKey.set(`${l.lessonNo}|${e.blockKind}|${e.exerciseNo}`, e.errorType == null ? null : e.errorType);
+    }
+  }
+  const mdWithType = [...mdTypeByKey.values()].filter(Boolean).length;
+  const typeMismatches = [];
+  for (const r of dbExTypes) {
+    const key = `${r.lesson_no}|${r.block_kind}|${r.exercise_no}`;
+    if (!mdTypeByKey.has(key)) {
+      typeMismatches.push(`${key} 库内多出`);
+      continue;
+    }
+    const want = mdTypeByKey.get(key);
+    const got = r.error_type == null ? null : r.error_type;
+    if (want !== got) typeMismatches.push(`${key}: 库=${got} md=${want}`);
+  }
+  const typeOk = typeMismatches.length === 0 && dbExWithType === mdWithType;
   add(
-    dbExWithType === dbExTotal ? 'match' : 'gap',
+    typeOk ? 'match' : 'diff',
     'lesson_exercises.error_type',
-    '期望全部回填',
+    `已填 ${mdWithType} / ${mdTypeByKey.size}（仅判错题有类型）`,
     `已填 ${dbExWithType} / ${dbExTotal}`,
-    '需 amy 先统一 records.mistakeCandidates 与错词本的措辞（8 条同义不同文本），对账后才能逐题判定'
+    typeOk
+      ? `逐题与 records/exercise-error-types.json 一致；其余 ${dbExTotal - dbExWithType} 条按口径保持 NULL`
+      : `逐题不一致 ${typeMismatches.length} 处：${typeMismatches.slice(0, 6).join(' ; ')}`
   );
 
   // ---- 6. readings ----
