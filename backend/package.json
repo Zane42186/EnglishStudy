@@ -13,7 +13,8 @@
     "dev": "node --watch src/server.js",
     "db:init": "node db/init.js",
     "db:reset": "node db/init.js --reset",
-    "test:api": "node scripts/smoke-test.js"
+    "test:api": "node scripts/smoke-test.js",
+    "test:write": "node scripts/write-api-check.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

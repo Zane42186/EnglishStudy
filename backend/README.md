@@ -17,12 +17,24 @@ npm install                 # 安装依赖（express / mysql2 / dotenv / cors / 
 cp .env.example .env        # 填入 MySQL 账号密码（本机已配好，见下）
 npm run db:init             # 建库建表 + 写入种子数据（幂等）
 npm start                   # 启动服务 → http://localhost:4000
-npm run test:api            # 另开终端：跑 API 冒烟测试
+npm run test:api            # 另开终端：跑 API 冒烟测试（只读，不会写库）
+npm run test:write          # 写接口正向路径验证（用临时学生，跑完自清理，真实数据零影响）
 ```
 
 - 数据库：`english_platform`（MySQL 8.0，本机 3306）
 - 配置：全部走 `backend/.env`（已在 `.gitignore`，**不入版本库**）
 - `npm run db:reset` 会 **DROP DATABASE 后重建**，仅在需要清空时使用
+
+### 排障：接口全 404 还是服务没起？
+
+**后端进程不会常驻**，会话/终端关闭即被回收。判断方法只看一处：
+
+| 现象 | 含义 |
+|---|---|
+| `curl http://localhost:4000/api/health` → **连接被拒（curl code 000）** | **服务没启动**。执行 `npm start` 即可，不是接口坏了 |
+| 返回 200 但具体接口 404 | 服务在跑，是该路由确实不存在 |
+
+> ⚠️ 本机 curl 请加 `--noproxy '*'`：系统代理（`127.0.0.1:61869`）会拦截 localhost 请求，未绕代理时服务已停止也会返回 **502**，属于假阳性，容易误判成「服务在跑但接口挂了」。
 
 ---
 

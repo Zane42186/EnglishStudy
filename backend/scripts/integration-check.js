@@ -132,14 +132,35 @@ function waitFor(fn, timeoutMs = 8000) {
     );
   }
 
-  // 请求契约核对：页面真实发出的 URL
+  // 请求契约核对：页面真实发出的 URL 必须全部落在后端已实现接口上。
+  // 不写死前端路径（写死过一次：前端从 ?size=100 改到 /lessons/all 后即误报），
+  // 改为向后端接口索引核对「请求的是不是真实存在的接口」，避免随前端演进再次过期。
   const requested = [...new Set(window.__netLog.map((u) => u.replace(API_ORIGIN, '')))]
     .filter((u) => u.startsWith('/api'));
   console.log('  ℹ️  页面实际请求：' + requested.join(' , '));
-  // 2026-09-29 起 /lessons/all 取代会被静默截断的 ?size=100
-  const expected = ['/api/lessons?size=1', '/api/progress', '/api/vocabulary/stats', '/api/mistakes/stats', '/api/lessons/all'];
-  const missing = expected.filter((e) => !requested.includes(e));
-  check('页面请求集合与后端接口一致', missing.length === 0, missing.length ? '缺失 ' + missing.join(',') : expected.length + '/' + expected.length + ' 命中');
+
+  const indexBody = await (await fetch(API_ORIGIN + '/api')).json();
+  const known = new Set((indexBody.data.endpoints || []).map((e) => e.replace(/^\w+\s+/, '')));
+  const unknown = requested.filter((u) => {
+    const p = u.split('?')[0];
+    if (known.has(p)) return false;
+    return ![...known].some((k) =>
+      k.includes(':') && new RegExp('^' + k.replace(/:[a-zA-Z]+/g, '[^/]+') + '$').test(p)
+    );
+  });
+  check(
+    '页面请求全部落在后端已实现接口上（无 404 风险）',
+    unknown.length === 0,
+    unknown.length ? '未知路径 ' + unknown.join(' , ') : `${requested.length} 个请求全部命中`
+  );
+
+  const requiredSubset = ['/api/progress', '/api/vocabulary/stats', '/api/mistakes/stats', '/api/lessons/all', '/api/agent/snapshot'];
+  const missing = requiredSubset.filter((e) => !requested.includes(e));
+  check(
+    '首页必需接口均已调用',
+    missing.length === 0,
+    missing.length ? '缺失 ' + missing.join(' , ') : `${requiredSubset.length}/${requiredSubset.length} 命中`
+  );
 
   // Loading 态证据：P0 起样式抽到 assets/board.css，需连外部样式一起校验
   let css = '';

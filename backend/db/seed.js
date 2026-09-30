@@ -163,6 +163,19 @@ const MISTAKES = [
   { wrong: 'what do you do?（问「正在做什么」时）', correct: 'What are you doing?', type: 'grammar', reason: 'What do you do? 问的是职业；问此刻在做的事用进行时', streak: 0, wrongCount: 1, status: 'pending', lessonNo: 4 },
 ];
 
+/**
+ * DQ1 / D-7：判定一条记录是否为「真错题」。
+ * 非错题（已掌握的正确句子）混进错词本，会让库内条数与 wrong-words.md 不一致，
+ * 并污染 byType / priority / 待复习队列。
+ * 规则来源：schema.sql 末尾「数据导入规则」段。
+ */
+const PLACEHOLDER_CORRECT = new Set(['', '-', '—', '--', 'n/a', 'na', 'null']);
+function isRealMistake(m) {
+  const correct = String(m.correct == null ? '' : m.correct).trim();
+  if (PLACEHOLDER_CORRECT.has(correct.toLowerCase()) || PLACEHOLDER_CORRECT.has(correct)) return false;
+  return Number(m.wrongCount) > 0;
+}
+
 /** 写入全部种子数据 */
 async function seed(conn) {
   // 1) 学生
@@ -303,8 +316,13 @@ async function seed(conn) {
     }
   }
 
-  // 5) 错词本
+  // 5) 错词本（跳过非错题，见 isRealMistake 注释）
+  let mistakesSkipped = 0;
   for (const m of MISTAKES) {
+    if (!isRealMistake(m)) {
+      mistakesSkipped += 1;
+      continue;
+    }
     const firstId = m.lessonNo ? lessonIdByNo[m.lessonNo] : null;
     const lastId = m.lastLessonNo ? lessonIdByNo[m.lastLessonNo] : firstId;
     await conn.execute(
@@ -327,7 +345,8 @@ async function seed(conn) {
     lessons: LESSONS.length,
     lessonVocab: Object.values(LESSON_VOCAB).reduce((n, arr) => n + arr.length, 0),
     uniqueVocab: Object.keys(vocabIdByWord).length,
-    mistakes: MISTAKES.length,
+    mistakes: MISTAKES.length - mistakesSkipped,
+    mistakesSkipped,
   };
 }
 
