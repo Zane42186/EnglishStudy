@@ -537,11 +537,16 @@
 | `pieces[].title` | 必填非空 | 400 |
 | `pieces[].paragraphs` | 必填，≥1 段；每段 `en` 非空 | 400 |
 | `pieces[].questions` | 必填，**恰好 2 道**；`question` / `answer` 均非空 | 400 |
-| `pieces[].sourceUrl` | 可选，字符串或 `null`；来源为新闻时填写 | 400（类型不符） |
+| `pieces[].sourceUrl` | 可选，字符串或 `null`；**契约要求来源为新闻时必填**，但服务端只校验类型（无法判定是否新闻，故不强制） | 400（类型不符） |
 
 - 校验失败返回 400，`data` 为**字段级明细数组**（`[{field, message}]`），如 `pieces[0].questions`
 - **嵌套结构不由 `validate()` 处理**：`validate()` 只认浅层 `int` / `string` / `object`；
   `pieces` / `paragraphs` / `questions` 的逐层校验在 service 内完成，故错误码同为 400 但来源不同
+
+> ⚠️ **一处刻意比 schema 更严**：`date` 除了匹配 `$defs.DateOnly` 的
+> `^[0-9]{4}-[0-9]{2}-[0-9]{2}$`，还额外要求它是**真实存在的日历日**——`2026-02-31` 格式合法但不存在，会被拒（RW16）。
+> 这是**有意的数据完整性守卫**（非 schema 派生规则），在此显式声明，避免被当成「静默发明约束」；
+> 若教学侧需要放宽，去掉 `reading.service.js` 的 `isRealDate()` 真日历判定即可。
 
 **幂等与并发**
 - 判重键 = `readings.uk_reading_day (student_id, read_date)`：「读旧值 → 判重 → 插入」全程在**同一事务**
