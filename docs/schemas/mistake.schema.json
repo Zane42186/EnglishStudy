@@ -55,7 +55,7 @@
   "properties": {
     "lessonNo": { "type": "integer", "minimum": 1 },
     "newMistakes": {
-      "description": "本次新建的错词条目。判重键为规范化后的 correctText 加 errorType；已存在则进 updatedMistakes 而不是这里。",
+      "description": "本次新建的错词条目。判重键为规范化后（去标点、去空格、统一小写）的 wrongText 加 errorType；已存在则进 updatedMistakes 而不是这里。",
       "type": "array",
       "items": { "$ref": "common.schema.json#/$defs/MistakeItem" }
     },
