@@ -17,6 +17,8 @@ db/_snapshot.json
 
 # DDL 前的库结构备份（mysqldump --no-data，仅本地可重放，不入库）
 backend/db/backup-*.sql
+# M2 导出产物（可由 export_md_to_json.py 重建，不入库）
+backend/db/migration/_snapshot.json
 
 # 环境变量变体（.env 只匹配同名文件，变体需显式列出）
 .env.local

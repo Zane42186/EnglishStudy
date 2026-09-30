@@ -137,6 +137,38 @@ COMMIT;
 
 ---
 
+## 五之三、M2 现状实测（2026-09-30）：只读导出 + 只读比对已落地
+
+**已完成（全程只读：不改任何 md，不写任何表）**
+
+- `backend/db/migration/export_md_to_json.py` —— 复用 `build_board.py` 的 `parse_notes` / `parse_read_dir` / `parse_wrong_words` / `read_level`（**不重写解析器**）
+- `backend/db/migration/compare_snapshot.js` —— 把产物与库内逐项比对
+- 产物：`backend/db/migration/_snapshot.json`（`M2_EXPORT_OK lessons=6 vocab=52 exercises=25 mistakes=19 readings=4(pieces=11) warnings=10`）
+
+**逐项比对结果**
+
+| 项 | 结论 | 说明 |
+|---|---|---|
+| lessons 课数 | ✅ 6 = 6 | |
+| `lessons.lesson_date` | ⛔ 2 处差 | md 第 2、4 课**无日期**（写作 `## 第 2 课`），库内为 2026-09-26 / 2026-09-27 → 需实现「同日第二课沿用当日日期」规则，属**规则缺失**而非数据错 |
+| vocabulary 去重词数 | ✅ 51 = 51 | md 按课累计 52 |
+| lesson_vocabulary | ✅ 52 = 52 | |
+| mistakes 条数 / status 分布 | ✅ 19；passed 4 / pending 15 | 与库内完全一致 |
+| `mistakes.wrong_text` 集合 | ⚠️ 2 条不一致 | 库内是**手工归一化**过的文本：库 `play game（第 3 次犯：…）` vs md `play game（累计第 3 次，…）`；库 `What were you yesterday.（问「昨天怎么样」）` vs md `What were you yesterday.`。因 `uk_mistakes_text` 已是判重键，**按 md 直接导入会新增 2 行** |
+| lesson_sections | ⚠️ 48 vs 12 | md 每课 8 类小节；库内只存 `grammar` + `feedback`。M2 全量导入会把 12 → 48 |
+| lesson_exercises | ⛔ 25 vs 0 | 表空；`isCorrect` / `errorType` / `errorNote` / `selfCheck` 均无法从 md 推导 |
+| readings | ⛔ 表不存在 | md 有 4 天 / 11 篇；P1 表未建，看板「阅读篇数」恒为 `—` |
+
+**M2 的硬阻塞（后端无法独力解决，需他人配合）**
+
+1. **`error_type` 与 `wrong_count` 无法从 md 推导** —— `wrong-words.md` 表头只有「课号/错误点/正确形式/错因/连续答对/状态」，没有这两列（累计次数仅在「错因」散文里偶现）。→ 需 **amy** 判定。
+2. **`is_correct` / `error_note` 无法从 md 推导** —— 「批改」小节是自由文本散文（如「两处错误。用词：中文的「看」…」）。→ 需 **amy** 判定（即 `docs/skills.md` 记录的反面案例：语义关联不能用文本匹配替代）。
+3. **`补漏块 N · …` 小节会被 `parse_notes` 静默丢弃** —— `SECTION_ORDER` 白名单不含它，`lesson_sections.uk_section=(lesson_id, section_type)` 也无对应枚举。→ 需 **skill-designer** 定归置口径（新增 SectionType，或并入 `homework`）。
+4. **导出脚本依赖被 gitignore 的 `.workbuddy/`** —— `export_md_to_json.py` 要 import `build_board.py`，而 `.workbuddy/` 整体忽略 → 脚本在 CI / 他人机器上跑不起来。→ 需先执行已批准的「Skill 源码入库 `skills/english-daily/`」，**skill-designer + git-manager**。
+5. **`lesson_exercises` 没有任何写入路径** —— 无 repository / service / route，M2 只能直连 SQL 导入。→ 需后端补写接口，或明确 import 允许直连 SQL。
+
+---
+
 ## 六、待你确认的事项
 
 1. **MySQL root 密码**（或专用账号）——M1 起必须，仅用于建库与连接。
