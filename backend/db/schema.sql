@@ -269,6 +269,7 @@ CREATE TABLE IF NOT EXISTS reading_pieces (
   piece_no         SMALLINT UNSIGNED NOT NULL COMMENT '当天第几篇，从 1 开始',
   level_code       VARCHAR(16)     NULL COMMENT '如 Level 1',
   source           VARCHAR(128)    NULL COMMENT '自编 / 新闻来源',
+  source_url       VARCHAR(512)    NULL COMMENT '原文链接；来源为新闻时填写，自编为 NULL（ReadingSet.sourceUrl）',
   title            VARCHAR(255)    NULL,
   body_md          MEDIUMTEXT      NOT NULL COMMENT '正文（英中对照，逐段）',
   vocabulary_notes TEXT            NULL COMMENT '生词注释',
