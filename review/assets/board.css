@@ -135,7 +135,7 @@ details { margin-top: 8px; }
 /* ---- 隐藏 ---- */
 .hide { display: none; }
 
-/* ---- 阅读板块（reading.html / readIndex.html） ----
+/* ---- 阅读板块（reading.html） ----
  * 2026-09-30 P0 迁移：样式从页面内联抽到这里，页面只留骨架。 */
 .reading-layout { display: flex; gap: 16px; align-items: flex-start; }
 .reading-toc { flex: 0 0 190px; position: sticky; top: 16px; background: #fff;
@@ -147,9 +147,9 @@ details { margin-top: 8px; }
 .stage-head h2 { margin: 0; }
 .stage-count { color: #6b6b66; font-size: 13px; }
 .stage-file { color: #88877f; font-size: 12px; margin: 0 0 10px; }
-.stage-body { display: flex; align-items: center; gap: 10px; }
+.stage-body { display: flex; align-items: flex-start; gap: 10px; }
 .navbtn { flex: 0 0 36px; height: 36px; border-radius: 50%; border: 1px solid #d9d8d2;
-  background: #fff; color: #185fa5; font-size: 16px; cursor: pointer; line-height: 1; }
+  background: #fff; color: #185fa5; font-size: 16px; cursor: pointer; line-height: 1; margin-top: 10px; }
 .navbtn:hover:not(:disabled) { border-color: #185fa5; background: #eef4fb; }
 .navbtn:disabled { opacity: .35; cursor: default; }
 .stage-viewport { flex: 1 1 auto; min-width: 0; }
@@ -164,10 +164,8 @@ details { margin-top: 8px; }
   .reading-toc { position: static; flex: none; width: 100%; }
   .rtoc-list { max-height: 240px; }
 }
-/* 阅读目录页（readIndex.html，被 iframe 嵌入；也可独立打开） */
-body.rtoc-embed { padding: 12px; background: #fbfbf9; }
-body.rtoc-embed .wrap { max-width: none; }
-body.rtoc-embed .state { margin: 8px 4px; font-size: 13px; }
+/* 阅读目录页已删除（readIndex.html，2026-09-30）：目录改为 reading.html 同页渲染。
+ * 下列 `.rtoc-*` 样式仍被 reading.html 的左侧目录复用，勿删。 */
 .rtoc-title { font-size: 12px; color: #6b6b66; margin: 2px 4px 8px; font-weight: 600; }
 .rtoc-item { display: block; width: 100%; text-align: left; background: transparent; border: 0;
   border-radius: 8px; padding: 8px 10px; cursor: pointer; font: inherit; color: #2c2c2a; }
@@ -202,3 +200,12 @@ button.zhbtn:disabled { background: #f4f4f1; border-color: #e3e2dc; color: #a9a8
   font-size: 14px; color: #2c2c2a; }
 .qnoans { color: #a9a8a1; font-size: 13px; }
 .qhint { color: #88877f; font-size: 12px; }
+/* 底部翻篇栏（长文章时侧边箭头会滚出视野，故正文下方再给一组按钮） */
+.stage-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid #e3e2dc; }
+.stage-foot.hide { display: none; }          /* 与 .stage-foot{display:flex} 的优先级兜底 */
+.pager { background: #fff; border: 1px solid #d9d8d2; border-radius: 8px; padding: 6px 14px;
+  font: inherit; font-size: 14px; color: #185fa5; cursor: pointer; }
+.pager:hover:not(:disabled) { border-color: #185fa5; background: #eef4fb; }
+.pager:disabled { opacity: .35; cursor: default; }
+.pager-count { flex: 1 1 auto; text-align: center; color: #6b6b66; font-size: 13px; }
