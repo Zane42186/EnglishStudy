@@ -195,7 +195,7 @@ md 原文打回 seed 的简化版。实测重跑 `db:init` 后 `lesson_sections`
 | lessons 课数 / `lesson_date` | ✅ | 「同日沿用当日日期」规则已实现：md 无日期的第 2、4 课沿用上一课日期，与库内一致 |
 | vocabulary / lesson_vocabulary | ✅ | 51 / 52 |
 | mistakes 条数 / status 分布 | ✅ | 19；passed 4 / pending 15 |
-| `mistakes.wrong_text` 集合 | ⚠️ **2 条** | 库内是手工归一化过的文本（`play game（第 3 次犯：…）`、`What were you yesterday.（问「昨天怎么样」）`）vs md 的简写。**按「以错词本为准」不自动写库**，待 amy 统一措辞 |
+| `mistakes.wrong_text` 集合 | ⚠️ **8 条 + 缺 4 行** | ① 库内 8 行仍是旧格式（带括号批注，如 `play game（第 3 次犯：…）`、`zane（人名小写）`），md 已按「只写错误形式本身」改为纯净文本；② md 比库内多 4 行（Amy 新增）。**按「以错词本为准」不自动写库**，待 amy 复核 |
 | lesson_sections 条数 | ✅ | 51 |
 | lesson_exercises 条数 / 题块拆分 / 批改覆盖 | ✅ | 34；homework 25 / backfill 9；`is_correct` 无 NULL，答错 10 条 |
 | `lesson_exercises.error_type` | ⛔ **0 / 34** | 需 amy 先统一 `records.mistakeCandidates` 与错词本措辞（**8 条同义不同文本**），对账后才能逐题判定。**当前 34 条 `error_type` 全为 NULL 是预期状态**，不是漏写 |
@@ -208,14 +208,42 @@ md 原文打回 seed 的简化版。实测重跑 `db:init` 后 `lesson_sections`
 **仍未闭环（两处，均卡在 amy 侧，非后端可自解）**
 
 - ⛔ `lesson_exercises.error_type` 全 NULL（缺 34 条的逐题判定）
-- ⚠️ `mistakes.wrong_text` 2 条文本不对齐
+- ⚠️ `mistakes` 与错词本未对齐：库内 19 行 vs `wrong-words.md` **23 行**。差额分两类：
+  **① 缺 4 行**（Amy 2026-09-30 补登记的 `work.So` / `intrusting` / `Our teacher is Amy together.` / `Now, My`）；
+  **② 8 行 `wrong_text` 仍是旧格式**（库内带括号批注，如 `zane（人名小写）` / `Do you like coffee.（句号结尾）` /
+  `play game（第 3 次犯：…）` / `I am very busy.（题目要求…）` / `those are their bags.（句首小写）` /
+  `at yesterday（…）` / `What were you yesterday.（…）` / `what do you do?（…）`，md 已按「只写错误形式本身」改为纯净文本）。
+  **按「以错词本为准、不自动写库」原则处理**，须 amy 复核后由人工或一次性迁移落库。
 
 **新增待办**
 
 - `study_records(grade).payload.byType` 已回填第 1—6 课；**第 7 课起由 amy 在批改 payload 里带 `byType`**（口径见 `docs/skills.md` 8.2）。
 - `lessons.error_count` 保留历史值（3/4/2/6/2/5），重算值为 5/4/2/6/1/6；从第 7 课起严格按新口径（§11.4）。
 - `schema.full.design.sql` 落后实际表（`readings` 仍用 `users` 命名、`exercises` 缺列等），需整体重审后再动。
-- `POST /api/readings`（教学侧在线写当天阅读）**未实现**：当前写路径是 `db:import`；是否开放待确认。
+- `POST /api/readings` **已实现并开放**（见下方 §五之四）。
+
+---
+
+## 五之四、阅读在线写入：`POST /api/readings`（2026-09-30 已开放）
+
+**背景**：此前阅读只有一条写路径——离线 md 回填（`db:export` → `db:import`），无法支撑「Amy 当天生成一篇阅读就写库」的实时场景。项目负责人 2026-09-30 明确「开放」在线写接口。
+
+**实现要点**
+
+| 关注点 | 做法 |
+|---|---|
+| 契约 | 请求体即 `docs/schemas/reading-set.schema.json` 的 `ReadingSet`；校验规则与该 schema 严格一致，不额外发明 |
+| 正文格式 | 与 `db:import` **共用同一实现** `renderBodyMd` / `countWords`（`reading.service.js` 导出，`import_json.js` 反向 import）→ 两条路径产出**字节一致**（实测回填的 `reading_pieces` md5 未变） |
+| 一致性 | 单事务：读旧值 → 判重 → 三表插入同属一个事务（`db.withTransaction` + `*On(conn,…)`），杜绝并发各写一天 |
+| 「当天不覆盖」 | 同日已存在 → **409**；仅 `?force=true` 显式例外（重出），此时同事务删子行重建、`readings` 行复用 |
+| 字段丢失修复 | 顺带补 `reading_pieces.source_url` 列——此前 `sourceUrl` 在写路径**被静默丢弃**（见 `docs/database.md` 第八之二节） |
+
+**回归**：`npm run test:write` 新增 E2 段 **RW1—RW18**（201 / 三表落库 / 读回 / 409 不覆盖 / force 重出 / 400 字段级明细 / 学生隔离 / 清理零残留），全套 **59/59**；`npm run test:api` **49/49**。
+
+**两条写路径的分工**（教学侧据此选型）
+
+- **批量历史回填**（如第 1—6 课）→ `npm run db:export` → `db:import`（离线、幂等、可 `--dry-run`）
+- **当天新生成阅读** → `POST /api/readings`（在线、即时）
 
 ---
 

@@ -2,7 +2,7 @@
 
 > 状态：**已实现并实测**（2026-09-29）。本文档描述的是**可运行的真实接口**，非设计稿。
 > 服务地址：`http://localhost:4000`　接口前缀：`/api`
-> 冒烟测试：`npm run test:api`（**41 项全部通过**）
+> 冒烟测试：`npm run test:api`（**49 项全部通过**）；写接口正向验证：`npm run test:write`（**59 项全部通过**）
 >
 > 变更记录：
 > - 2026-09-29 · 第一批写接口与聚合快照落地：`GET /api/lessons/all`、`POST /api/mistakes/:id/review`、
@@ -16,6 +16,10 @@
 >   `GET /api/agent/snapshot` 的 `readingCatalog` 转为真实数据（**退出 degradation**）；
 >   `lesson_exercises` 回填 34 条（作业 25 + 补漏块 9），`GET /api/lessons/:id/exercises` 的
 >   `blockKind` / `blockNo` 自此有数据；`lesson_sections` 12 → 51 条。
+> - 2026-09-30 · 第四批：**开放 `POST /api/readings`**（**27 节**）——教学侧在线写入当天阅读，
+>   单一事务、幂等判重；同日已存在 → **409**（「当天不覆盖」硬规则），显式 `?force=true` 为重出例外。
+>   `reading_pieces` 加列 `source_url`（此前 `sourceUrl` 在写入路径被静默丢弃，写接口一并修正）。
+>   阅读的写路径由「只有 `db:import`」变为「`db:import`（md 回填）+ `POST`（在线写入）」双通道。
 
 ---
 
@@ -95,6 +99,10 @@
 | 21 | GET | `/api/agent/snapshot` | 教学快照（9 次请求 → 1 次） |
 | 22 | GET | `/api/mistakes/:id/events` | 某错词的复习流水（N2） |
 | 23 | GET | `/api/lessons/:id/exercises` | 某课的练习与批改结论（N4） |
+| 24 | GET | `/api/readings/stats` | 阅读统计（R1） |
+| 25 | GET | `/api/readings` | 阅读日清单（倒序分页） |
+| 26 | GET | `/api/readings/:date` | 某天阅读全文（英中对照 + 理解题） |
+| 27 | POST | `/api/readings` | 写入当天阅读（`ReadingSet`；同日已存在 → 409，`force=true` 重出） |
 
 ---
 
@@ -480,9 +488,76 @@
 - `questions[].answer` 无答案时为 `null`；**题干与答案必须成对**——早期解析把 `<details>` 答案行误当新题会让题数翻倍（已修，见 04-migration 五之三）
 - **Error**：400 `日期格式必须是 YYYY-MM-DD`；404 `该日期没有阅读：<date>`
 
-> **尚未提供**：`POST /api/readings`（教学侧写入当天阅读，同日已存在 → 409）。
-> 当前阅读的**写路径**是 `db/migration/import_json.js`（md → 库，幂等）；
-> 是否开放在线写入接口待项目负责人确认后再定（涉及「当天不覆盖」口径与鉴权）。
+### 27. POST `/api/readings` ★
+写入**某一天的阅读**。教学侧（Amy）在生成当天阅读后调用；请求体即 `ReadingSet`
+（`docs/schemas/reading-set.schema.json`），与 `db:import` 的 md 回填**共用同一套正文渲染实现**
+（`renderBodyMd` / `countWords`），保证两条写路径产出格式一致。
+
+**Query**：`studentId`、`force`（可选，`true` / `1`）
+
+**请求体（`ReadingSet`）**
+```json
+{
+  "date": "2026-09-30",
+  "levelCode": "Level 2",
+  "sourceFile": "2026-09-30-read.md",
+  "pieces": [ {
+    "pieceNo": 1,
+    "levelCode": "Level 2",
+    "source": "自编",
+    "sourceUrl": null,
+    "title": "A Busy Morning",
+    "wordCount": 42,
+    "vocabularyNotes": "busy 忙的",
+    "paragraphs": [ { "en": "I was busy yesterday.", "zh": "我昨天很忙。" },
+                    { "en": "I am free today.",   "zh": null } ],
+    "questions": [ { "questionNo": 1, "question": "Was the writer busy yesterday?", "answer": "Yes, he was." },
+                   { "questionNo": 2, "question": "Is he free today?",                "answer": "Yes, he is." } ]
+  } ]
+}
+```
+
+**成功（201 · created）**
+```json
+{ "code": 201, "message": "success", "data": {
+  "id": 27, "date": "2026-09-30", "pieceCount": 1, "levelCode": "Level 2", "replaced": false } }
+```
+- 三表一并落库：`readings` 1 行（`uk_reading_day` 保证一天一行）、`reading_pieces` N 行、`reading_questions` 2N 行
+- `replaced`：首次写入为 `false`；`force=true` 重出已存在的日期为 `true`（复用原 `readings` 行，`id` 不变）
+
+**校验规则（与 `reading-set.schema.json` 严格一致，不额外发明）**
+
+| 字段 | 约束 | 违反 |
+|---|---|---|
+| `date` | 必填，**真实存在**的 `YYYY-MM-DD`（`2026-02-31` 这类格式对但不存在的日期被拒） | 400 |
+| `levelCode` | 必填，`Level 1`—`Level 5` 之一 | 400 |
+| `sourceFile` | 可选，若提供须形如 `2026-09-30-read.md` | 400 |
+| `pieces` | 必填，**1—3 篇**；`pieceNo` 为 1—3 的整数且不重复 | 400 |
+| `pieces[].source` | 必填非空（自编写「自编」） | 400 |
+| `pieces[].title` | 必填非空 | 400 |
+| `pieces[].paragraphs` | 必填，≥1 段；每段 `en` 非空 | 400 |
+| `pieces[].questions` | 必填，**恰好 2 道**；`question` / `answer` 均非空 | 400 |
+| `pieces[].sourceUrl` | 可选，字符串或 `null`；来源为新闻时填写 | 400（类型不符） |
+
+- 校验失败返回 400，`data` 为**字段级明细数组**（`[{field, message}]`），如 `pieces[0].questions`
+- **嵌套结构不由 `validate()` 处理**：`validate()` 只认浅层 `int` / `string` / `object`；
+  `pieces` / `paragraphs` / `questions` 的逐层校验在 service 内完成，故错误码同为 400 但来源不同
+
+**幂等与并发**
+- 判重键 = `readings.uk_reading_day (student_id, read_date)`：「读旧值 → 判重 → 插入」全程在**同一事务**
+  （`db.withTransaction` + `*On(conn,…)`），并发提交同一天不会各写一天
+- 同一日期**已存在** → **409** `该日期已有阅读：<date> —— 「当天不覆盖」；确需重出请显式传 force=true`
+- `force=true` 为该规则的**显式例外**（学生明确要求重出）：同事务内先删该日的 `questions → pieces` 再重建，
+  `readings` 行复用；**不传 `force` 时绝不覆盖**
+
+**写路径选型（教学侧参考）**
+
+| 场景 | 用哪条 |
+|---|---|
+| 批量回填历史 md（第 1—6 课） | `npm run db:export` → `db:import`（离线、幂等、可 `--dry-run`） |
+| 当天新生成一篇/一组阅读 | 本接口 `POST /api/readings` |
+
+> 两条路径的正文渲染、词数统计、题数口径**共用同一实现**，故同一份内容经任一路径落库结果一致。
 
 ---
 
@@ -505,6 +580,21 @@ GET /api/mistakes?status=xxx
 ```
 GET /api/not-exist
 → 404  { "code": 404, "message": "接口不存在：GET /api/not-exist", "data": null }
+```
+
+**409 · 唯一键冲突（「当天不覆盖」）**
+```
+POST /api/readings?studentId=1   （date 已存在）
+→ 409  { "code": 409, "data": null,
+         "message": "该日期已有阅读：2026-09-30 —— 「当天不覆盖」；确需重出请显式传 force=true" }
+```
+
+**400 · 嵌套结构校验（字段级明细）**
+```
+POST /api/readings?studentId=1   （levelCode 非法 + pieces 为空）
+→ 400  { "code": 400, "message": "ReadingSet 校验失败", "data": [
+           { "field": "levelCode", "message": "必填，取值必须是 Level 1 / Level 2 / Level 3 / Level 4 / Level 5 之一" },
+           { "field": "pieces",    "message": "必填，至少 1 篇" } ] }
 ```
 
 ---

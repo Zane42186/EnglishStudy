@@ -31,17 +31,17 @@
 |---|---|---|
 | `students` | 1 | 学生（Zane） |
 | `lessons` | 6 | 课程（第 1—6 课） |
-| `lesson_sections` | 12 | 课程小节正文（每课 2 条：今日语法 / 难度反馈） |
+| `lesson_sections` | 51 | 课程小节（每课 8 类，2026-09-30 由 12 条回填；另含 3 课补漏块 `backfill`） |
 | `vocabulary` | 51 | 词汇库（**学生内单词唯一**，已去重） |
 | `lesson_vocabulary` | 52 | 课程 ↔ 词汇关联（按课累计，`tired` 在第 2、6 课各一次） |
-| `mistakes` | 19 | 错词本（**pending 15 / passed 4**） |
+| `mistakes` | 19 | 错词本（**pending 15 / passed 4**；参见第九节待办：错词本已 23 行，库内仍是 19） |
 | `study_records` | 18 | 学习记录（6 课 × 上课/批改/反馈） |
 | `progress` | 1 | 学习进度（Level 2 · 第 6 课） |
-| `lesson_exercises` | 0 | 练习记录（P0 表，结构已建、待写入；含 `self_check` 列，2026-09-30 补） |
+| `lesson_exercises` | 34 | 练习记录（作业 25 + 补漏块 9，2026-09-30 回填；含 `self_check` 列） |
 | `mistake_events` | 0 | 错词事件流水（P0 表，幂等键 `uk_me_client`，待写入） |
-| `readings` | 0 | 阅读日（一天一行，`uk_reading_day`，2026-09-30 建；待回填 4 天） |
-| `reading_pieces` | 0 | 阅读篇（`uk_piece`，待回填 11 篇） |
-| `reading_questions` | 0 | 阅读理解题（`uk_rq`，待回填 22 题） |
+| `readings` | 4 | 阅读日（一天一行，`uk_reading_day`，2026-09-30 建并回填 4 天） |
+| `reading_pieces` | 11 | 阅读篇（`uk_piece`，含 `source_url`，2026-09-30 回填 11 篇） |
+| `reading_questions` | 22 | 阅读理解题（`uk_rq`，2026-09-30 回填 22 题） |
 
 ### 已建视图（2 个）
 
@@ -60,7 +60,7 @@
 - **`lesson_sections.section_type`** 共 11 值，`backfill`（补漏块整段原文）为 2026-09-30 追加值。
 - **`mistake_events`** 以 `uk_me_client (student_id, client_event_id)` 做写入幂等（写接口重复提交只记一次）。
 - **`lesson_exercises.self_check`**（`VARCHAR(128) NULL`）—— 本题点名的强制自查项。此前 `exercise-set.schema.json` 的 `ExerciseItem.selfCheck` 在 `LessonRecord.ExerciseRecord` 与表中**都没有对应字段**，归档时会**静默丢弃**（2026-09-30 已补列闭合，见第六节）。
-- **`readings` / `reading_pieces` / `reading_questions`** 三层：「阅读日 → 当天第几篇 → 篇内第几题」，幂等键依次是 `uk_reading_day (student_id, read_date)` / `uk_piece (reading_id, piece_no)` / `uk_rq (piece_id, question_no)`。`reading_pieces.body_md` 存**英中对照逐段**原文（英文行 + `> 中文` 行），`vocabulary_notes` 存「生词注释」整行，`word_count` 由写库器按英文词数计算。设计稿 `schema.full.design.sql` §10—§12 用的是已废弃的 `users` / `user_id`，**以本文件与 `schema.sql` 的 `students` / `student_id` 为准**。
+- **`readings` / `reading_pieces` / `reading_questions`** 三层：「阅读日 → 当天第几篇 → 篇内第几题」，幂等键依次是 `uk_reading_day (student_id, read_date)` / `uk_piece (reading_id, piece_no)` / `uk_rq (piece_id, question_no)`。`reading_pieces.body_md` 存**英中对照逐段**原文（英文行 + `> 中文` 行），`vocabulary_notes` 存「生词注释」整行，`word_count` 由写库器按英文词数计算；`source_url`（2026-09-30 追加，见第八之二节）存新闻原文链接。设计稿 `schema.full.design.sql` §10—§12 用的是已废弃的 `users` / `user_id`，**以本文件与 `schema.sql` 的 `students` / `student_id` 为准**。
 - **外键删除策略统一 `RESTRICT`**：学习数据只增不删（阅读三表同样不带 `ON DELETE CASCADE`；重导入时由写库器在同一事务内显式删除子行）。
 - 枚举与 `backend/src/constants.js` **同源**，改枚举必须先改表（`lesson_sections.section_type` 已含 `objectives` / `expected_mistakes`）。
 
@@ -74,7 +74,10 @@
 | 未过关错词 | **15** | 16（不归并） | 库内归并 `play game`（第 4、6 课各记一次） |
 | 错词总数 | **19** | 20（不归并） | 归并 `play game` 1 条后为 20；DQ1 再剔除 1 条非错题 → 19 |
 
-> 口径统一原则：**以库内为准**。错词本 `wrong-words.md` 现为 19 行，与库内 19 条一致。
+> 口径统一原则：**以库内为准**（写接口取数一律走库）。
+> ⚠️ **错词本 `wrong-words.md` 已于 2026-09-30 由 Amy 扩充为 23 行**（新增 `work.So` / `intrusting` /
+> `Our teacher is Amy together.` / `Now, My` 4 条漏登记项）。库内仍是 **19** 条——因 `db:import` 按既定规则
+> **不写 `mistakes`**（权威在 md，需 Amy 判定的字段不自动推导）。差异待处理，见第九节。
 
 ---
 
@@ -224,6 +227,7 @@ CREATE TABLE IF NOT EXISTS reading_pieces (
   piece_no         SMALLINT UNSIGNED NOT NULL COMMENT '当天第几篇，从 1 开始',
   level_code       VARCHAR(16)     NULL COMMENT '如 Level 1',
   source           VARCHAR(128)    NULL COMMENT '自编 / 新闻来源',
+  source_url       VARCHAR(512)    NULL COMMENT '原文链接；来源为新闻时填写，自编为 NULL（ReadingSet.sourceUrl）',
   title            VARCHAR(255)    NULL,
   body_md          MEDIUMTEXT      NOT NULL COMMENT '正文（英中对照，逐段）',
   vocabulary_notes TEXT            NULL COMMENT '生词注释',
@@ -280,6 +284,35 @@ FROM students s;
 - 验证：表数 10 → **13**；`uk_reading_day` = `student_id, read_date`、`uk_piece` = `reading_id, piece_no`、`uk_rq` = `piece_id, question_no`（均按 `seq_in_index` 核对）；既有数据计数与 `mistakes` md5（`7f9ad9e713d4ed3cfd0e7f7808cfd5d2`）**均未变**。
 - 视图读回：`lesson_count=6 / current_level=Level 2 / vocab_total=51 / pending_mistake_count=15 / reading_piece_count=0 / reading_day_count=0`（后两列为 0 是回填前预期值）。
 
+### 八之二、`reading_pieces.source_url` 追加列（2026-09-30 已执行）
+
+**目的**：`ReadingSet.piece.sourceUrl`（契约字段，来源为新闻时的原文链接）此前**无处存放**——`reading_pieces` 没有对应列，写入路径会**静默丢弃**该字段。开放 `POST /api/readings` 前必须补列，否则教学侧传了链接却被吞掉且无任何报错。
+
+**DDL（已执行，同时写入 `backend/db/schema.sql`）**：
+
+```sql
+ALTER TABLE reading_pieces
+  ADD COLUMN source_url VARCHAR(512) NULL
+  COMMENT '原文链接；来源为新闻时填写，自编为 NULL（ReadingSet.sourceUrl）'
+  AFTER source;
+```
+
+- **加法变更**（末尾/指定位置追加可空列），不动任何既有列与索引，不影响存量 11 行（新列为 `NULL`）
+- `VARCHAR(512)` 与 `mistakes.wrong_text` / `correct_text` 同宽，足以容纳常见新闻 URL
+
+**回滚 SQL**：
+
+```sql
+ALTER TABLE reading_pieces DROP COLUMN source_url;
+```
+
+**执行记录**：
+
+- 变更前备份：`backend/db/backup-20260930-before-sourceurl.sql`（**含数据**，可重放）。
+- 验证：`SHOW COLUMNS` 中 `source_url` 位置在 `source` 之后、类型 `varchar(512)` 且 `Null=YES`；
+  `reading_pieces` 行数仍为 **11**，`body_md` md5 `9b50aa22d2417f81ea9362d5aa4b10e9` **未变**（证明追加列未改写存量数据）。
+- 回归：`npm run test:write` 的 **RW7** 用例断言 `sourceUrl` 落库并可经 `GET /api/readings/:date` 读回（此前该用例不存在，因字段必被丢弃）。
+
 ---
 
 ## 九、待补充（TODO）
@@ -287,9 +320,13 @@ FROM students s;
 - [x] 自动迁移链路已全落地：只读导出 `export_md_to_json.py` + 只读验收 `compare_snapshot.js` + **写库器 `import_json.js`**（`backend/db/migration/`，2026-09-30）
 - [x] `readings` / `reading_pieces` / `reading_questions` 三张表（P1，见第八节，2026-09-30 已建）
 - [x] 阅读数据回填（4 天 / 11 篇 / 22 题）+ `v_dashboard_stats` 加 `reading_piece_count` / `reading_day_count`
+- [x] `lesson_exercises` 回填 34 条（作业 25 + 补漏块 9，2026-09-30）
+- [x] `POST /api/readings`（教学侧在线写当天阅读）已开放 —— 单事务 + 幂等判重，同日已存在 → 409，
+  显式 `?force=true` 为重出例外；`reading_pieces.source_url` 追加列同步落地（见第八之二节、`05-api-reference.md` §27）
 - [ ] `lesson_exercises.error_type` 全为 NULL（34/34）——待 amy 统一 `records.mistakeCandidates` 与错词本措辞后逐题判定
-- [ ] `mistakes.wrong_text` 有 2 条与 md 文本不对齐（库内为手工归一化版）——待 amy 复核措辞
-- [ ] `POST /api/readings`（教学侧在线写当天阅读）—— 是否开放待确认；当前写路径是 `db:import`
+- [ ] **`mistakes` 全表待与错词本对齐**（库内 19 vs `wrong-words.md` 23）：① **缺 4 行**（`work.So` /
+  `intrusting` / `Our teacher is Amy together.` / `Now, My`）；② **8 行 `wrong_text` 仍带括号批注**
+  （库内为旧格式，如 `zane（人名小写）`，md 已按新规则改为 `zane`）。**均需 amy 定夺，后端不自动写库**
 - [ ] 长期设计中的其余表（知识点地图 `knowledge_points`、Skill 运行记录等）
 - [ ] 备份与恢复策略（学习数据为长期资产，需明确频率与存放位置）
 - [ ] `schema.full.design.sql` 同步业务唯一键 `uk_mistakes_text`、`self_check`、`block_kind` / `block_no` 与 `backfill`，并把 `readings` 三表的 `users` 命名改为 `students`；该设计稿仍用已废弃的 `courses`/`user_*` 命名，且 `exercises` 表还缺 `target_point` / `revised_answer`，**已落后实际表 7 个字段**，需整体重审后再动
