@@ -131,6 +131,11 @@ CREATE TABLE IF NOT EXISTS mistakes (
   created_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
+  -- DQ1 根治：业务判重键。没有它，seed.js 的 ON DUPLICATE KEY UPDATE 永不触发，
+  -- 重跑 npm run db:init 会让 mistakes 直接翻倍（实测 19 → 38、20 → 40）。
+  -- 判重口径：同一学生下「错误点(wrong_text)」唯一 —— 与 wrong-words.md 的
+  -- 「同一错词保留一行、跨课归并」语义一致（如 play game 第 4/6 课归并为 1 条）。
+  UNIQUE KEY uk_mistakes_text (student_id, wrong_text),
   KEY idx_mistakes_status (student_id, status),
   KEY idx_mistakes_type (student_id, error_type),
   CONSTRAINT fk_mistakes_student FOREIGN KEY (student_id) REFERENCES students (id)
