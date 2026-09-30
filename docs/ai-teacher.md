@@ -152,19 +152,20 @@
 
 ## 四、错题类型
 
-### 4.1 类型分布（19 条错词记录，按 `mistakes.error_type` 枚举归口）
+### 4.1 类型分布（23 条错词记录 · 2026-09-30，按 `mistakes.error_type` 枚举归口）
 
 | 类型（DB 枚举） | 条数 | 占比 | 典型条目 |
 |---|---|---|---|
-| `grammar` 语法 | 9 | 47% | `play game`、`I reading a book`、`my grandpa and me`、`at yesterday`、`Tom play soccer`、`I teached` |
-| `word_choice` 用词 | 4 | 21% | `We see movie`（watch/see）、`ask for my teacher`、`what do you do?`、`What were you yesterday`（how） |
-| `capitalization` 大小写 | 3 | 16% | `zane`、`Tv`、`those are their bags.` |
-| `punctuation` 标点 | 2 | 11% | `Do you like coffee.`（缺问号）、`now,liked my teacher`（逗号连句） |
-| `spelling` 拼写 | 1 | 5% | `Theri`（their） |
+| `grammar` 语法 | 9 | 39% | `play game`、`I reading a book.`、`my grandpa and me`、`at yesterday`、`Tom play soccer`、`I teached` |
+| `word_choice` 用词 | 5 | 22% | `We see movie`（watch/see）、`ask for my teacher`、`what do you do?`、`What were you yesterday`（how）、`Our teacher is Amy together.` |
+| `capitalization` 大小写 | 4 | 17% | `zane`、`Tv`、`those are their bags.`、`Now, My` |
+| `punctuation` 标点 | 3 | 13% | `Do you like coffee.`（缺问号）、`now,liked my teacher`（逗号连句）、`work.So`（句号后缺空格） |
+| `spelling` 拼写 | 2 | 9% | `Theri`（their）、`intrusting`（interesting） |
 | `other` | 0 | — | — |
 
-> 未过关 15 条的分布：语法 8、标点 2、大小写 2、用词 2、拼写 1。
-> 说明：`error_type` 字段当前由人工判定；枚举值与 `schema.sql` 完全一致，**无需改表**。
+> 未过关 19 条的分布：语法 8、大小写 3、标点 3、用词 3、拼写 2。
+> 说明：`error_type` 由 Amy 人工判定（规则见 §11.5），枚举值与 `schema.sql` 完全一致，**无需改表**。
+> 库内 `/api/mistakes/stats` 目前仍是 19 条时的快照（`grammar 9 / word_choice 4 / capitalization 3 / punctuation 2 / spelling 1`）；按 `records/README.md` §5.2 执行 12 处变更（8 条 UPDATE + 4 条 INSERT）后会变为本表数值。
 
 ### 4.2 三种可控的错误模式（Amy 的处置策略）
 
@@ -176,8 +177,8 @@
 
 ### 4.3 高频错误的量化观察
 
-- **产出型错误 > 理解型错误**：19 条中，理解层面误判仅 4 条（用词类），其余 15 条都是「知道规则但写错」。
-- **同一错误重复率**：`play game` 出现 3 次、问号类 ≥3 次、句首大写 2 次、`their` 拼写 2 次 —— 说明「讲解已足够，缺的是产出环节的强制检查」。
+- **产出型错误 > 理解型错误**：23 条中，理解层面误判仅 4 条（用词类），其余 19 条都是「知道规则但写错」。
+- **同一错误重复率**：`play game` 出现 3 次、问号类 ≥3 次、句首/非句首大写 3 次、句号后缺空格 2 次、`their` 与 `interesting` 拼写各 1 次 —— 说明「讲解已足够，缺的是产出环节的强制检查」。
 - **新知识点首课错误率显著更高**：第 4 课（新语法点进行时）6 处 vs 第 3 课 2 处，这是拒绝「每课 2 个知识点」的实证依据。
 
 ---
@@ -573,9 +574,135 @@ Amy 已实测用 9 个 GET 接口拼出第 7 课计划（`docs/amy-session-07-pl
 
 ---
 
-## 十一、附录
+## 十一、错词复习规则（错词本机制）
 
-### 11.1 数据文件清单（真相源与生成物）
+> 本章是错词本机制的**唯一权威版本**（由 `docs/plans/amy-teaching-plan.md` §2.6 / §3.1 / §3.2 / §3.3 整理迁入，过程稿与本章冲突时以本章为准）。
+> 数据落点：`wrong-words.md`（人读）+ `records/*.json`（机器读）+ `mistakes` / `mistake_events`（库）。
+
+### 11.1 机制总览
+
+```
+批改判错 → 写入错词本（新建或累加 wrong_count，streak 清零）
+   ↓
+每日复习取题 → 学生作答 → 判定 correct / wrong
+   ↓
+correct：streak + 1；streak ≥ 2 → status='passed'（出队，不再进每日复习队列）
+wrong  ：wrong_count + 1，streak = 0（回队，且优先级提升）
+   ↓
+wrong_count ≥ 3 → 下一课强制自查项（让学生自己找这类错）
+```
+
+- 出队（`passed`）不是「永久删除」，而是**退出每日队列**；复发时新建条目或按判重键命中后重新累加。
+- 「识别（看得懂）」与「产出（写得对）」分开记分：错词本只记录**产出错误**，选择题选对不计入 streak。
+
+### 11.2 复习取题规则（决定「先考哪些」）
+
+按下列优先级取 3—5 题，逐条取满为止：
+
+| 序 | 位置 | 规则 |
+|---|---|---|
+| 1 | **强制位** | 所有 `wrongCount ≥ 3` 的未过关错词，**每课至少占 1 题**（防止连着两课不露面导致掌握度估计失真） |
+| 2 | **结构位** | N-1 / N-3 / N-7 各 1 题（课号 ≤ 0 跳过），取该课新知识点 |
+| 3 | **边际收益位** | `streak == 1` 的错词优先（再答对一次即出队，出队收益最高） |
+| 4 | **兜底位** | 其余按 `wrongCount` 降序 → `lastReviewedAt` 最久优先（该字段未落地前用 `createdAt` 近似） |
+| 5 | **总量** | 常规 5 题；断更补课时上浮（见 §8） |
+
+> 服务端 `priority`（`wrongCount ≥2` → high、`streak ==1` → medium、其余 low）用于**展示排序**；Amy 的出题排序是上表 1→4，两者允许不同。
+
+### 11.3 判对错与状态更新（口径固定，只搬运不重设计）
+
+| 作答 | 更新 |
+|---|---|
+| 答对 | `streak + 1`；`streak ≥ 2` → `status = 'passed'`；写 `last_reviewed_at`，插入一条 `mistake_events(result='correct')` |
+| 答错 | `wrong_count + 1`；`streak = 0`；`status = 'pending'`；插入 `mistake_events(result='wrong')` |
+
+**判重键**：去标点、去空格、统一小写后的 `wrongText`（先查错词本，命中则累加，**不新建条目**）——目的是杜绝「同一错变两条」。
+
+**Amy 的批改细则**（不改上表框架）：
+
+| # | 细则 |
+|---|---|
+| G1 | 批改前先确定学生**想表达什么**；意图不明时判 `correct_with_note` 并说明歧义，**不得直接判错** |
+| G2 | `correctText` 一律**最小修正**（只改错处），不重写整句；开放题另给「完整改后版」（`revisedAnswer`）作示范 |
+| G4 | 复发必须在 `errorNote` 写明「第 N 次犯（上次在第 k 课）」——学生对「第几次犯」最敏感 |
+| G5 | 判错的题**必须给为什么**（一句中文讲解，术语保留英文），禁止只给结论 |
+| G6 | 同一句同一处只计一次；跨句出现才分别计数 |
+
+### 11.4 错误处数口径（唯一分数量口径）
+
+- 单位：**一处 = 一个可独立改正的点**；填空题每个空算一处。
+- **计入**：选错词、动词形态、时态、语序、结构缺失、主谓一致、虚词增减、大小写、标点、拼写。
+- **不计入**（只写进 `errorNote` / `note`）：空题（`blank`）、正确但有更优表达（`correct_with_note`）、任务完成度问题（如「要求 1 句否定没写」）、**补漏块作答错误**（单列 `backfillErrorCount`）、阅读理解题作答（走阅读模块）。
+- 口头复核上界：若 `errorCount > 题数 × 2`，须回看是否把一处拆碎。
+- 汇总落点：`study_records(record_type='grade').payload = { exerciseCount, errorCount, byType{…}, newMistakes, passedMistakes }`，**不折算百分制**。
+
+### 11.5 `error_type` 三步判定（Amy 人工判定，禁止文本匹配推导）
+
+```
+第一步 单一差异：只差一类
+        → spelling（同一词同一形态字母错）
+        → capitalization（统一大小写后完全相同）
+        → punctuation（去掉标点与空格后完全相同）
+        注意：studyed→studied、teached→taught 属形态变化 → 走第二步 grammar
+第二步 多处差异：按「错误主体」判
+        → word_choice（选错了词 / 疑问词 / 搭配）
+        → grammar（动词形态、时态、语序、结构、主谓一致、虚词增减）
+        标点与大小写不参与归口，只写进 errorNote
+第三步 判不出 → other，标注「待人工复核」，不猜
+```
+
+**已裁定条目**（防止同类争执反复出现）：
+
+| 条目 | 曾出现类型 | 裁定 | 理由 |
+|---|---|---|---|
+| `what do you do?` → `What are you doing?` | word_choice | **grammar** | 疑问词没选错，错在用一般现在时结构问此刻的事，与 `I reading a book.` 同属结构缺失 |
+| `I am very busy.` → `We are busy.` | grammar | **word_choice** | 错在主格代词选择；`am → are` 是连带修正，写进 `errorNote` |
+
+> 两条互换归属，各类型总数不变（grammar 9 / word_choice 4）。
+
+### 11.6 复发阈值与强制自查项
+
+- `wrong_count ≥ 3` → **下一课作业里加一条强制自查项**（让学生自己回看这类错），并在批改里点名「第 N 次犯」。
+- 复发项同时进「强化清单」（见 `docs/amy-next-lesson-plan.json` 的 `strengthen[]`），优先级 `P0`。
+- 退出条件：连续 2 课该类错误不再出现 → 自查项降级，从强化清单移除。
+
+### 11.7 错词本字段口径（`wrong-words.md` 8 列）
+
+| 列 | 对应字段 | 谁填 | 说明 |
+|---|---|---|---|
+| 课号 | `firstCourseNo` 线索 | Amy | 首次出现的课号；诊断来源写「诊断」 |
+| 错误点 | `wrong_text` | Amy | **只写错误形式本身，不带任何括号批注**（规范见下） |
+| 正确形式 | `correct_text` | Amy | 最小修正形式 |
+| 错因 | `error_reason` | Amy | 一句中文，含复发次数与场景说明 |
+| 连续答对 | `streak` | Amy / 写接口 | 达 2 即过关 |
+| 状态 | `status` | Amy / 写接口 | `未过关` / `已过关` |
+| **类型** | `error_type` | **Amy（2026-09-30 新增列）** | 6 值枚举，判定规则见 §11.5 |
+| **累计犯错** | `wrong_count` | **Amy（2026-09-30 新增列）** | 累计次数，≥3 触发自查项 |
+
+> 后两列**无法从其他列推导**，只能由 Amy 判定后写入；解析器（含 `export_md_to_json.py`）应直接读取，**不得用规则或文本匹配猜测**。
+
+**`wrong_text` 规范（2026-09-30 起）**：只写错误形式本身。批注混入会让同一错误在错词本与 `records/` 两个来源里长得不一样，迁移时按判重键 `uk_mistakes_text(student_id, wrong_text)` **会把一条错拆成两行**（DQ1 的根源）。本轮已统一 8 条带批注文本，并对账确认 records 18 条候选与错词本逐字一致；变更清单见 `records/README.md` §5.2。
+
+**错词池规模（2026-09-30）**：23 条（已过关 4 / 未过关 19）＝原 19 条 + 补入 4 条原漏登记错词（`work.So`、`intrusting`、`Our teacher is Amy together.`、`Now, My`）。
+
+### 11.8 结构化归档（机器契约）
+
+批改与错词判定同时产出**机器可读文件**，后端只读这些文件、禁止解析散文：
+
+| 文件 | 内容 |
+|---|---|
+| `records/lesson-NN.grading.json` | 作业逐题判定（`isCorrect` / `errorNote` / `revisedAnswer`）+ 错词候选 |
+| `records/lesson-NN.backfill.json` | 补漏块逐题判定 |
+| `wrong-words.md` 的 `类型` / `累计犯错` 两列 | 错词池的 `error_type` / `wrong_count` 权威值 |
+
+契约与用法见 `records/README.md`；schema 为 `docs/schemas/grading-result.schema.json`。
+**硬规则：后端不得从「### 批改」散文做文本匹配提取判定结论。** 散文中「两处错误。用词：…；语法：…」这类写法无法可靠映射到题号与错误类型，文本匹配必然产出假数据。
+
+---
+
+## 十二、附录
+
+### 12.1 数据文件清单（真相源与生成物）
 
 | 文件 | 类型 | 维护者 |
 |---|---|---|
@@ -583,19 +710,24 @@ Amy 已实测用 9 个 GET 接口拼出第 7 课计划（`docs/amy-session-07-pl
 | `progress.md` / `wrong-words.md` | 手工真相源 | Amy |
 | `notes/*.md` | 手工真相源（追加） | Amy |
 | `read/*.md` | 手工真相源（一天一档） | Amy |
+| `records/*.json` | **手工真相源（机器契约，2026-09-30 新增）** | Amy 产出、后端消费 |
+| `docs/schemas/*.json` | 契约定义 | Skill 设计师 + 后端 |
 | `digest.md` / `INDEX.md` / `review/*` | 生成物 | `build_board.py` |
-| `.workbuddy/skills/english-daily/` | Skill 源码 | Skill 设计师（**未入库**） |
+| `skills/english-daily/` | Skill 源码（已入库） | Skill 设计师 |
 
-### 11.2 本文件引用的真实数据快照（2026-09-29）
+### 12.2 本文件引用的真实数据快照（2026-09-30）
 
-- `build_board.py` 输出：`BOARD_OK 课程数=6 阅读数=11 词汇数=52 摘要字节=2807`
-- 错词本：19 条（已过关 4 / 未过关 15），本次已去重 `play game` 重复行并删除 1 行非错题记录
+- `build_board.py` 输出：`BOARD_OK 课程数=6 阅读数=11 词汇数=52 摘要字节=2807`（错词本改动后摘要体积略有变化）
+- 错词本：**23 条**（已过关 4 / 未过关 19）—— 19 条基础上补入 4 条原漏登记错词，并统一 8 条带批注的 `wrong_text`
+- `records/`：第 1—6 课作业 + 第 4—6 课补漏块 = 9 个文件，另加 `exercise-error-types.json`（34 题逐题 `error_type`，10 题非 NULL）；内部一致性校验 `ALL_OK`
+- 库内差异（待后端执行，共 12 处）：8 条 `wrong_text` UPDATE + 4 条 INSERT；`lesson_exercises.error_type` 34/34 NULL 属预期状态，可依 `exercise-error-types.json` 回填
 - 学生状态：`Level 2`、当前课号 6、`easy_streak = 0/2`、最近反馈 `just_right`、上次上课 `2026-09-29`
+- API 基线与缺口：见 §9.5 与 `backend/docs/06-api-requirements-amy.md`
 
-### 11.3 待办（按角色）
+### 12.3 待办（按角色）
 
-- **Amy**：第 7 课（规则动词过去式 -ed）+ 补漏块 4；第 8 课开 `notes/day-08-14.md`。
-- **Skill 设计师**：Skill 源码入库决策；固化 `daily-lesson` 输入输出；`mistake-analysis` 规则化。
-- **后端工程师**：评估 G1—G5 与 5.4 的 2 项枚举扩展；`snapshot` 增补 errorCount / priority 定义。
-- **前端工程师**：本次无需求（`review/*.html` 保持不动）。
-- **Git 工程师**：本次新增 `docs/ai-teacher.md`、修订 `wrong-words.md`，建议记录到 `docs/changelog.md`。
+- **Amy**：第 7 课（规则动词过去式 -ed）+ 补漏块 4；第 8 课开 `notes/day-08-14.md`；此后每课产出 `records/lesson-NN.grading.json`。
+- **后端工程师**：① 执行 `records/README.md` §5.2 的 12 处变更（8 UPDATE + 4 INSERT），修掉「批注混入 → 同错拆两行」的根源；② 用 `records/exercise-error-types.json` 回填 `lesson_exercises.error_type`；③ 读 `records/*.json` 回填 `is_correct` / `error_note` / `revised_answer`（勿解析散文）；④ 决定历史 `error_count` 是否按重算值回改（Amy 建议保留历史值）；⑤ 评估 §5.4 的 2 项枚举扩展。
+- **Skill 设计师**：① `SKILL.md` 的错词本表结构补两列并写入「`错误点` 只写错误形式」规范；② `daily-lesson` 批改步骤增加「产出 `records/*.json`」；③ 把 §11.2—§11.5 固化为 `lesson-review` / `answer-grading` / `mistake-analysis` 的可执行规则。
+- **前端工程师**：错词页类型分布口径见 §4.1；数量 19 → 23 会随迁移生效，无需改代码。
+- **Git 工程师**：本次新增 `records/`（11 个文件）、修订 `wrong-words.md` 与 `docs/ai-teacher.md`，建议记入 `docs/changelog.md` 并打里程碑 tag。

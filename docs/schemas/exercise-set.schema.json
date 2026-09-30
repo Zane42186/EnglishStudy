@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://english-study.local/schemas/v1/exercise-set.schema.json",
   "title": "ExerciseSet 题集",
-  "description": "exercise-generation 的输出。同一份契约承载四类题集（作业 / 复习 / 补漏 / 诊断），由 kind 区分。题目与答案必须成对出现，缺参考答案的题不得进入题集。",
+  "description": "exercise-generation 的输出。同一份契约承载四类题集（作业 / 复习 / 补漏 / 诊断），由 kind 区分；**一套题集一个块**——作业与补漏块分开成集、各自从 1 编号（落地形态见 `records/lesson-NN.grading.json` 与 `records/lesson-NN.backfill.json`）。题目与答案必须成对出现，缺参考答案的题不得进入题集。",
   "type": "object",
   "required": ["kind", "lessonNo", "levelCode", "items"],
   "$defs": {
@@ -10,7 +10,16 @@
       "type": "object",
       "required": ["exerciseNo", "exerciseType", "prompt", "referenceAnswer"],
       "properties": {
-        "exerciseNo": { "type": "integer", "minimum": 1 },
+        "exerciseNo": {
+          "description": "**块内**题号，从 1 开始。一套题集一套编号，作业与补漏块互不连续。入库 `lesson_exercises` 时，`block_kind` 由题集自身的 kind 推得、`block_no` 由 `blockNo` 推得，二者与 `lesson_id`、本字段组成唯一键 `uk_exercise`。",
+          "type": "integer",
+          "minimum": 1
+        },
+        "blockNo": {
+          "description": "所属补漏块编号 N，对应笔记小节标题「### 补漏块 N · <主题>」与 `records/lesson-NN.backfill.json`。kind 为 backfill 时必填，homework 时省略。题块种类由题集的 kind 决定，此处不重复标注。",
+          "type": "integer",
+          "minimum": 1
+        },
         "exerciseType": { "$ref": "common.schema.json#/$defs/ExerciseType" },
         "prompt": { "type": "string" },
         "referenceAnswer": { "type": "string", "minLength": 1 },

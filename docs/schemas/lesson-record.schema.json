@@ -34,7 +34,20 @@
       "type": "object",
       "required": ["exerciseNo", "exerciseType", "prompt"],
       "properties": {
-        "exerciseNo": { "type": "integer", "minimum": 1 },
+        "exerciseNo": {
+          "description": "**块内**题号，从 1 开始。与 blockKind / blockNo 一起对应 lesson_exercises 的 uk_exercise (lesson_id, block_kind, block_no, exercise_no)。",
+          "type": "integer",
+          "minimum": 1
+        },
+        "blockKind": {
+          "description": "题目所在题块，对应 lesson_exercises.block_kind。作业 = homework，补漏块 = backfill；省略视为 homework。归档时必须原样带过来，否则补漏题与作业题的题号会相互覆盖（见 docs/skills.md 2.5）。",
+          "$ref": "common.schema.json#/$defs/ExerciseBlockKind"
+        },
+        "blockNo": {
+          "description": "补漏块编号 N，对应 lesson_exercises.block_no。blockKind 为 backfill 时必填；homework 时为 null 或省略。",
+          "type": "integer",
+          "minimum": 1
+        },
         "exerciseType": { "$ref": "common.schema.json#/$defs/ExerciseType" },
         "prompt": { "type": "string" },
         "selfCheck": {
@@ -76,7 +89,7 @@
     },
     "status": { "type": "string", "enum": ["planned", "taught", "archived"] },
     "sections": {
-      "description": "小节集合。review / grammar / examples / homework / my_answer / grading / feedback 为必填；objectives 与 expected_mistakes 为 S1 已落库的可选小节（2026-09-29，D-10 批准），每个课次各最多一条。",
+      "description": "小节集合。review / grammar / examples / homework / my_answer / grading / feedback 为必填；objectives 与 expected_mistakes 为 S1 已落库的可选小节（2026-09-29，D-10 批准），每个课次各最多一条；backfill 为补漏块整段原文的可选小节，同样每课次最多一条（归置口径见 docs/skills.md 2.5）。",
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "#/$defs/SectionContent" }

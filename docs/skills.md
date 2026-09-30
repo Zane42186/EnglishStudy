@@ -1302,15 +1302,24 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 **接盘方已明确：`records/` 结构化归档**（见 2.5）。md 解析链的正向职责已被 `records/lesson-NN.*.json` 取代——后端只读 JSON、不解析散文。**注意：`backend/db/migration/export_md_to_json.py` 已不再依赖它**。该脚本已于 2026-09-30 改造为**自包含**（内联全部正则与解析函数，删除 `import build_board` 与 `load_build_board()`），因此 `build_board.py` 现在**没有任何下游消费方**；`compare_snapshot.js` 只读导出的 `_snapshot.json`，与该脚本无耦合。
 
-**删除前置条件已满足（2026-09-30）**：脚本的最后用途是「第 1—6 课历史回填」，该批数据已通过 `db:export` → `db:import` 落库并验收（`lesson_sections` 12 → 51、`lesson_exercises` 0 → 34、`readings` 4 天/11 篇/22 题，见 `backend/docs/04-migration-and-roadmap.md` §五之三，`npm run db:compare` 全绿）。故 `build_board.py` 与 `skill-dependencies.json` / `setup-guide.md` 的清理**已无阻塞**——但脚本位于受控源 `skills/english-daily/scripts/`（Skill 设计师职责），**后端不代为删除**，仅记录条件已达成。
+**前置条件已满足，并已执行删除（2026-09-30）**：脚本的最后用途是「第 1—6 课历史回填」，该批数据已通过 `db:export` → `db:import` 落库并验收（`lesson_sections` 12 → 51、`lesson_exercises` 0 → 34、`readings` 4 天/11 篇/22 题，见 `backend/docs/04-migration-and-roadmap.md` §五之三，`npm run db:compare` 全绿）。**Skill 设计师已在 v2.3.0 删除脚本**（受控源 + 运行副本各一份），并同步清空全部残留引用：
 
-同批待清理项：`skill-dependencies.json` 中「复习看板生成」相关的 degradation 与 failure_modes 条目，以及 `references/setup-guide.md` 的运行示例——仍描述已下线的 HTML 生成能力。这批属于结构性删改（会改变依赖检查的判定），需走 MINOR 变更，不与本次退役标记混做。
+| 文件 | 处理 |
+|---|---|
+| `scripts/build_board.py` | **已删除**（受控源 + 运行副本）。删除前备份 `.workbuddy/skill-backups/english-daily-v2.2.3-20260930-pre-delete/`；回滚点 git `5aab235` / `87ee73e` |
+| `SKILL.md` | 第七章第 3 项整段删除；流程中「目录与摘要」那一步删除（汇报顺延为第 10 步）；第七章由「三个脚本」改为「两个脚本」；自查清单与停止条件改为「目录与摘要由后端数据更新，不手工改」 |
+| `skill-dependencies.json` | 移除 `总目录重建` / `复习看板生成` 两个能力及其全部条目；`python-runtime` 的作用域收敛为 `上课与笔记归档`；`verify` 的 `BOARD_OK` 改为 `init_workspace.py` 的 `INIT_OK` |
+| `scripts/init_workspace.py` | `INDEX.md` 模板文案不再提脚本 |
+| `references/setup-guide.md` | 依赖表 / 用途 / 降级矩阵改为「目录初始化与环境自检」，并注明总目录与看板不由脚本产出 |
+| `references/course-template.md` | 4 处「看板解析 / 看板生成词卡」改为「后端按标题解析 / 词汇卡页 / 阅读页」 |
+
+版本 **2.2.2 → 2.2.3 → 2.3.0**（本次为 MINOR：能力移除 + 依赖清单结构变更，即上文原先预留的那次）。清理后 Skill 内已无 `build_board` / `BOARD_OK` / `BOARD_FAIL` 任何引用，受控源与运行副本 `diff -r` 完全一致。
 
 ### 7.4 Skill 源码入库（已完成）
 
 **决策**：Skill 源码纳入版本库。理由：`.gitignore` 第 2 行排除整个 `.workbuddy/`，仓库丢失即无法恢复 Skill。
 
-**已落库（方案 A：只入库 `skills/`，`.workbuddy/` 保持整体忽略）**：`skills/english-daily/` 的 8 个源文件均已 git 跟踪（`SKILL.md`、`skill-dependencies.json`、`scripts/{build_board,check_environment,init_workspace}.py`、`references/{course-template,level-map,setup-guide}.md`），提交 `5aab235` 与 `87ee73e`。`.gitignore` 未改动；`scripts/__pycache__/` 是编译产物，不入库。
+**已落库（方案 A：只入库 `skills/`，`.workbuddy/` 保持整体忽略）**：`skills/english-daily/` 的 7 个源文件均已 git 跟踪（`SKILL.md`、`skill-dependencies.json`、`scripts/{check_environment,init_workspace}.py`、`references/{course-template,level-map,setup-guide}.md`），首轮入库提交 `5aab235` 与 `87ee73e`（当时含 `build_board.py`，该文件已在 v2.3.0 删除，见 7.3）。`.gitignore` 未改动；`scripts/__pycache__/` 是编译产物，不入库。
 
 **唯一真源与同步方向**：受控权威 = 版本库 `skills/english-daily/`；`.workbuddy/skills/english-daily/` 为**运行副本**。同步方向**单向**「受控 `skills/` ⇒ 运行时 `.workbuddy/skills/`」，**禁止反向**。改 Skill 一律先改受控源再复制过去；两侧内容不一致即视为事故（即原 G-5 多副本漂移）。
 
@@ -1343,7 +1352,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 | R4 | `errorType` 判定靠模型，可能出现分类漂移 | 趋势统计失真 | 本文件 3.6 已给出固定判定顺序；落地后需抽样复核 |
 | R5 | 触发词「继续」歧义 | 误触发完整上课流程 | 见 1.3，独立出现时先确认 |
 | R6 | 错词条目增长快于消化速度 | 复习队列长期不清空 | 单课新增 >8 条时提示降难度 |
-| R7 | **解析职责悬空**：`build_board.py` 退役后，md 解析仅剩历史回填（第 1—6 课）一个用途 | 回填未完成就删脚本 → 那批 `is_correct` / `error_type` 无处可推 | **已消解**：历史回填已由 `records/` + `db:import` 完成（2026-09-30，34/34 题判定入库）；且 `export_md_to_json.py` 已自包含，**`build_board.py` 现无任何下游消费方**，删除只剩「第 1—6 课 md 正文回填」这一条（已完成）→ 可删（见 7.3） |
+| R7 | **解析职责悬空**：`build_board.py` 退役后，md 解析仅剩历史回填（第 1—6 课）一个用途 | 回填未完成就删脚本 → 那批 `is_correct` / `error_type` 无处可推 | **已闭合**：历史回填已由 `records/` + `db:import` 完成（2026-09-30，34/34 题判定入库）；且 `export_md_to_json.py` 已自包含、无下游消费方 → 脚本已在 **v2.3.0 删除**并清空全部引用（见 7.3） |
 | R8 | 补漏块与作业题共用 `lesson_exercises` 的题号空间 | 作答与批改互相覆盖，静默丢数据 | **已解决**：见 2.5：加 `block_kind` / `block_no`，唯一键扩为四列；`block_no` 取 0 不取 NULL。实测已回填作业 25 + 补漏块 9 = 34 条，两套题号共存 |
 | R9 | 阅读理解题「题干行 + 答案行」按行切分，答案行被当成新题 | 题数与空题干双翻倍（2 题 → 4 条） | **已修复**：导出器改为「答案行并入上一题」，并在 `compare_snapshot.js` 固化断言（`reading_questions` 题数 = md 题数）。见 04-migration 五之三 |
 | R10 | `db:init` 重跑会把 `db:import` 回填的 md 原文小节打回 seed 简化版 | 回填结果被静默回退 | **已修复**：`seed.js` 的 `lesson_sections` 写入改为冲突时空操作；实测重跑 `db:init` 后四处 md5 全未变 |
@@ -1353,7 +1362,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 | 角色 | 待办 |
 |---|---|
 | **Skill 设计师** | 阶段 A 的 A2—A5；`daily-lesson` 改名与触发测试；守护「受控 `skills/` ⇒ 运行时 `.workbuddy/skills/`」单向同步不漂移（7.4）；按 7.3 推进 `build_board.py` 与 `skill-dependencies.json` 的清理 |
-| **后端工程师** | ✅ 本轮已完成：`readings` 三表 + 回填（4 天/11 篇/22 题）、`GET /api/readings{,/stats,/:date}`、`readingCatalog` 退出 degradation、`lesson_exercises` 34 条与 `study_records.byType` 回填、`errorTrend.byType` 真实化。**仍未实现**：`backlog`（待 `knowledge_points` 建表）、`lastIncomplete`（待教学侧写 `nextRecommendation`）、`POST /api/readings`（待确认是否开放）；`lesson_exercises.error_type` 全 NULL 待 amy 对账 |
+| **后端工程师** | ✅ 本轮已完成：`readings` 三表 + 回填（4 天/11 篇/22 题）、`GET /api/readings{,/stats,/:date}`、**`POST /api/readings` 已开放**（单事务幂等、同日 409、`force=true` 重出；并补 `reading_pieces.source_url` 修 `sourceUrl` 静默丢弃）、`readingCatalog` 退出 degradation、`lesson_exercises` 34 条与 `study_records.byType` 回填、`errorTrend.byType` 真实化。**仍未实现**：`backlog`（待 `knowledge_points` 建表）、`lastIncomplete`（待教学侧写 `nextRecommendation`）；`lesson_exercises.error_type` 全 NULL 待 amy 对账；`mistakes` 库内 19 vs 错词本 23 待 amy 定夺 |
 | **前端工程师** | R1 阅读统计**已可接**：`GET /api/readings/stats` 提供 `totalDays / pieceCount / wordCountTotal / lastReadDate / currentStreakDays`；`reading.html` / `readIndex.html` 仍是硬编码静态页，可改为 API 驱动（`GET /api/readings` 判「当天是否已生成」用 `readingCatalog[0].date`，`GET /api/readings/:date` 取全文） |
 | **Amy** | 教学规则变更时按 `docs/ai-teacher.md` 10.2 的流程走：先落 `progress.md` → 更新 `ai-teacher.md` → 交 Skill 设计师改流程 → 交后端评估契约 |
 | **Git 工程师** | `docs/skills.md` 与 `docs/schemas/` 的更新需记录到 `docs/changelog.md`；`skills/` 入库已完成（7.4），后续 Skill 变更按受控源提交 |
@@ -1362,7 +1371,21 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 ## 附录 A：契约与文件清单
 
-### 本轮（补漏块口径 + `build_board.py` 退役）
+### 本轮（`build_board.py` 删除 + 全量清引用）
+
+| 文件 | 动作 | 说明 |
+|---|---|---|
+| `skills/english-daily/scripts/build_board.py` | **删** | 受控源与运行副本各删一份；删除前备份 `.workbuddy/skill-backups/english-daily-v2.2.3-20260930-pre-delete/` |
+| `skills/english-daily/SKILL.md` | 改 | 删第七章第 3 项与流程「目录与摘要」步，「三个脚本」→「两个脚本」，自查清单 / 停止条件同步；版本 2.2.3 → 2.3.0 |
+| `skills/english-daily/skill-dependencies.json` | 改 | 移除 `总目录重建` / `复习看板生成` 能力及全部条目；`verify` 改为 `INIT_OK` |
+| `skills/english-daily/scripts/init_workspace.py` | 改 | `INDEX.md` 模板文案不再提脚本 |
+| `skills/english-daily/references/setup-guide.md` | 改 | 依赖表 / 用途 / 降级矩阵共 5 处 |
+| `skills/english-daily/references/course-template.md` | 改 | 4 处「看板」表述 |
+| `docs/skills.md` | 改 | 7.3 删除执行记录、7.4 文件数 8 → 7、8.1 R7 闭合、本附录 |
+
+自检：`skills/` 与运行副本内 `grep -rn "build_board\|BOARD_OK\|BOARD_FAIL"` 零命中；`diff -r skills/english-daily .workbuddy/skills/english-daily` 无差异；`skill-dependencies.json` JSON 解析与 `init_workspace.py` 语法均通过。
+
+### 第二轮（补漏块口径 + `build_board.py` 标记退役）
 
 | 文件 | 动作 | 说明 |
 |---|---|---|
