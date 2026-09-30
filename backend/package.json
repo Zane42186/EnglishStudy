@@ -13,6 +13,9 @@
     "dev": "node --watch src/server.js",
     "db:init": "node db/init.js",
     "db:reset": "node db/init.js --reset",
+    "db:export": "python db/migration/export_md_to_json.py --root .. --out backend/db/migration/_snapshot.json",
+    "db:import": "node db/migration/import_json.js",
+    "db:compare": "node db/migration/compare_snapshot.js",
     "test:api": "node scripts/smoke-test.js",
     "test:write": "node scripts/write-api-check.js"
   },

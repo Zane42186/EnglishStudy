@@ -240,16 +240,22 @@ async function seed(conn) {
     lessonIdByNo[lesson.lessonNo] = row.id;
 
     // 小节：今日语法 + 难度反馈
+    //
+    // ⚠️ 冲突时**不覆盖**既有内容（`content_md = lesson_sections.content_md` 是显式空操作）。
+    // 原因：这两个小节只是 md 原文的**简化渲染**（seed 里硬编码、丢了 Markdown 加粗与备注），
+    // 权威内容由 `db/migration/import_json.js` 从 md 原文回填。若这里用 VALUES() 覆盖，
+    // 重跑 `npm run db:init` 会把回填进去的 md 原文打回简化版，破坏「import 后库内即原文」的前提。
+    // 正确顺序：`npm run db:init` → `node db/migration/import_json.js`（首次建库时）。
     await conn.execute(
       `INSERT INTO lesson_sections (lesson_id, section_type, content_md, order_index)
        VALUES (?, 'grammar', ?, 1)
-       ON DUPLICATE KEY UPDATE content_md = VALUES(content_md)`,
+       ON DUPLICATE KEY UPDATE content_md = lesson_sections.content_md`,
       [row.id, lesson.grammarMd]
     );
     await conn.execute(
       `INSERT INTO lesson_sections (lesson_id, section_type, content_md, order_index)
        VALUES (?, 'feedback', ?, 7)
-       ON DUPLICATE KEY UPDATE content_md = VALUES(content_md)`,
+       ON DUPLICATE KEY UPDATE content_md = lesson_sections.content_md`,
       [row.id, `难度反馈：${lesson.feedback === 'too_easy' ? '太简单' : lesson.feedback === 'too_hard' ? '太难' : '刚好'}`]
     );
 

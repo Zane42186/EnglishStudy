@@ -1,33 +1,56 @@
 #!/usr/bin/env python3
-"""M2 迁移第一步（只读）：把 md 真相源导出为结构化 JSON。
+"""M2 历史回填 · 第一步（只读）：把 md 与 records/ 合并导出为结构化 JSON。
 
-设计约束（见 backend/docs/04-migration-and-roadmap.md）：
-1. **只读**：绝不修改 notes/ read/ wrong-words.md progress.md 任何文件。
-2. **不重写解析器**：复用 build_board.py 的 parse_notes / parse_read_dir /
-   parse_wrong_words / read_level（同一套正则，避免两处规则漂移）。
-3. **不静默丢数据**：凡「md 里有、契约要求、但当前无法可靠推导」的字段，
-   一律写进 warnings，而不是塞默认值。
+定位变更（2026-09-30）
+----------------------
+本脚本已从「常设迁移管道」改为**一次性历史回填工具**（第 1—6 课）。
+第 7 课起数据由 后端 → 前端 → amy 教学 → amy 产出 `records/*.json` → 回传后端，
+不再经过 md。`build_board.py` 已退役，其删除前置条件就是「本脚本不再 import 它」，
+因此本脚本**内联所需解析、零外部依赖**。
+
+两个数据源的分工（不可混淆）
+----------------------------
+- `notes/*.md`     —— 提供**题面**（题干 / 参考答案 / 题型）与**小节正文**、词汇表。
+                      历史题面只存在于 md，records 里没有 prompt。
+- `records/*.json` —— 提供**判定**（verdict / errorNote / revisedAnswer / targetPoint）。
+                      **禁止**从 md 的「批改」散文里做文本匹配判对错。
+- `wrong-words.md` —— **错词本的权威来源**（含 `类型` / `累计犯错` 两列）。
+- `read/*.md`      —— 阅读三张表的数据源。
 
 用法：
     python export_md_to_json.py --root E:\\English [--out db/_snapshot.json]
     python export_md_to_json.py --root E:\\English --stdout
 
-成功：M2_EXPORT_OK lessons=<n> vocab=<n> mistakes=<n> readings=<n> warnings=<n>
+成功：M2_EXPORT_OK lessons=<n> exercises=<n>(matched/mdOnly/recordsOnly) mistakes=<n> readings=<n> warnings=<n>
 失败：M2_EXPORT_FAIL 原因=<原因>（非零退出）
 """
 
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import re
 import sys
 from pathlib import Path
 
-# ---------------------------------------------------------------- 常量
+# ---------------------------------------------------------------- 正则（内联，不再依赖 build_board.py）
 
-# md 小节名 → common.schema.json 的 SectionType 枚举（唯一权威）
+LESSON_RE = re.compile(r"^##\s+第\s*(\d+)\s*课(?:\s*·\s*(\S+))?\s*$")
+SECTION_RE = re.compile(r"^###\s+(.+?)\s*$")
+SUMMARY_RE = re.compile(r"^>\s*一句话[:：]\s*(.+?)\s*$")
+NOTE_FILE_RE = re.compile(r"^day-(\d{2})-(\d{2})\.md$")
+READ_FILE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})-read\.md$")
+PIECE_RE = re.compile(r"^##\s+第\s*(\d+)\s*篇(?:\s*·\s*(.+?))?\s*$")
+META_RE = re.compile(r"^(级别|来源|标题)[:：]\s*(.+?)\s*$")
+LEVEL_RE = re.compile(r"当前级别[:：]\s*(.+?)\s*$", re.M)
+
+EX_NO_RE = re.compile(r"^(\d+)\s*[.、]\s*(.+)$")
+DETAIL_RE = re.compile(r"<details><summary>.*?</summary>(.*?)</details>", re.S)
+BACKFILL_HEAD_RE = re.compile(r"^补漏块\s*(\d+)")
+BACKFILL_LABEL_RE = re.compile(r"^补漏块\s*(\d+)\s*[:：]\s*$")
+MD_TABLE_SEP_RE = re.compile(r"^:?-{2,}:?$")
+
+# md 小节名 → common.schema.json 的 SectionType（唯一权威）
 SECTION_TYPE_MAP = {
     "复习": "review",
     "今日语法": "grammar",
@@ -40,21 +63,20 @@ SECTION_TYPE_MAP = {
 }
 
 # progress.md / 难度反馈小节 → Feedback 枚举
-FEEDBACK_MAP = {
-    "太简单": "too_easy",
-    "刚好": "just_right",
-    "太难": "too_hard",
-}
+FEEDBACK_MAP = {"太简单": "too_easy", "刚好": "just_right", "太难": "too_hard"}
 
 # wrong-words.md 的「状态」列 → mistakes.status
 STATUS_MAP = {"已过关": "passed", "未过关": "pending"}
 
-EX_NO_RE = re.compile(r"^(\d+)\s*[.、]\s*(.+)$")
-DETAIL_RE = re.compile(r"<details><summary>.*?</summary>(.*?)</details>", re.S)
-BACKFILL_HEAD_RE = re.compile(r"^补漏块\s*(\d+)")
-LEVEL_NO_RE = re.compile(r"^Level\s*(\d+)$")
+# grading-result.schema.json 的 GradedItem.verdict → lesson_exercises.is_correct
+VERDICT_MAP = {
+    "correct": True,
+    "correct_with_note": True,
+    "wrong": False,
+    "blank": None,
+}
 
-# 题型启发式（md 里没有题型列，只能按题干特征推断，故一律标 inferred）
+# 题型启发式（md 无题型列，按题干特征推断；一律标 inferred=true 供复核）
 EXERCISE_TYPE_RULES = [
     (("翻译",), "translate"),
     (("排成", "语序", "连词成句"), "reorder"),
@@ -64,33 +86,29 @@ EXERCISE_TYPE_RULES = [
 ]
 
 
-# ---------------------------------------------------------------- 加载 build_board
+# ---------------------------------------------------------------- 通用工具
 
-def load_build_board(script_dir: Path):
-    """从指定目录加载 build_board.py（不执行其 main）。"""
-    target = script_dir / "build_board.py"
-    if not target.exists():
-        raise FileNotFoundError(
-            f"找不到 build_board.py：{target}\n"
-            "用 --build-board 指定其所在目录（默认 .workbuddy/skills/english-daily/scripts）"
-        )
-    spec = importlib.util.spec_from_file_location("build_board_m2", target)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)  # 有 __main__ 守卫，import 无副作用
-    return module
+def norm_key(text: str) -> str:
+    """错词判重用的规范化：去空白/标点、统一小写。"""
+    s = str(text)
+    s = re.sub(r"[\s,，。.、！？!?：:；;\"'（）()\[\]【】]", "", s)
+    return s.lower()
 
 
-# ---------------------------------------------------------------- 解析辅助
-
-def infer_exercise_type(prompt: str) -> tuple[str, bool]:
+def infer_exercise_type(prompt: str) -> str:
     for keys, value in EXERCISE_TYPE_RULES:
         if any(k in prompt for k in keys):
-            return value, True
-    return "fill_blank", True
+            return value
+    return "fill_blank"
+
+
+def split_prompt_answer(text: str) -> tuple[str, str | None]:
+    answers = DETAIL_RE.findall(text)
+    return DETAIL_RE.sub("", text).strip(), (answers[0].strip() if answers else None)
 
 
 def parse_numbered(items: list[str]) -> dict[int, str]:
-    """把 ['1. xxx', '续行', '2. yyy'] 解析成 {1: 'xxx 续行', 2: 'yyy'}。"""
+    """['1. xxx', '续行', '2. yyy'] → {1: 'xxx 续行', 2: 'yyy'}"""
     out: dict[int, str] = {}
     current: int | None = None
     for raw in items:
@@ -106,140 +124,269 @@ def parse_numbered(items: list[str]) -> dict[int, str]:
     return out
 
 
-def split_prompt_answer(text: str) -> tuple[str, str | None]:
-    """从题干里拆出 <details> 参考答案，并把 details 从题干中移除。"""
-    answers = DETAIL_RE.findall(text)
-    prompt = DETAIL_RE.sub("", text).strip()
-    return prompt, (answers[0].strip() if answers else None)
-
-
-def sections_of(lesson: dict, warnings: list[str]) -> list[dict]:
-    """把 build_board 的 sections（原始行）转成 SectionContent[]。"""
-    out: list[dict] = []
-    order = 0
-    for name, lines in lesson["sections"].items():
-        body = "\n".join(lines).strip()
-        if not body:
+def parse_md_table(lines: list[str]) -> list[list[str]]:
+    rows = []
+    for line in lines:
+        s = line.strip()
+        if not s.startswith("|"):
             continue
-        section_type = SECTION_TYPE_MAP.get(name)
-        if section_type is None:
-            warnings.append(
-                f"第 {lesson['no']} 课：小节「{name}」不在 SectionType 枚举内，已跳过（内容 {len(body)} 字符）"
-            )
+        parts = [c.strip() for c in s.strip("|").split("|")]
+        if parts and all(MD_TABLE_SEP_RE.fullmatch(p) for p in parts if p):
             continue
-        out.append({"sectionType": section_type, "contentMd": body, "orderIndex": order})
-        order += 1
-    return out
+        rows.append(parts)
+    return rows
 
 
-def split_lesson_chunks(raw_text: str) -> dict[int, str]:
-    """按 '## 第 N 课' 把整份笔记切成 {课号: 该课原文}，供取 SECTION_ORDER 之外的小节。"""
-    lesson_head_re = re.compile(r"^##\s+第\s*(\d+)\s*课(?:\s*·\s*(\S+))?\s*$")
-    chunks: dict[int, list[str]] = {}
+# ---------------------------------------------------------------- 解析 notes
+
+def split_lesson_chunks(raw: str) -> dict[int, tuple[str, str]]:
+    """按 '## 第 N 课' 切片 → {课号: (日期, 该课原文)}"""
+    chunks: dict[int, tuple[str, list[str]]] = {}
     current: int | None = None
-    for line in raw_text.splitlines():
-        match = lesson_head_re.match(line)
+    for line in raw.splitlines():
+        match = LESSON_RE.match(line)
         if match:
             current = int(match.group(1))
-            chunks[current] = []
+            chunks[current] = (match.group(2) or "", [])
             continue
         if current is not None:
-            chunks[current].append(line)
-    return {no: "\n".join(lines) for no, lines in chunks.items()}
+            chunks[current][1].append(line)
+    return {no: (date, "\n".join(body)) for no, (date, body) in chunks.items()}
 
 
-def backfill_blocks(raw_text: str, warnings: list[str]) -> list[dict]:
-    """抓出 ### 补漏块 N ... 整段（会被 SECTION_ORDER 白名单丢弃，单独留证）。"""
-    blocks: list[dict] = []
-    lines = raw_text.splitlines()
-    current: dict | None = None
-    for line in lines:
-        head = re.match(r"^###\s+(.+?)\s*$", line)
+def split_blocks(text: str) -> tuple[dict[str, list[str]], list[dict], list[str]]:
+    """把一课切成 {SectionType: lines} + [补漏块] + [未映射小节名]"""
+    sections: dict[str, list[str]] = {}
+    backfills: list[dict] = []
+    unmapped: list[str] = []
+    current: tuple[str, object] | None = None
+
+    for line in text.splitlines():
+        head = SECTION_RE.match(line)
         if head:
-            title = head.group(1)
-            match = BACKFILL_HEAD_RE.match(title)
-            if match:
-                current = {"seq": int(match.group(1)), "title": title, "lines": []}
-                blocks.append(current)
+            name = head.group(1).strip()
+            if name in SECTION_TYPE_MAP:
+                current = ("section", SECTION_TYPE_MAP[name])
+                sections.setdefault(SECTION_TYPE_MAP[name], [])
+            elif BACKFILL_HEAD_RE.match(name):
+                current = ("backfill", int(BACKFILL_HEAD_RE.match(name).group(1)))
+                backfills.append({"seq": int(BACKFILL_HEAD_RE.match(name).group(1)),
+                                  "title": name, "lines": []})
             else:
                 current = None
+                unmapped.append(name)
             continue
-        if current is not None:
-            current["lines"].append(line)
-    for block in blocks:
-        block["contentMd"] = "\n".join(block["lines"]).strip()
-        del block["lines"]
-        if not block["contentMd"]:
-            warnings.append(f"补漏块 {block['seq']}「{block['title']}」正文为空")
-    return blocks
+        if current is None:
+            continue
+        kind, key = current
+        if kind == "section":
+            sections[key].append(line)
+        else:
+            backfills[-1]["lines"].append(line)
+    return sections, backfills, unmapped
 
 
-def parse_exercises(lesson: dict, warnings: list[str]) -> list[dict]:
-    """作业 → exercises[]。批改是自由文本，**不在此处判定对错**（需 amy 判定）。"""
-    homework = parse_numbered(lesson["sections"].get("作业", []))
-    my_answer = parse_numbered(lesson["sections"].get("我的作答", []))
-    out: list[dict] = []
-    for no in sorted(homework):
-        prompt, reference = split_prompt_answer(homework[no])
-        ex_type, inferred = infer_exercise_type(prompt)
-        item = {
-            "exerciseNo": no,
-            "exerciseType": ex_type,
-            "exerciseTypeInferred": inferred,
-            "prompt": prompt,
-            "referenceAnswer": reference,
-            "userAnswer": my_answer.get(no),
-            "isCorrect": None,          # ← 需 amy 判定（md「批改」是散文）
-            "errorType": None,          # ← 需 amy 判定
-            "errorNote": None,          # ← 需 amy 判定
-            "selfCheck": None,          # ← 需 amy 判定（且表结构待补列）
-        }
-        out.append(item)
-        if reference is None:
-            warnings.append(f"第 {lesson['no']} 课第 {no} 题：无 <details> 参考答案")
-        if no not in my_answer:
-            warnings.append(f"第 {lesson['no']} 课第 {no} 题：我的作答缺失")
-    extra = sorted(set(my_answer) - set(homework))
-    if extra:
-        warnings.append(f"第 {lesson['no']} 课：作答里有作业未编号的题 {extra}")
-    return out
+def parse_vocab(lines: list[str]) -> list[dict]:
+    words = []
+    for parts in parse_md_table(lines):
+        if len(parts) < 3 or parts[0] == "单词":
+            continue
+        words.append({
+            "word": parts[0],
+            "phonetic": parts[1] or None,
+            "meaning": parts[2] or None,
+            "example": (parts[3] if len(parts) > 3 else "") or None,
+        })
+    return words
 
 
-def parse_feedback(lesson: dict, warnings: list[str]) -> str | None:
-    lines = [x.strip() for x in lesson["sections"].get("难度反馈", []) if x.strip()]
+def parse_my_answer(lines: list[str]) -> tuple[dict[int, str], dict[int, dict[int, str]]]:
+    """我的作答 → (作业作答, {补漏块序号: 作答})，因为两者共用 1..n 题号。"""
+    homework_lines: list[str] = []
+    backfill_map: dict[int, list[str]] = {}
+    current_bf: int | None = None
     for line in lines:
-        if not line.startswith(">"):
-            return FEEDBACK_MAP.get(line)
-    warnings.append(f"第 {lesson['no']} 课：难度反馈小节无有效取值")
-    return None
-
-
-def parse_mistakes(rows: list[list[str]], warnings: list[str]) -> list[dict]:
-    out: list[dict] = []
-    for row in rows:
-        if len(row) < 6:
-            warnings.append(f"错词本行字段不足 6 列，已跳过：{row}")
+        label = BACKFILL_LABEL_RE.match(line.strip())
+        if label:
+            current_bf = int(label.group(1))
+            backfill_map.setdefault(current_bf, [])
             continue
-        lesson_raw, wrong_text, correct_text, reason, streak_raw, status_raw = row[:6]
-        first_no = int(lesson_raw) if lesson_raw.isdigit() else None
-        status = STATUS_MAP.get(status_raw)
-        if status is None:
-            warnings.append(f"错词「{wrong_text}」状态取值未知：{status_raw}")
-        out.append(
-            {
-                "wrongText": wrong_text,
-                "correctText": correct_text,
-                "errorReason": reason,
-                "streak": int(streak_raw) if streak_raw.isdigit() else None,
-                "status": status,
-                "firstLessonNo": first_no,
-                "sourceLessonRaw": lesson_raw,
-                # ↓ 两个字段 md 里没有，且属语义判定，必须由 amy 给
-                "errorType": None,
-                "wrongCount": None,
-            }
-        )
-    return out
+        if current_bf is None:
+            homework_lines.append(line)
+        else:
+            backfill_map[current_bf].append(line)
+    return (
+        parse_numbered(homework_lines),
+        {no: parse_numbered(ls) for no, ls in backfill_map.items()},
+    )
+
+
+def parse_notes(root: Path) -> tuple[list[dict], list[str]]:
+    warnings: list[str] = []
+    lessons: list[dict] = []
+    for path in sorted((root / "notes").glob("*.md")):
+        if not NOTE_FILE_RE.match(path.name):
+            warnings.append(f"笔记文件名不符合 day-XX-YY.md 规范，已跳过：{path.name}")
+            continue
+        raw = path.read_text(encoding="utf-8")
+        for no, (date, body) in sorted(split_lesson_chunks(raw).items()):
+            summary = next(
+                (SUMMARY_RE.match(l).group(1).strip() for l in body.splitlines() if SUMMARY_RE.match(l)),
+                None,
+            )
+            sections, backfills, unmapped = split_blocks(body)
+            for name in unmapped:
+                warnings.append(f"第 {no} 课：小节「{name}」不在 SectionType 枚举内（历史回填需定归置口径）")
+            feedback_raw = next(
+                (x.strip() for x in sections.get("feedback", []) if x.strip() and not x.strip().startswith(">")),
+                None,
+            )
+            lessons.append({
+                "lessonNo": no,
+                "lessonDate": date or None,
+                "summary": summary,
+                "sourceFile": path.name,
+                "sections": sections,
+                "backfills": backfills,
+                "vocab": parse_vocab(sections.get("vocab_table", [])),
+                "feedbackRaw": feedback_raw,
+            })
+    lessons.sort(key=lambda x: x["lessonNo"])
+    return lessons, warnings
+
+
+# ---------------------------------------------------------------- 解析 records
+
+def parse_records(root: Path) -> tuple[dict[tuple[int, str], dict], list[str]]:
+    """records/lesson-NN.<kind>.json → {(课号, kind): 文件内容}"""
+    warnings: list[str] = []
+    out: dict[tuple[int, str], dict] = {}
+    records_dir = root / "records"
+    if not records_dir.is_dir():
+        warnings.append("records/ 目录不存在，判定数据将全部缺失")
+        return out, warnings
+    for path in sorted(records_dir.glob("lesson-*.json")):
+        match = re.match(r"^lesson-(\d+)\.([a-z]+)\.json$", path.name)
+        if not match:
+            warnings.append(f"records 文件名不符合规范，已跳过：{path.name}")
+            continue
+        data = json.loads(path.read_text(encoding="utf-8"))
+        # 以文件**内部的 kind 字段**为准：lesson-01.grading.json 的 kind 是 homework
+        kind = data.get("kind") or match.group(2)
+        out[(int(match.group(1)), kind)] = data
+    return out, warnings
+
+
+# ---------------------------------------------------------------- 解析阅读 / 错词 / 进度
+
+def parse_read_dir(root: Path) -> tuple[list[dict], list[str]]:
+    warnings: list[str] = []
+    days: list[dict] = []
+    read_dir = root / "read"
+    if not read_dir.is_dir():
+        warnings.append("read/ 目录不存在")
+        return days, warnings
+    for path in sorted(read_dir.glob("*.md")):
+        match = READ_FILE_RE.match(path.name)
+        if not match:
+            warnings.append(f"阅读文件名不符合规范，已跳过：{path.name}")
+            continue
+        pieces: list[dict] = []
+        current: dict | None = None
+        for line in path.read_text(encoding="utf-8").splitlines():
+            head = PIECE_RE.match(line)
+            if head:
+                current = {"pieceNo": int(head.group(1)), "title": head.group(2) or None, "lines": []}
+                pieces.append(current)
+                continue
+            if current is not None:
+                current["lines"].append(line)
+        for piece in pieces:
+            meta: dict[str, str] = {}
+            body: list[str] = []
+            for line in piece.pop("lines"):
+                m = META_RE.match(line.strip())
+                if m:
+                    meta[{"级别": "levelCode", "来源": "source", "标题": "title"}[m.group(1)]] = m.group(2).strip()
+                    continue
+                body.append(line)
+            paragraphs: list[dict] = []
+            notes, questions = None, []
+            idx, n = 0, len(body)
+            while idx < n:
+                line = body[idx].strip()
+                idx += 1
+                if not line:
+                    continue
+                if line.startswith("生词注释"):
+                    notes = re.split(r"[:：]", line, maxsplit=1)[-1].strip()
+                    continue
+                if line.startswith("理解题"):
+                    # 每题的「题干行 + <details> 答案行」成对：答案行并入上一题，
+                    # 不得把答案行当成一道新题（否则题数翻倍、题干为空）。
+                    for raw in body[idx:]:
+                        text = raw.strip()
+                        if not text:
+                            continue
+                        ans = DETAIL_RE.search(text)
+                        stem = re.sub(r"^\d+\s*[.、]\s*", "", DETAIL_RE.sub("", text)).strip()
+                        numbered = bool(re.match(r"^\d+\s*[.、]", text))
+                        if ans and not stem:
+                            if questions:
+                                questions[-1]["answer"] = ans.group(1).strip()
+                            continue
+                        if not numbered and questions and not ans:
+                            questions[-1]["question"] += " " + stem
+                            continue
+                        questions.append({
+                            "questionNo": len(questions) + 1,
+                            "question": stem,
+                            "answer": (ans.group(1).strip() if ans else ""),
+                        })
+                    break
+                if line.startswith(">"):
+                    if paragraphs:
+                        paragraphs[-1]["zh"] = re.sub(r"^>\s?", "", line)
+                    continue
+                paragraphs.append({"en": line, "zh": None})
+            piece.update({
+                "levelCode": meta.get("levelCode"),
+                "source": meta.get("source"),
+                "title": meta.get("title") or piece.get("title"),
+                "paragraphs": paragraphs,
+                "vocabularyNotes": notes,
+                "questions": questions,
+            })
+        days.append({"date": match.group(1), "sourceFile": path.name, "pieces": pieces})
+    days.sort(key=lambda x: x["date"])
+    return days, warnings
+
+
+def parse_wrong_words(root: Path) -> tuple[list[dict], list[str]]:
+    """错词本 = 权威来源；含 `类型` / `累计犯错` 两列。"""
+    warnings: list[str] = []
+    out: list[dict] = []
+    path = root / "wrong-words.md"
+    if not path.exists():
+        warnings.append("wrong-words.md 不存在")
+        return out, warnings
+    for parts in parse_md_table(path.read_text(encoding="utf-8").splitlines()):
+        if len(parts) < 8 or parts[0] == "课号":
+            continue
+        lesson_raw, wrong, correct, reason, streak, status, etype, wcount = parts[:8]
+        out.append({
+            "wrongText": wrong,
+            "correctText": correct,
+            "errorReason": reason or None,
+            "streak": int(streak) if streak.isdigit() else None,
+            "status": STATUS_MAP.get(status),
+            "statusRaw": status,
+            "errorType": etype or None,
+            "wrongCount": int(wcount) if wcount.isdigit() else None,
+            "sourceLessonRaw": lesson_raw,
+            "firstLessonNo": int(lesson_raw) if lesson_raw.isdigit() else None,
+        })
+    return out, warnings
 
 
 def parse_progress_md(root: Path) -> dict:
@@ -247,141 +394,196 @@ def parse_progress_md(root: Path) -> dict:
     text = path.read_text(encoding="utf-8") if path.exists() else ""
 
     def grab(pattern: str):
-        match = re.search(pattern, text, re.M)
-        return match.group(1).strip() if match else None
+        m = re.search(pattern, text, re.M)
+        return m.group(1).strip() if m else None
 
-    level = grab(r"当前级别[:：]\s*(.+?)\s*$")
-    level_no = None
-    if level:
-        m = LEVEL_NO_RE.match(level)
-        level_no = int(m.group(1)) if m else None
     current_no = grab(r"当前课号[:：]\s*(\d+)")
     return {
-        "levelCode": level,
-        "levelNo": level_no,
+        "levelCode": grab(r"当前级别[:：]\s*(.+?)\s*$"),
         "currentLessonNo": int(current_no) if current_no else None,
-        "lastFeedbackRaw": grab(r"最近反馈[:：]\s*(.+?)\s*$"),
         "lastClassDate": grab(r"上次上课[:：]\s*(\d{4}-\d{2}-\d{2})"),
-        "easyStreakRaw": grab(r"太简单连击计数[:：]\s*(\d+)\s*/\s*(\d+)"),
     }
 
 
-# ---------------------------------------------------------------- 主流程
+# ---------------------------------------------------------------- 合并
 
-def build_snapshot(root: Path, bb) -> dict:
+def build_exercises(lesson: dict, records: dict, warnings: list[str]) -> tuple[list[dict], dict]:
+    """md 提供题面，records 提供判定。逐题按 (blockKind, blockNo, exerciseNo) 对齐。
+
+    题号是**块内**的：作业与补漏块各自从 1 开始，因此必须带 blockKind / blockNo
+    才构成唯一键（lesson_exercises.uk_exercise）。作业 blockNo=0（非补漏块）。
+    """
+    hw_answers, bf_answers = parse_my_answer(lesson["sections"].get("my_answer", []))
+    out: list[dict] = []
+    stats = {"md": 0, "records": 0, "matched": 0, "mdOnly": 0, "recordsOnly": 0}
+
+    def emit(block_kind: str, block_no: int, no: int, prompt_raw: str, fallback_answer: str | None):
+        prompt, ref = split_prompt_answer(prompt_raw)
+        rec_items = {i["exerciseNo"]: i for i in (records.get((lesson["lessonNo"], block_kind), {}).get("items") or [])}
+        r = rec_items.get(no)
+        if r:
+            stats["matched"] += 1
+            stats["records"] += 1
+        else:
+            stats["mdOnly"] += 1
+            warnings.append(f"第 {lesson['lessonNo']} 课 blockKind={block_kind} 第 {no} 题：md 有题面但 records 无判定")
+        stats["md"] += 1
+        out.append({
+            "blockKind": block_kind,
+            "blockNo": block_no,
+            "exerciseNo": no,
+            "exerciseType": infer_exercise_type(prompt),
+            "exerciseTypeInferred": True,
+            "prompt": prompt,
+            "selfCheck": None,                 # md / records 均无，待 amy
+            "referenceAnswer": ref,
+            "userAnswer": (r.get("userAnswer") if r else fallback_answer),
+            "isCorrect": VERDICT_MAP.get(r["verdict"]) if r else None,
+            "errorType": None,                 # 由 mistakeCandidates 与错词本对账后回填
+            "errorNote": r.get("errorNote") if r else None,
+            "revisedAnswer": r.get("revisedAnswer") if r else None,
+            "targetPoint": r.get("targetPoint") if r else None,
+            "verdictRaw": r.get("verdict") if r else None,
+            "source": "md+records" if r else "md-only",
+            "recordsNote": r.get("note") if r else None,
+        })
+
+    for no, raw in sorted(parse_numbered(lesson["sections"].get("homework", [])).items()):
+        emit("homework", 0, no, raw, hw_answers.get(no))
+
+    for block in lesson["backfills"]:
+        answers = bf_answers.get(block["seq"], {})
+        for no, raw in sorted(parse_numbered(block["lines"]).items()):
+            emit("backfill", block["seq"], no, raw, answers.get(no))
+
+    # records 有判定、md 无题面
+    for block_kind in ("homework", "backfill"):
+        seen = {(i["blockNo"], i["exerciseNo"]) for i in out if i["blockKind"] == block_kind}
+        for i in records.get((lesson["lessonNo"], block_kind), {}).get("items") or []:
+            block_no = 0 if block_kind == "homework" else next(
+                (b["seq"] for b in lesson["backfills"] if b["seq"]), 0
+            )
+            if (block_no, i["exerciseNo"]) not in seen:
+                stats["recordsOnly"] += 1
+                warnings.append(
+                    f"第 {lesson['lessonNo']} 课 blockKind={block_kind} 第 {i['exerciseNo']} 题：records 有判定但 md 无题面"
+                )
+    return out, stats
+
+
+def build_snapshot(root: Path) -> dict:
     warnings: list[str] = []
-
-    lessons = bb.parse_notes(root / "notes")
-    days = bb.parse_read_dir(root / "read")
-    wrong_rows = bb.parse_wrong_words(root / "wrong-words.md")
-    level = bb.read_level(root)
-    notes_files = sorted((root / "notes").glob("*.md"))
+    lessons, w = parse_notes(root)
+    warnings += w
+    records, w = parse_records(root)
+    warnings += w
+    readings, w = parse_read_dir(root)
+    warnings += w
+    mistakes, w = parse_wrong_words(root)
+    warnings += w
 
     out_lessons = []
-    lesson_chunks: dict[int, str] = {}
+    totals = {"md": 0, "records": 0, "matched": 0, "mdOnly": 0, "recordsOnly": 0}
     for lesson in lessons:
-        source_file = lesson["file"]
-        raw_text = (root / "notes" / source_file).read_text(encoding="utf-8")
-        chunks = split_lesson_chunks(raw_text)
-        for no, text in chunks.items():
-            lesson_chunks.setdefault(no, text)
-        out_lessons.append(
-            {
-                "lessonNo": lesson["no"],
-                "lessonDate": lesson["date"] or None,
-                "levelCode": None,       # md 只在 progress.md 记级别，逐课级别不可靠推导
-                "summary": lesson["summary"],
-                "sourceFile": source_file,
-                "sections": sections_of(lesson, warnings),
-                "vocabulary": [
-                    {
-                        "word": v["word"],
-                        "phonetic": v["phonetic"] or None,
-                        "meaning": v["cn"] or None,
-                        "example": v["example"] or None,
-                        "isNew": None,   # 需按「首次出现」跨课推导，本轮留空
-                    }
-                    for v in lesson["vocab"]
-                ],
-                "exercises": parse_exercises(lesson, warnings),
-                "feedback": parse_feedback(lesson, warnings),
-                "backfillBlocks": backfill_blocks(lesson_chunks.get(lesson["no"], ""), warnings),
-            }
+        exercises, s = build_exercises(lesson, records, warnings)
+        for k in totals:
+            totals[k] += s[k]
+        sections = [
+            {"sectionType": name, "contentMd": "\n".join(lines).strip(), "orderIndex": idx}
+            for idx, (name, lines) in enumerate(lesson["sections"].items())
+            if "\n".join(lines).strip()
+        ]
+        # 补漏块整段原文 → 单独一个 section_type='backfill'（每课次最多一条，见 docs/skills.md 2.5）
+        if lesson["backfills"]:
+            merged = "\n\n".join(
+                f"### {b['title']}\n\n{b['contentMd']}".strip()
+                for b in (
+                    {"title": b["title"], "contentMd": "\n".join(b["lines"]).strip()}
+                    for b in lesson["backfills"]
+                )
+                if b["contentMd"]
+            )
+            if merged:
+                sections.append({"sectionType": "backfill", "contentMd": merged, "orderIndex": len(sections)})
+        out_lessons.append({
+            "lessonNo": lesson["lessonNo"],
+            "lessonDate": lesson["lessonDate"],
+            "summary": lesson["summary"],
+            "sourceFile": lesson["sourceFile"],
+            "feedback": FEEDBACK_MAP.get(lesson["feedbackRaw"] or ""),
+            "feedbackRaw": lesson["feedbackRaw"],
+            "sections": sections,
+            "backfillBlocks": [{"seq": b["seq"], "title": b["title"],
+                                "contentMd": "\n".join(b["lines"]).strip()} for b in lesson["backfills"]],
+            "vocabulary": lesson["vocab"],
+            "exercises": exercises,
+            # records 侧的汇总（byType / historicalErrorCount / backfillErrorCount）——
+            # 写库器据此回填 study_records(grade).payload.byType，无需再读 records/ 目录。
+            "recordsSummary": {
+                kind: (records.get((lesson["lessonNo"], kind)) or {}).get("summary")
+                for kind in ("homework", "backfill")
+            },
+        })
+
+    # 错词对账：以错词本为准，records 只做交叉校验
+    ww_keys = {norm_key(m["wrongText"]): m for m in mistakes}
+    cand_total, cand_new = 0, []
+    for (lesson_no, kind), rec in records.items():
+        for c in rec.get("mistakeCandidates") or []:
+            cand_total += 1
+            if norm_key(c["wrongText"]) not in ww_keys:
+                cand_new.append({"lessonNo": lesson_no, "kind": kind,
+                                 "wrongText": c["wrongText"], "errorType": c.get("errorType")})
+    if cand_new:
+        warnings.append(
+            f"records 有 {len(cand_new)} 条错词候选不在错词本中（按『以错词本为准』口径**不得新建**，需 amy 复核）："
+            + "、".join(x["wrongText"] for x in cand_new)
         )
+    if not mistakes:
+        warnings.append("错词本为空，mistakes 回填将无数据")
 
-    readings = [
-        {
-            "date": day["date"],
-            "sourceFile": day["file"],
-            "pieces": [
-                {
-                    "pieceNo": p["no"],
-                    "title": p["title"] or None,
-                    "levelCode": p["level"] or None,
-                    "source": p["source"] or None,
-                    "paragraphs": p["paragraphs"],
-                    "wordNotes": p["words"] or None,
-                    "questions": p["questions"],
-                }
-                for p in day["pieces"]
-            ],
-        }
-        for day in days
+    warnings += [
+        "exercises.errorType 需由 records.mistakeCandidates 与错词本对账后回填",
     ]
-
-    mistakes = parse_mistakes(wrong_rows, warnings)
-
-    if any(l["feedback"] is None for l in out_lessons):
-        warnings.append("存在无难度反馈取值的课次")
-    warnings.append(
-        "mistakes.errorType / mistakes.wrongCount 无法从 wrong-words.md 推导"
-        "（表中无该列，仅在「错因」散文里偶现）——需 amy 判定"
-    )
-    warnings.append(
-        "exercises.isCorrect / errorType / errorNote / selfCheck 无法从「批改」散文推导——需 amy 判定"
-    )
-    warnings.append("exercises.exerciseType 由题干关键词启发式推断，非权威，需复核")
-    warnings.append("lesson_sections 的 uk_section 是 (lesson_id, section_type)，补漏块无对应 SectionType，须先定归置口径")
 
     return {
         "generatedFrom": {
-            "notes": [p.name for p in notes_files],
-            "read": [d["file"] for d in days],
+            "notes": sorted({l["sourceFile"] for l in lessons}),
+            "records": [f"lesson-{k[0]:02d}.{k[1]}.json" for k in sorted(records)],
+            "read": [d["sourceFile"] for d in readings],
             "wrongWords": "wrong-words.md",
             "progress": "progress.md",
         },
-        "levelCode": level,
+        "degraded": not records,
         "progress": parse_progress_md(root),
         "lessons": out_lessons,
         "mistakes": mistakes,
         "readings": readings,
+        "reconciliation": {
+            "exercises": totals,
+            "recordsFiles": len(records),
+            "mistakeCandidates": cand_total,
+            "mistakeCandidatesNotInBook": len(cand_new),
+        },
         "warnings": warnings,
     }
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="M2 只读导出：md → 结构化 JSON")
+    parser = argparse.ArgumentParser(description="M2 只读导出：md + records → 结构化 JSON")
     parser.add_argument("--root", required=True, help="学习目录，例如 E:\\English")
-    parser.add_argument("--build-board", default=None, help="build_board.py 所在目录")
-    parser.add_argument("--out", default=None, help="输出文件（默认不写文件，仅打印统计）")
+    parser.add_argument("--out", default=None, help="输出文件路径")
     parser.add_argument("--stdout", action="store_true", help="把 JSON 打到 stdout")
     args = parser.parse_args()
 
     root = Path(args.root).expanduser().resolve()
-    script_dir = (
-        Path(args.build_board).expanduser().resolve()
-        if args.build_board
-        else root / ".workbuddy" / "skills" / "english-daily" / "scripts"
-    )
-
     if not (root / "notes").is_dir():
         print("M2_EXPORT_FAIL 原因=notes 目录不存在")
         return 1
 
     try:
-        bb = load_build_board(script_dir)
-        snapshot = build_snapshot(root, bb)
-    except Exception as exc:  # noqa: BLE001 — CLI 需要可读诊断
+        snapshot = build_snapshot(root)
+    except Exception as exc:  # noqa: BLE001 — CLI 需可读诊断
         print(f"M2_EXPORT_FAIL 原因={exc}")
         return 1
 
@@ -389,18 +591,22 @@ def main() -> int:
     if args.stdout:
         print(payload)
     if args.out:
-        out_path = (root / args.out) if not Path(args.out).is_absolute() else Path(args.out)
+        out_path = Path(args.out)
+        if not out_path.is_absolute():
+            out_path = root / out_path
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(payload + "\n", encoding="utf-8")
         print(f"M2_EXPORT_WROTE {out_path}")
 
-    vocab = sum(len(l["vocabulary"]) for l in snapshot["lessons"])
     ex = sum(len(l["exercises"]) for l in snapshot["lessons"])
     pieces = sum(len(r["pieces"]) for r in snapshot["readings"])
+    rec = snapshot["reconciliation"]
     print(
-        f"M2_EXPORT_OK lessons={len(snapshot['lessons'])} vocab={vocab} exercises={ex} "
-        f"mistakes={len(snapshot['mistakes'])} readings={len(snapshot['readings'])}"
-        f"(pieces={pieces}) warnings={len(snapshot['warnings'])}"
+        f"M2_EXPORT_OK lessons={len(snapshot['lessons'])} exercises={ex} "
+        f"(matched={rec['exercises']['matched']} mdOnly={rec['exercises']['mdOnly']} "
+        f"recordsOnly={rec['exercises']['recordsOnly']}) mistakes={len(snapshot['mistakes'])} "
+        f"readings={len(snapshot['readings'])}(pieces={pieces}) "
+        f"candNotInBook={rec['mistakeCandidatesNotInBook']} warnings={len(snapshot['warnings'])}"
     )
     return 0
 

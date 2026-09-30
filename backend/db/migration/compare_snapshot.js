@@ -1,10 +1,12 @@
 'use strict';
 
 /**
- * M2 第二步（只读）：把 export_md_to_json.py 的产物与库内现有数据逐项比对。
+ * M2 校验步（只读）：把 export_md_to_json.py 的产物与库内数据逐项比对。
  *
- * 目的：在「写库」之前先证明——复用 build_board.py 的解析规则能复现哪些数据、
- * 哪些复现不了。**只读，不写任何表**。
+ * 两个用途：
+ *   1. 写库**前** —— 看清哪些数据能复现、哪些不能（历史用途，见 04-migration 五之三）；
+ *   2. 写库**后** —— 作为 `import_json.js` 的回填验收：除少数口径类差异外应全绿。
+ * 脚本自身**只读，不写任何表**；上游是自包含导出器，不再依赖 `build_board.py`。
  *
  * 用法：node db/migration/compare_snapshot.js [snapshotPath]
  * 成功：M2_COMPARE_OK match=<n> diff=<n> gap=<n>
@@ -52,19 +54,22 @@ async function main() {
 
   const dbDateByNo = new Map(dbLessons.map((r) => [r.lesson_no, r.lesson_date]));
   const dateGap = [];
+  // 与 import_json.js 同款规则：md 有日期就用，没写就沿用上一课日期（第 2、4 课标题本就无日期）
+  let carriedDate = null;
   for (const l of snap.lessons) {
-    const dbDate = dbDateByNo.get(l.lessonNo);
-    const mdDate = l.lessonDate;
-    if ((dbDate || null) !== (mdDate || null)) {
-      dateGap.push(`第 ${l.lessonNo} 课 md=${mdDate} db=${dbDate}`);
+    const expected = l.lessonDate || carriedDate;
+    carriedDate = expected;
+    const dbDate = dbDateByNo.get(l.lessonNo) || null;
+    if (dbDate !== (expected || null)) {
+      dateGap.push(`第 ${l.lessonNo} 课 解析=${expected} db=${dbDate}`);
     }
   }
   add(
     dateGap.length === 0 ? 'match' : 'gap',
-    'lessons.lesson_date',
+    'lessons.lesson_date（含「同日沿用当日日期」）',
     '全部一致',
     dateGap.length === 0 ? '一致' : `${dateGap.length} 处不一致`,
-    dateGap.join('; ') || '（无日期课次两侧均为 NULL）'
+    dateGap.join('; ') || 'md 未写日期的课次，按上一课日期沿用后与库内一致'
   );
 
   // ---- 2. vocabulary ----
@@ -156,37 +161,111 @@ async function main() {
     'lesson_sections 条数',
     mdSecTotal,
     dbSecTotal,
-    `md 覆盖 8 类/课；库内现有：${dbSec.map((r) => `${r.section_type}=${r.total}`).join(' ')}`
+    `md 覆盖 8 类/课 + 有补漏块的课加 1 条 section_type='backfill'；库内现有：${dbSec.map((r) => `${r.section_type}=${r.total}`).join(' ') || '（空）'}`
   );
 
   // ---- 5. lesson_exercises ----
   const dbEx = await db.query(
-    `SELECT COUNT(*) AS total FROM lesson_exercises le
-     JOIN lessons l ON l.id = le.lesson_id WHERE l.student_id = ?`,
+    `SELECT COUNT(*) AS total,
+            SUM(block_kind = 'homework') AS homework,
+            SUM(block_kind = 'backfill') AS backfill,
+            SUM(is_correct IS NULL)      AS ungraded,
+            SUM(is_correct = 0)          AS wrong,
+            SUM(error_type IS NOT NULL)  AS with_error_type
+       FROM lesson_exercises le
+       JOIN lessons l ON l.id = le.lesson_id WHERE l.student_id = ?`,
     [sid]
   );
   const mdEx = snap.lessons.reduce((s, l) => s + l.exercises.length, 0);
+  const mdHw = snap.lessons.reduce((s, l) => s + l.exercises.filter((e) => e.blockKind === 'homework').length, 0);
+  const mdBf = mdEx - mdHw;
+  // MySQL 的 SUM() 走 DECIMAL，mysql2 返回字符串——必须显式转数字，否则 "25" !== 25 会假报差异
+  const dbExTotal = Number(dbEx[0].total);
+  const dbExHw = Number(dbEx[0].homework);
+  const dbExBf = Number(dbEx[0].backfill);
+  const dbExUngraded = Number(dbEx[0].ungraded);
+  const dbExWrong = Number(dbEx[0].wrong);
+  const dbExWithType = Number(dbEx[0].with_error_type);
   add(
-    dbEx[0].total === mdEx ? 'match' : 'gap',
+    dbExTotal === mdEx ? 'match' : 'gap',
     'lesson_exercises 条数',
     mdEx,
-    dbEx[0].total,
-    'md 中 isCorrect/errorType/errorNote/selfCheck 均需 amy 判定，暂为 null'
+    dbExTotal,
+    '判定来自 records/*.json（isCorrect/errorNote/revisedAnswer）；题干来自 md'
+  );
+  add(
+    dbExHw === mdHw && dbExBf === mdBf ? 'match' : 'diff',
+    'lesson_exercises 题块拆分',
+    `homework ${mdHw} / backfill ${mdBf}`,
+    `homework ${dbExHw} / backfill ${dbExBf}`,
+    '两套题号命名空间，唯一键含 block_kind + block_no'
+  );
+  add(
+    dbExUngraded === 0 ? 'match' : 'diff',
+    'lesson_exercises 已批改覆盖',
+    '全部有 is_correct',
+    `未批改 ${dbExUngraded} 条`,
+    `答错 ${dbExWrong} 条`
+  );
+  add(
+    dbExWithType === dbExTotal ? 'match' : 'gap',
+    'lesson_exercises.error_type',
+    '期望全部回填',
+    `已填 ${dbExWithType} / ${dbExTotal}`,
+    '需 amy 先统一 records.mistakeCandidates 与错词本的措辞（8 条同义不同文本），对账后才能逐题判定'
   );
 
   // ---- 6. readings ----
   const tables = await db.query(
     "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()"
   );
-  const hasReadings = tables.some((t) => /^readings$/.test(t.TABLE_NAME || t.table_name));
+  const TABLE_NAMES = tables.map((t) => t.TABLE_NAME || t.table_name);
+  const hasReadings = TABLE_NAMES.includes('readings');
   const mdPieces = snap.readings.reduce((s, r) => s + r.pieces.length, 0);
-  add(
-    hasReadings ? 'match' : 'gap',
-    'readings 表',
-    `md 有 ${snap.readings.length} 天 / ${mdPieces} 篇`,
-    hasReadings ? '表已建' : '表不存在',
-    'P1 表未建 → 看板「阅读篇数」恒为 —'
+  const mdQuestions = snap.readings.reduce(
+    (s, r) => s + r.pieces.reduce((a, p) => a + p.questions.length, 0),
+    0
   );
+  if (!hasReadings) {
+    add('gap', 'readings 表', `md 有 ${snap.readings.length} 天 / ${mdPieces} 篇`, '表不存在', '');
+  } else {
+    const dbDays = await db.query(
+      'SELECT COUNT(*) AS n FROM readings WHERE student_id = ?',
+      [sid]
+    );
+    const dbPieces = await db.query(
+      `SELECT COUNT(*) AS n FROM reading_pieces p
+        JOIN readings r ON r.id = p.reading_id WHERE r.student_id = ?`,
+      [sid]
+    );
+    const dbQuestions = await db.query(
+      `SELECT COUNT(*) AS n FROM reading_questions q
+        JOIN reading_pieces p ON p.id = q.piece_id
+        JOIN readings r ON r.id = p.reading_id WHERE r.student_id = ?`,
+      [sid]
+    );
+    add(
+      dbDays[0].n === snap.readings.length ? 'match' : 'diff',
+      'readings 天数',
+      snap.readings.length,
+      dbDays[0].n,
+      '幂等键 uk_reading_day (student_id, read_date)'
+    );
+    add(
+      dbPieces[0].n === mdPieces ? 'match' : 'diff',
+      'reading_pieces 篇数',
+      mdPieces,
+      dbPieces[0].n,
+      ''
+    );
+    add(
+      dbQuestions[0].n === mdQuestions ? 'match' : 'diff',
+      'reading_questions 题数',
+      mdQuestions,
+      dbQuestions[0].n,
+      '题干与答案必须成对——早期解析会把 <details> 答案行误当新题（题数翻倍）'
+    );
+  }
 
   // ---- 输出 ----
   const icon = { match: '✅', diff: '⚠️', gap: '⛔' };
