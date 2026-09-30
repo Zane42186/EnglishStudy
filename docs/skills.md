@@ -205,6 +205,47 @@ TeachingBlock  ExerciseSet ──▶ 学生作答             │
 
 降级结果必须向上层标注限制，**不得把降级结果当成完整结果输出**。
 
+### 2.5 补漏块（`### 补漏块 N · …`）归置口径
+
+`### 补漏块 N · <主题>` **不是讲解小节，而是与 `### 作业` 同构的第二份题集**——整段就是题干列表，没有讲义正文。当前 `parse_notes` 的 `SECTION_ORDER` 白名单不含它，因此整段被静默丢弃；同时 `### 我的作答` / `### 批改` 里按「补漏块 N：」分组的作答与作业作答共用一套题号，会**互相覆盖**（例如第 4 课 `my_answer[1]` 被作业作答顶掉）。以下为唯一口径：
+
+| 笔记里的内容 | 落到哪里 | 字段 |
+|---|---|---|
+| 题目（补漏块 N 的题干 + 参考答案） | `lesson_exercises` | `block_kind='backfill'`、`block_no=N`、`exercise_no` 为**块内**题号、`exercise_type`、`prompt`、`self_check`、`target_point`、`reference_answer` |
+| 学生作答（`### 我的作答` 内「补漏块 N：」分组） | `lesson_exercises` | `user_answer` |
+| 批改结论（`### 批改` 内「补漏块 N：」分组） | `lesson_exercises` | `is_correct`、`error_type`、`error_note`、`revised_answer` |
+| 整段原文（小节标题 + 全部行） | `lesson_sections` | `section_type='backfill'`、`content_md`（每课次最多一条） |
+
+**题号是块内的，不是课内的**。`exercise_no` 在作业块与补漏块里各自从 1 开始，因此 `lesson_exercises` 现用的 `UNIQUE KEY uk_exercise (lesson_id, exercise_no)` 会撞车，必须扩为 `(lesson_id, block_kind, block_no, exercise_no)`。`lesson_exercises` 当前 **0 行**，改键零数据风险。
+
+**`block_no` 必须 NOT NULL，用 0 表示「作业题」**。MySQL 的唯一键**不约束 NULL**——若把作业行的 `block_no` 留空，同一课可以重复插入相同的作业题而不会被拦下（与 `mistake_events.client_event_id` 故意依赖 NULL 可重复的情形正好相反）。这里的目的是去重，所以取 0 而非 NULL。
+
+**契约侧**：`SectionType` 末尾追加 `backfill`；新增 `ExerciseBlockKind = ["homework","backfill"]`；`exercise-set.schema.json` 的 `ExerciseItem` 与 `lesson-record.schema.json` 的 `ExerciseRecord` 各增 `blockKind` / `blockNo`。枚举必须 `backend/src/constants.js` / `backend/db/schema.sql` / `docs/schemas/` 三处同源。
+
+**DDL 申请（待后端执行，本次未动库）**：
+
+```sql
+ALTER TABLE lesson_exercises
+  ADD COLUMN block_kind ENUM('homework','backfill') NOT NULL DEFAULT 'homework' AFTER lesson_id,
+  ADD COLUMN block_no   SMALLINT UNSIGNED NOT NULL DEFAULT 0
+                        COMMENT '补漏块编号 N；0 = 作业题，不属于补漏块' AFTER block_kind,
+  DROP INDEX uk_exercise,
+  ADD UNIQUE KEY uk_exercise (lesson_id, block_kind, block_no, exercise_no);
+
+ALTER TABLE lesson_sections
+  MODIFY COLUMN section_type ENUM('review','grammar','vocab_table','examples',
+                                  'homework','my_answer','grading','feedback',
+                                  'objectives','expected_mistakes','backfill') NOT NULL;
+```
+
+⚠️ `section_type` 的新值**追加在末尾**，不得插入中间（MySQL ENUM 按内部索引存储，插中间会让既有行的枚举值静默错位）。执行前先确认备份可重放，并照 8.1 的 DDL 规程单独 commit。
+
+**机器真相源是 `records/`，不是 md 散文**：补漏块的逐题判定落在 `records/lesson-NN.backfill.json`（`kind: "backfill"`、`exerciseNo` 块内编号、`summary.backfillErrorCount` 单列），作业判定落在 `records/lesson-NN.grading.json`。后端**只读该目录的 JSON**，禁止从 `### 批改` 文字里做文本匹配提取 `isCorrect` / `errorNote`——文字匹不出一处错误对应哪一题，也判不出「用词 vs 语法」（见 `records/README.md`）。md 侧的「补漏块 N：」分组仅供人读，与 JSON 同源；两者不一致时以 JSON 为准。
+
+**与 `mistakes` 的边界**：补漏块本身不是错词来源条目，但补漏题答错会经 `mistakeCandidates[]` 进入错词本——判重键为规范化后的 `wrongText` + `errorType`，命中则 `wrong_count + 1`、`streak = 0`，不新建。`error_type` 按 `docs/ai-teacher.md` §11.5 的三步判定，判不出一律 `other`。补漏块的错误数**不计入本课作业 `errorCount`**（口径见 `docs/ai-teacher.md` §11.4）。
+
+**导出链影响（已落地）**：`backend/db/migration/export_md_to_json.py` 已按上表把题号拆成**两块命名空间**——作业题 `block_kind='homework'`、`block_no=0`，补漏块 `block_kind='backfill'`、`block_no=块序号`；`parse_my_answer()` 按 `补漏块 N：` 标签把答案分流到对应块。该脚本已改为**自包含**（内联 `LESSON_RE` / `SECTION_RE` / `DETAIL_RE` / `BACKFILL_HEAD_RE` 等全部正则与解析函数），**不再 import `build_board`**，因此与 `skills/english-daily/scripts/` 已无依赖关系（见 7.3 / 7.4）。逐题判定一律取自 `records/*.json`，warnings 中「补漏块无对应 SectionType」的历史项已由 `section_type` 末尾新增 `backfill` 消解。
+
 ---
 
 ## 三、九个 Skill 的定义
@@ -1257,34 +1298,36 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 改名会影响触发词，需在改造时同步更新 `description` 并做触发测试。
 
-### 7.4 Skill 源码入库（已定方案，目录已就绪待 git-manager 入库）
+**已退役（待清理）**：`scripts/build_board.py`。它的 HTML 生成职责已于 2026-09-29 下线（`review/` 改为纯 API 驱动静态页）；`INDEX.md` / `digest.md` 的产出职责自 2026-09-30 起退役，改由后端数据更新。**代码暂不删除**——`build_board.py` 剩下的唯一用途是**第 1—6 课的历史回填**（那批数据没有 `records/` JSON，只能从 md 推），历史回填完成后即可删除脚本：这是清理的实际前置条件。
+
+**接盘方已明确：`records/` 结构化归档**（见 2.5）。md 解析链的正向职责已被 `records/lesson-NN.*.json` 取代——后端只读 JSON、不解析散文。**注意：`backend/db/migration/export_md_to_json.py` 已不再依赖它**。该脚本已于 2026-09-30 改造为**自包含**（内联全部正则与解析函数，删除 `import build_board` 与 `load_build_board()`），因此 `build_board.py` 现在**没有任何下游消费方**；`compare_snapshot.js` 只读导出的 `_snapshot.json`，与该脚本无耦合。
+
+**删除前置条件已满足（2026-09-30）**：脚本的最后用途是「第 1—6 课历史回填」，该批数据已通过 `db:export` → `db:import` 落库并验收（`lesson_sections` 12 → 51、`lesson_exercises` 0 → 34、`readings` 4 天/11 篇/22 题，见 `backend/docs/04-migration-and-roadmap.md` §五之三，`npm run db:compare` 全绿）。故 `build_board.py` 与 `skill-dependencies.json` / `setup-guide.md` 的清理**已无阻塞**——但脚本位于受控源 `skills/english-daily/scripts/`（Skill 设计师职责），**后端不代为删除**，仅记录条件已达成。
+
+同批待清理项：`skill-dependencies.json` 中「复习看板生成」相关的 degradation 与 failure_modes 条目，以及 `references/setup-guide.md` 的运行示例——仍描述已下线的 HTML 生成能力。这批属于结构性删改（会改变依赖检查的判定），需走 MINOR 变更，不与本次退役标记混做。
+
+### 7.4 Skill 源码入库（已完成）
 
 **决策**：Skill 源码纳入版本库。理由：`.gitignore` 第 2 行排除整个 `.workbuddy/`，仓库丢失即无法恢复 Skill。
 
-**入库方案（方案 A：只入库 `skills/`，`.workbuddy/` 保持整体忽略）**：
+**已落库（方案 A：只入库 `skills/`，`.workbuddy/` 保持整体忽略）**：`skills/english-daily/` 的 8 个源文件均已 git 跟踪（`SKILL.md`、`skill-dependencies.json`、`scripts/{build_board,check_environment,init_workspace}.py`、`references/{course-template,level-map,setup-guide}.md`），提交 `5aab235` 与 `87ee73e`。`.gitignore` 未改动；`scripts/__pycache__/` 是编译产物，不入库。
 
-1. 新建 `skills/english-daily/`，从 `.workbuddy/skills/english-daily/` 复制全部 8 个源文件（`SKILL.md`、`skill-dependencies.json`、`scripts/{build_board,check_environment,init_workspace}.py`、`references/{course-template,level-map,setup-guide}.md`），**排除 `scripts/__pycache__/`（编译产物，`.gitignore` 已忽略 `__pycache__/` 与 `*.pyc`）**。
-2. **不改 `.gitignore` 的 `.workbuddy/` 规则**，直接 `git add skills/` 提交。
-3. 提交信息说明「Skill 源码入库」，`docs/changelog.md` 同步记录。
+**唯一真源与同步方向**：受控权威 = 版本库 `skills/english-daily/`；`.workbuddy/skills/english-daily/` 为**运行副本**。同步方向**单向**「受控 `skills/` ⇒ 运行时 `.workbuddy/skills/`」，**禁止反向**。改 Skill 一律先改受控源再复制过去；两侧内容不一致即视为事故（即原 G-5 多副本漂移）。
 
-**为什么不能用否定写法 `.workbuddy/` + `!.workbuddy/skills/`（重要，避免后人再踩）**：
+**为什么不能用否定写法 `.workbuddy/` + `!.workbuddy/skills/`（实测结论，避免后人再踩）**：git 不允许在父目录被**整体排除**后重新包含其子内容——父目录已被排除，git 根本不会再进入该目录去匹配子路径的否定规则。已实测（临时仓库 `git check-ignore -v`）：
 
-git 不允许在父目录被**整体排除**后重新包含其子内容——父目录已被排除，git 根本不会再进入该目录去匹配子路径的否定规则。因此：
-
-```
-方案 A：.workbuddy/  + !.workbuddy/skills/   →  git check-ignore -v 命中 .gitignore:2:.workbuddy/（仍被忽略，无效）
-方案 B：.workbuddy/* + !.workbuddy/skills/   →  git check-ignore 退出码 1（未被忽略，有效）
+```text
+方案 A：.workbuddy/  + !.workbuddy/skills/   →  命中原规则（仍被忽略，无效）
+方案 B：.workbuddy/* + !.workbuddy/skills/   →  退出码 1（未被忽略，有效）
 ```
 
-已实测：在临时仓库用 `git check-ignore -v` 验证，方案 A 命中原规则、方案 B 才真正放行。方案 B 虽然可行，但会让仓库里同时存在 `.workbuddy/skills/`（运行副本）与 `skills/`（受控源码）两份副本，再次产生「哪份权威」的二义（即 G-5 多副本漂移风险），且 `.workbuddy/` 下还有 `tmp`、`memory` 等需逐条排除。故**本文件直接采用方案 A**：`.workbuddy/` 维持整体忽略，受控源码只落在仓库根的 `skills/`。
+方案 B 虽然可行，但会让仓库同时存在 `.workbuddy/skills/`（运行副本）与 `skills/`（受控源码）两份副本，重演「哪份权威」的二义；且 `.workbuddy/` 下还有 `tmp`、`memory`、`skill-backups` 等需逐条排除。故**采用方案 A**，受控源码只落在仓库根的 `skills/`。
 
-**权威约定**：受控权威 = 版本库 `skills/english-daily/`；`.workbuddy/skills/english-daily/` 为**运行副本**，同步方向**单向**为 `skills/` ⇒ `.workbuddy/skills/`，禁止反向提交。
+**消费方（已收敛为 0）**：`export_md_to_json.py` 曾以库形式加载 `skills/english-daily/scripts/build_board.py`；自 2026-09-30 改造为自包含后，**已不再有任何脚本 import `build_board.py`**，`skills/` 目录下不再有被后端消费的文件。实测：临时移走 `build_board.py` 副本后，导出仍输出 `M2_EXPORT_OK lessons=6 vocab=52 exercises=25 mistakes=19 readings=4(pieces=11)`。
 
-**影响**：仓库新增 8 个文件；Git 历史新增一次提交；`docs/changelog.md` 需同步记录。
+> 留档：`export_md_to_json.py` 自包含前的行为是「解析库默认目录 = `<root>/skills/english-daily/scripts`，不依赖 `.workbuddy/`」；自包含后该路径配置已一并移除。
 
-**回滚**：`git revert` 该提交；`skills/` 删除不影响 `.workbuddy/` 下的实际运行副本。
-
-**未决点**：`skills/` 目录与构建流程的关系需明确——建议 `skills/` 只存源码，构建产物仍放 `.workbuddy/build/` 且不入库（`.workbuddy/` 已整体忽略）。
+**未决点**：`skills/` 只存源码，构建产物仍放 `.workbuddy/build/` 且不入库。
 
 ---
 
@@ -1294,28 +1337,47 @@ git 不允许在父目录被**整体排除**后重新包含其子内容——父
 
 | # | 风险 | 影响 | 缓解 |
 |---|---|---|---|
-| R1 | Skill 源码不在版本库 | 工作区丢失即无法恢复 | 见 7.4，已决策待执行 |
+| R1 | Skill 源码不在版本库 | 工作区丢失即无法恢复 | **已解决**：见 7.4，8 文件已落库 |
 | R2 | 适配层与后端契约漂移 | 阶段 B 切换时字段对不上 | 契约以 `docs/schemas/` 为唯一来源；后端改动需同步本目录 |
 | R3 | 6 个内嵌能力长期不独立，职责继续糊在一起 | `mistake-analysis` 的分类继续靠人工 | 阶段 A 的 A3 / A5 优先做 |
 | R4 | `errorType` 判定靠模型，可能出现分类漂移 | 趋势统计失真 | 本文件 3.6 已给出固定判定顺序；落地后需抽样复核 |
 | R5 | 触发词「继续」歧义 | 误触发完整上课流程 | 见 1.3，独立出现时先确认 |
 | R6 | 错词条目增长快于消化速度 | 复习队列长期不清空 | 单课新增 >8 条时提示降难度 |
+| R7 | **解析职责悬空**：`build_board.py` 退役后，md 解析仅剩历史回填（第 1—6 课）一个用途 | 回填未完成就删脚本 → 那批 `is_correct` / `error_type` 无处可推 | **已消解**：历史回填已由 `records/` + `db:import` 完成（2026-09-30，34/34 题判定入库）；且 `export_md_to_json.py` 已自包含，**`build_board.py` 现无任何下游消费方**，删除只剩「第 1—6 课 md 正文回填」这一条（已完成）→ 可删（见 7.3） |
+| R8 | 补漏块与作业题共用 `lesson_exercises` 的题号空间 | 作答与批改互相覆盖，静默丢数据 | **已解决**：见 2.5：加 `block_kind` / `block_no`，唯一键扩为四列；`block_no` 取 0 不取 NULL。实测已回填作业 25 + 补漏块 9 = 34 条，两套题号共存 |
+| R9 | 阅读理解题「题干行 + 答案行」按行切分，答案行被当成新题 | 题数与空题干双翻倍（2 题 → 4 条） | **已修复**：导出器改为「答案行并入上一题」，并在 `compare_snapshot.js` 固化断言（`reading_questions` 题数 = md 题数）。见 04-migration 五之三 |
+| R10 | `db:init` 重跑会把 `db:import` 回填的 md 原文小节打回 seed 简化版 | 回填结果被静默回退 | **已修复**：`seed.js` 的 `lesson_sections` 写入改为冲突时空操作；实测重跑 `db:init` 后四处 md5 全未变 |
 
 ### 8.2 待办（按角色）
 
 | 角色 | 待办 |
 |---|---|
-| **Skill 设计师** | 阶段 A 的 A2—A5；`daily-lesson` 改名与触发测试；`skills/` 入库执行（7.4） |
-| **后端工程师** | 评估 G1—G5 与 S1、S2；`GET /agent/snapshot` 增补 `errorTrend` / `priority` / `backlog` / `lastIncomplete`；把 `docs/schemas/` 作为实现依据 |
-| **前端工程师** | 本轮无需求。契约对象同时供静态看板与未来 Vue 使用，切换前端不需要 Skill 配合 |
+| **Skill 设计师** | 阶段 A 的 A2—A5；`daily-lesson` 改名与触发测试；守护「受控 `skills/` ⇒ 运行时 `.workbuddy/skills/`」单向同步不漂移（7.4）；按 7.3 推进 `build_board.py` 与 `skill-dependencies.json` 的清理 |
+| **后端工程师** | ✅ 本轮已完成：`readings` 三表 + 回填（4 天/11 篇/22 题）、`GET /api/readings{,/stats,/:date}`、`readingCatalog` 退出 degradation、`lesson_exercises` 34 条与 `study_records.byType` 回填、`errorTrend.byType` 真实化。**仍未实现**：`backlog`（待 `knowledge_points` 建表）、`lastIncomplete`（待教学侧写 `nextRecommendation`）、`POST /api/readings`（待确认是否开放）；`lesson_exercises.error_type` 全 NULL 待 amy 对账 |
+| **前端工程师** | R1 阅读统计**已可接**：`GET /api/readings/stats` 提供 `totalDays / pieceCount / wordCountTotal / lastReadDate / currentStreakDays`；`reading.html` / `readIndex.html` 仍是硬编码静态页，可改为 API 驱动（`GET /api/readings` 判「当天是否已生成」用 `readingCatalog[0].date`，`GET /api/readings/:date` 取全文） |
 | **Amy** | 教学规则变更时按 `docs/ai-teacher.md` 10.2 的流程走：先落 `progress.md` → 更新 `ai-teacher.md` → 交 Skill 设计师改流程 → 交后端评估契约 |
-| **Git 工程师** | 本轮新增 `docs/skills.md` 与 `docs/schemas/`（共 14 个文件），需记录到 `docs/changelog.md`；`skills/` 入库时同步记录 |
+| **Git 工程师** | `docs/skills.md` 与 `docs/schemas/` 的更新需记录到 `docs/changelog.md`；`skills/` 入库已完成（7.4），后续 Skill 变更按受控源提交 |
 
 ---
 
 ## 附录 A：契约与文件清单
 
-### 本轮新增
+### 本轮（补漏块口径 + `build_board.py` 退役）
+
+| 文件 | 动作 | 说明 |
+|---|---|---|
+| `docs/schemas/common.schema.json` | 改 | `SectionType` 末尾追加 `backfill`；新增 `$defs.ExerciseBlockKind = ["homework","backfill"]` |
+| `docs/schemas/exercise-set.schema.json` | 改 | `ExerciseItem` 增 `blockNo`；说明改为「一套题集一个块，`kind` 即块种类」；`exerciseNo` 明确为**块内**题号 |
+| `docs/schemas/lesson-record.schema.json` | 改 | `ExerciseRecord` 增 `blockKind` / `blockNo`（对应 `lesson_exercises.block_kind` / `block_no`）；`sections` 说明补入 `backfill` |
+| `docs/skills.md` | 改 | 新增 2.5 补漏块归置口径；7.3 / 7.4 / 8.1 / 8.2 同步现状 |
+| `skills/english-daily/SKILL.md` | 改 | 标记 `build_board.py` 退役；版本 2.2.2 → 2.2.3 |
+| `skills/english-daily/scripts/build_board.py` | 改 | 顶部加退役说明与清理前置条件，**不改代码逻辑** |
+| `.workbuddy/skills/english-daily/` | 同步 | 受控源单向复制所得（运行副本），前两个文件 md5 与受控源一致 |
+| `backend/db/migration/export_md_to_json.py` | 改 | 解析库默认目录改受控 `<root>/skills/english-daily/scripts` |
+
+自检：`.workbuddy/build/check_schemas.py` 输出 `SCHEMA_CHECK files=12 refs=86 objects=536` → `SCHEMA_OK`；`docs/skills.md` 九个 Skill 的小节完整（`ALL_SECTIONS_OK`）。
+
+### 首轮（Skill 系统设计）
 
 | 文件 | 说明 |
 |---|---|
@@ -1334,9 +1396,9 @@ git 不允许在父目录被**整体排除**后重新包含其子内容——父
 | `docs/schemas/reading-set.schema.json` | 当日阅读集 |
 | `docs/schemas/skill-run.schema.json` | Skill 执行记录 |
 
-### 本轮未改动
+### 首轮未改动
 
-`PROJECT.md`、`AGENTS.md`、`docs/ai-teacher.md`、`backend/`、`notes/`、`read/`、`progress.md`、`wrong-words.md`、`digest.md`、`INDEX.md`、`review/`、`.workbuddy/skills/english-daily/`。
+`PROJECT.md`、`AGENTS.md`、`docs/ai-teacher.md`、`notes/`、`read/`、`progress.md`、`wrong-words.md`、`digest.md`、`INDEX.md`、`review/`。
 
 ---
 
