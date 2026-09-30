@@ -2,7 +2,7 @@
 
 > 状态：**已实现并实测**（2026-09-29）。本文档描述的是**可运行的真实接口**，非设计稿。
 > 服务地址：`http://localhost:4000`　接口前缀：`/api`
-> 冒烟测试：`npm run test:api`（**49 项全部通过**）；写接口正向验证：`npm run test:write`（**59 项全部通过**）
+> 冒烟测试：`npm run test:api`（**49 项全部通过**）；写接口正向验证：`npm run test:write`（**63 项全部通过**）
 >
 > 变更记录：
 > - 2026-09-29 · 第一批写接口与聚合快照落地：`GET /api/lessons/all`、`POST /api/mistakes/:id/review`、
@@ -321,6 +321,7 @@
 - `lessonNo`（选填）：也可只写在 `payload.lessonNo`
 - `payload` 键白名单：`lessonNo` / `level` / `feedback` / `errorCount` / `exerciseCount` / `byType` / `nextRecommendation` / `studyMinutes` / `incompleteStep`；**白名单外的键被忽略**
 - `nextRecommendation` 也接受 snake_case 别名 `next_recommendation`，落库统一为 camelCase
+- `incompleteStep` 也接受 snake_case 别名 `incomplete_step`；经快照投影为 `lastIncomplete.incompleteStep`（见 §21）
 
 **实测响应 201**
 ```json
@@ -399,6 +400,9 @@
 - `pendingMistakes` / `errorTrend` 与 `/api/mistakes/pending`、`/api/lessons/error-trend` **同源复用**（同一 service，不另写排序）
 - `pendingMistakeStats` **只统计 `status='pending'`**；`byType` 为 `errorType → count`
 - `lastRecommendation` 形状 `{ lessonNo, text }`，取自最近一条 `feedback` 记录的 `payload.nextRecommendation`；无数据为 `null`
+- `lastIncomplete` **与 `lastRecommendation` 同源**（G4，供 Skill 断更接续）：形状 `{ lessonNo, nextRecommendation, incompleteStep? }`。
+  `incompleteStep` 取自同一条 `feedback` 记录的 `payload.incompleteStep`（未完成的教学动作），**有值才带该键**；
+  是 `docs/ai-teacher.md` §11.2 第 5 条「断更补课题量上浮」的判据。无数据时整体为 `null`
 - **缺数据一律降级**（`null` / `[]` / 省略键）+ `degradation`，**绝不 500、绝不空串**
 - `readingCatalog` 自 2026-09-30 起有真实数据源（`readings` 三表，**倒序、最多 30 天**）。
   **空数组代表「确实还没有阅读」，属于正常数据而非降级**，故不再计入 `degradation.affected`。
@@ -407,7 +411,9 @@
   （2026-09-30 已回填第 1—6 课）；该课无数据时**省略 `byType` 键**，不编造 `{}`
 - `pendingMistakes[].firstCourseNo/lastCourseNo` 用课号；来源课号为脏值（DQ4）时**省略该键**而不是塞 `null`
 - 当前仍计入 `degradation.affected` 的只剩：`backlog`（待 `knowledge_points` 建表）、
-  `lastRecommendation` / `lastIncomplete`（待教学侧在 feedback payload 写 `nextRecommendation`）
+  `lastRecommendation` / `lastIncomplete`（**契约与代码路径均已实现，唯一缺口是数据** ——
+  库内 6 条 `feedback` 记录尚无一条带 `nextRecommendation`；Amy 下次写记录带上即自动生效，
+  **上线速度取决于教学侧写记录，不取决于后端排期**）
 
 ### 22. GET `/api/mistakes/:id/events`
 某错词的复习流水，**按时间升序**（便于看复发曲线）。`mistake_events` 表 2026-09-29 建。

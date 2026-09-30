@@ -211,18 +211,28 @@ md 原文打回 seed 的简化版。实测重跑 `db:init` 后 `lesson_sections`
 早期解析按行切分 → **每题的答案行被当成一道新题**（题数与空题干都翻倍，第 1 篇 2 题被解析成 4 条）。
 已改为「答案行并入上一题」，并在比对脚本中固化断言（`reading_questions` 题数必须 = md 题数）。
 
-**已闭环（2026-09-30，原「仍未闭环」两处）**
+**已闭环（2026-09-30）**
 
 - ✅ `lesson_exercises.error_type` 已回填 —— `records/exercise-error-types.json` 提供逐题映射，
   `npm run db:apply-error-types` 按 `(lessonNo, block_kind, exerciseNo)` 定位写入（**10 填 / 24 NULL**）。
 - ✅ `mistakes` 与错词本已对齐 —— `npm run db:sync-mistakes` 读 `_snapshot.json` 的 `mistakes[]`
   一次性同步（**4 条新增 + 13 条更新**，`wrong_text` 括号批注改净）。⚠️ **`db:import` 仍不写 `mistakes`** 的
   约定不变：本次是**显式一次性补写**，不是让主管线接管 `mistakes`（权威仍在 md，需 Amy 判定的字段不自动推导）。
+- ✅ 练习批改三字段已回填（`db:import` 完成，无需再做）：`is_correct` **34/34（0 NULL，答错 10）**；
+  `error_note` **10**（= 10 道错题，一一对应）；`revised_answer` **6**（与 `records/lesson-0N.grading.json`
+  的 `revisedAnswer` 逐条对应；其余答错的 translate 题走 `reference_answer`，语义正确）。
+- ✅ G4 `lastIncomplete` —— **代码路径已实现**：`snapshot.service.js` 与 `lastRecommendation` 同源投影，
+  形状 `{lessonNo, nextRecommendation, incompleteStep?}`；`incompleteStep` 由 `payload.incomplete_step`
+  → camelCase → 快照透传（`write-api-check.js` D1b/D1c 锁定）。无数据时降级 `null` 并计入 `degradation.affected`。
+  **唯一缺口是数据**：库内 6 条 `feedback` 记录 **0 条**带 `nextRecommendation` → **Amy 下次写记录带上即生效**。
 
 **新增待办**
 
 - `study_records(grade).payload.byType` 已回填第 1—6 课；**第 7 课起由 amy 在批改 payload 里带 `byType`**（口径见 `docs/skills.md` 8.2）。
-- `lessons.error_count` 保留历史值（3/4/2/6/2/5），重算值为 5/4/2/6/1/6；从第 7 课起严格按新口径（§11.4）。
+- **`lessons.error_count` 保留历史值（已决，2026-09-30）** —— 库内 3/4/2/6/2/5 vs 重算 5/4/2/6/1/6。
+  理由：① 学习数据**只增不改**（外键策略 RESTRICT，已发布历史不应回溯改写）；② 批改真相源是
+  `records/*.grading.json`，回改 `error_count` 反而与归档产生新的不一致、徒增对账负担；
+  ③ 第 7 课起严格按 §11.4 新口径。**口径切换点 = 第 7 课**，此前差异属预期，勿当 bug 回改。
 - `schema.full.design.sql` 落后实际表（`readings` 仍用 `users` 命名、`exercises` 缺列等），需整体重审后再动。
 - `POST /api/readings` **已实现并开放**（见下方 §五之四）。
 
@@ -242,7 +252,7 @@ md 原文打回 seed 的简化版。实测重跑 `db:init` 后 `lesson_sections`
 | 「当天不覆盖」 | 同日已存在 → **409**；仅 `?force=true` 显式例外（重出），此时同事务删子行重建、`readings` 行复用 |
 | 字段丢失修复 | 顺带补 `reading_pieces.source_url` 列——此前 `sourceUrl` 在写路径**被静默丢弃**（见 `docs/database.md` 第八之二节） |
 
-**回归**：`npm run test:write` 新增 E2 段 **RW1—RW18**（201 / 三表落库 / 读回 / 409 不覆盖 / force 重出 / 400 字段级明细 / 学生隔离 / 清理零残留），全套 **59/59**；`npm run test:api` **49/49**。
+**回归**：`npm run test:write` 新增 E2 段 **RW1—RW18**（201 / 三表落库 / 读回 / 409 不覆盖 / force 重出 / 400 字段级明细 / 学生隔离 / 清理零残留），全套 **63/63**；`npm run test:api` **49/49**。
 
 **两条写路径的分工**（教学侧据此选型）
 
