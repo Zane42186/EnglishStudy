@@ -8,6 +8,8 @@ const { normalizeDateTime } = require('../utils/datetime');
 // 判重键**唯一实现**：与 `db:sync-mistakes` 共用，两条「错词本 → 库」路径
 // 对「同一行」的判断必须逐字一致（否则即 DQ1 成因）。
 const { normKey } = require('../utils/mistakeKey');
+// 课号两列定则**唯一实现**：同两条路径共用（§11.11）。
+const { buildLessonMaps, resolveNextLastLessonId } = require('../utils/mistakeLesson');
 // 枚举白名单只取 `src/constants.js`（唯一来源，与 schema.sql 的 ENUM 同源）
 const { ERROR_TYPE, MISTAKE_STATUS } = require('../constants');
 
@@ -301,24 +303,26 @@ function validateMistakeBatch(body = {}) {
 /**
  * POST /api/mistakes —— 批量写入错词本条目（Step 2b）。
  *
- * 口径与 `db:sync-mistakes` **逐列一致**（共用 `normKey` 与 `MISTAKE_CONTENT_COLS`）：
+ * 口径与 `db:sync-mistakes` **逐列一致**（共用 `normKey`、`MISTAKE_CONTENT_COLS` 与课号定则）：
  *   - 判重键 = `normKey(wrongText)`（去全角括号批注 + 折叠空白 + 转小写），**只在本人范围内比对**
- *   - 命中   → 同步 7 个内容列；**不动 `first_lesson_id` / `last_lesson_id`**
+ *   - 命中   → 同步 7 个内容列；`first_lesson_id` **冻结不动**（首次出错课）；
+ *              `last_lesson_id` **按 `max(现有课号, 本次课号)` 单调刷新**（§11.11）
  *   - 未命中 → 新建（`first_lesson_id = last_lesson_id = courseNo` 对应的课）
  *   - `wrong_count` **以入参人工值为准覆盖写**；库内自动累计值与人工值不一致时
  *     **逐条写入 `warnings`**（R3：人工值为准 + 差异告警，绝不静默改写人工判定）
  *   - `error_type` / `wrong_count` / `streak` / `status` **一律取入参、绝不推导**
  *
  * 幂等：同一 payload 重复提交，第二次起 `created=0` / `unchanged=N`。
+ *       （课号刷新同样幂等：本次课号不大于现有值时定则返回「不改」→ 该行仍计 `unchanged`。）
  * 单事务：任一条失败整体回滚。
  */
 async function createMistakesBatch(studentId, body) {
   const { items } = validateMistakeBatch(body);
   const warnings = [];
 
-  // 课号 → id 映射（lessons 在一批之内不会变，故在事务外读；分层上仍只走 repository）
+  // 课号两向映射（lessons 在一批之内不会变，故在事务外读；分层上仍只走 repository）
   const lessonRows = await lessonRepository.listAll(studentId, {});
-  const lessonIdByNo = new Map(lessonRows.map((r) => [r.lesson_no, r.id]));
+  const { idByNo, noById } = buildLessonMaps(lessonRows);
 
   return withTransaction(async (conn) => {
     const dbRows = await mistakeRepository.listByStudentOn(conn, studentId);
@@ -350,7 +354,7 @@ async function createMistakesBatch(studentId, body) {
       if (!existing) {
         let lessonId = null;
         if (it.courseNo != null) {
-          lessonId = lessonIdByNo.get(it.courseNo) ?? null;
+          lessonId = idByNo.get(it.courseNo) ?? null;
           if (lessonId == null) {
             // 刻意不丢词：宁可课号置空也要把错词收进来，但必须显式告警（勿静默）
             warnings.push(`「${it.wrongText}」找不到第 ${it.courseNo} 课，已写入但 first/last_lesson_id 为空`);
@@ -380,7 +384,18 @@ async function createMistakesBatch(studentId, body) {
       const changed = mistakeRepository.MISTAKE_CONTENT_COLS
         .filter((c) => String(existing[c] ?? '') !== String(target[c] ?? ''));
 
-      if (!changed.length) {
+      // §11.11：命中时刷新「最近一次出错课」—— `max(现有课号, 本次课号)` 单调守卫。
+      // 返回 `null` ＝ 不该刷（`first` 为 NULL 的「诊断」行 / 本次课号不可知 / 课号不存在 /
+      // 本次课号不大于现有值）。两条写入路径共用同一份定则，避免漂移。
+      const nextLastLessonId = resolveNextLastLessonId({
+        firstLessonId: existing.first_lesson_id,
+        lastLessonId: existing.last_lesson_id,
+        currentLessonNo: it.courseNo,
+        idByNo,
+        noById,
+      });
+
+      if (!changed.length && nextLastLessonId == null) {
         unchanged += 1;
         results.push({
           id: existing.id, action: 'unchanged', wrongText: it.wrongText,
@@ -397,9 +412,21 @@ async function createMistakesBatch(studentId, body) {
         );
       }
 
-      await mistakeRepository.updateContentOn(conn, existing.id, target);
+      if (changed.length) await mistakeRepository.updateContentOn(conn, existing.id, target);
+
+      if (nextLastLessonId != null) {
+        await mistakeRepository.refreshLastLessonOn(conn, existing.id, nextLastLessonId);
+        // 计入 `changed`：让响应能看出「本次只前进了课号、内容列未变」
+        changed.push('last_lesson_id');
+      }
+
       updated += 1;
-      byKey.set(it.normKey, { id: existing.id, ...target });
+      byKey.set(it.normKey, {
+        id: existing.id,
+        ...target,
+        first_lesson_id: existing.first_lesson_id,
+        last_lesson_id: nextLastLessonId ?? existing.last_lesson_id,
+      });
       results.push({
         id: existing.id, action: 'updated', wrongText: it.wrongText,
         status: it.status, wrongCount: it.wrongCount, changed,

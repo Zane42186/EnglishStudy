@@ -78,9 +78,15 @@ async function updateReviewState(conn, id, { streak, wrongCount, status, lastRev
 /* ---------------- 写路径（POST /api/mistakes 批量写入） ---------------- */
 
 /**
- * 内容列白名单（**唯一来源**）：判重命中时同步这 7 列。
- * 刻意**不含 `first_lesson_id` / `last_lesson_id`** —— 课号归属是「首次/最近犯错课」，
- * 由迁移器与写接口共用同一口径（与 `db:sync-mistakes` 逐列一致），不在此处改写。
+ * 内容列白名单（**唯一来源**）：判重命中时按「原值覆盖」语义同步这 7 列。
+ *
+ * 刻意**不含 `first_lesson_id`** —— 它是「**首次**出错课」，口径为**冻结**、命中时永不改写
+ * （改写会让快照 `recentLessons[].mistakeCount`（＝本课新引入错词数）失真）。
+ *
+ * `last_lesson_id`（「**最近一次**出错课」）也**不在**此列，但原因不同：它命中时**要刷新**，
+ * 只是语义是 `max(现有课号, 本次课号)` 的**单调前进**，而非「原值覆盖」。
+ * 故单独走 `refreshLastLessonOn()`；「该不该刷、刷成哪个 id」的判定由
+ * `src/utils/mistakeLesson.resolveNextLastLessonId`（两条写入路径共用）给出 —— 见 `docs/ai-teacher.md` §11.11。
  */
 const MISTAKE_CONTENT_COLS = [
   'wrong_text', 'correct_text', 'error_reason', 'error_type', 'streak', 'wrong_count', 'status',
@@ -111,11 +117,27 @@ async function insertMistakeOn(conn, v) {
   return after.insertId;
 }
 
-/** 事务内同步 7 个内容列（判重命中）；只更新内容列，不动 first/last_lesson_id */
+/** 事务内同步 7 个内容列（判重命中）；只更新内容列，**不动 `first_lesson_id`** */
 async function updateContentOn(conn, id, v) {
   const result = await executeOn(conn,
     `UPDATE mistakes SET ${MISTAKE_CONTENT_COLS.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`,
     [...MISTAKE_CONTENT_COLS.map((c) => v[c]), id]
+  );
+  return result.affectedRows;
+}
+
+/**
+ * 判重命中时刷新「**最近一次**出错课」（`docs/ai-teacher.md` §11.11）。
+ *
+ * 本函数**只负责落库**：是否该刷、刷成哪个 id 已由
+ * `utils/mistakeLesson.resolveNextLastLessonId`（两条写入路径共用的唯一定则）判定完毕，
+ * 调用方只在判定「应刷」时才会调它 —— 故这里写的是**单调前进**后的终值，
+ * 不需要（也不应该）再在 SQL 里做 GREATEST，以免出现两套守卫。
+ */
+async function refreshLastLessonOn(conn, id, lessonId) {
+  const result = await executeOn(conn,
+    'UPDATE mistakes SET last_lesson_id = ? WHERE id = ?',
+    [lessonId, id]
   );
   return result.affectedRows;
 }
@@ -213,5 +235,5 @@ module.exports = {
   count, list, findById, findByIdOn, lockRow, updateReviewState, findPending, stats, pendingByType,
   findEventByClientId, insertEvent, listEvents,
   // 写路径（POST /api/mistakes）
-  MISTAKE_CONTENT_COLS, listByStudentOn, insertMistakeOn, updateContentOn,
+  MISTAKE_CONTENT_COLS, listByStudentOn, insertMistakeOn, updateContentOn, refreshLastLessonOn,
 };

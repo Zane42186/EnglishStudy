@@ -16,7 +16,8 @@
  *   - 匹配键：`wrongText` 规范化（去括号批注 + 折叠空白 + 转小写）后比对
  *     ⇒ 库内旧格式 `zane（人名小写）` 能与 md 的 `zane` 正确配对，不会误判为新行
  *   - 命中 → 同步 7 个内容列：wrong_text / correct_text / error_reason /
- *            error_type / streak / wrong_count / status（**不动 first/last_lesson_id**）
+ *            error_type / streak / wrong_count / status（**不动 first_lesson_id** —— §11.11 冻结）
+ *            并按 `max(现有课号, 本次课号)` **单调刷新 `last_lesson_id`**（§11.11）
  *   - 未命中 → INSERT（first_lesson_id = last_lesson_id = 该行 firstLessonNo）
  *   - 全部在**单事务**内完成；`--dry-run` 整体回滚，只报告
  *
@@ -37,6 +38,8 @@ const db = require('../../src/config/db');
 // 判重键**唯一实现**：与写接口 `POST /api/mistakes` 共用同一份，
 // 两条「错词本 → 库」路径对「同一行」的判断必须逐字一致（否则即 DQ1 成因）。
 const { normKey } = require('../../src/utils/mistakeKey');
+// 课号两列定则**唯一实现**：与写接口 `POST /api/mistakes` 共用同一份（§11.11）。
+const { buildLessonMaps, resolveNextLastLessonId } = require('../../src/utils/mistakeLesson');
 // 枚举白名单**只从 src/constants.js 取**（唯一来源，与 schema.sql 的 ENUM 同源）。
 // 原先本文件内联了 2 份局部数组，与 constants 各存一份 —— 改枚举时极易只改一处而漂移。
 const {
@@ -112,7 +115,7 @@ async function main() {
     console.log(`目标学生：id=${student.id} name=${student.name}`);
 
     const lessonRows = await db.queryOn(conn, 'SELECT id, lesson_no FROM lessons WHERE student_id = ?', [student.id]);
-    const lessonIdByNo = new Map(lessonRows.map((r) => [r.lesson_no, r.id]));
+    const { idByNo, noById } = buildLessonMaps(lessonRows);
 
     const dbRows = await db.queryOn(
       conn,
@@ -156,7 +159,7 @@ async function main() {
       const existing = dbByKey.get(key);
 
       if (!existing) {
-        const lessonId = lessonIdByNo.get(w.firstLessonNo) ?? null;
+        const lessonId = idByNo.get(w.firstLessonNo) ?? null;
         if (w.firstLessonNo != null && lessonId == null) {
           stats.skipped += 1;
           warn(`「${w.wrongText}」找不到第 ${w.firstLessonNo} 课，已跳过`);
@@ -179,17 +182,47 @@ async function main() {
       }
 
       const diffs = CONTENT_COLS.filter((c) => String(existing[c] ?? '') !== String(target[c] ?? ''));
-      if (!diffs.length) {
+      let lastDiff = ''; // 「最近一次出错课」的变化描述（`last_lesson_id` 不在 CONTENT_COLS 内）
+
+      // §11.11：命中时刷新 `last_lesson_id`（单调守卫，与写接口共用同一定则）。
+      //
+      // ⚠️ **数据源缺口（已上报，非遗漏）**：§11.11 规格 1 的「本次课号」只存在于
+      //    `POST /api/mistakes` 的 `items[].courseNo` / 顶层 `lessonNo`；
+      //    本路径的输入是 `wrong-words.md` 的 8 列，而其中的「课号」列是**首次**课号
+      //    （§11.7，人工填、且已冻结）—— 本文件确实拿不到「本次复发在第几课」。
+      //    故此处以 `firstLessonNo` 作为下界喂入同一定则：对**已有行**等价于「不刷新」
+      //    （不会倒退），对**新建行**无影响（first = last）。
+      //    ⇒ 本路径满足「两条路径同批改」的**形式一致 + 语义安全**；
+      //      真正会推进 `last` 的是 `POST /api/mistakes`（现状）与
+      //      `POST /api/mistakes/:id/review`（待 Amy 拍板，见 §11.11 末段）。
+      const nextLastLessonId = resolveNextLastLessonId({
+        firstLessonId: existing.first_lesson_id,
+        lastLessonId: existing.last_lesson_id,
+        currentLessonNo: w.firstLessonNo ?? null,
+        idByNo,
+        noById,
+      });
+
+      if (!diffs.length && nextLastLessonId == null) {
         stats.unchanged += 1;
         continue;
       }
-      await db.executeOn(
-        conn,
-        `UPDATE mistakes SET ${CONTENT_COLS.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`,
-        [...CONTENT_COLS.map((c) => target[c]), existing.id]
-      );
+
+      if (diffs.length) {
+        await db.executeOn(
+          conn,
+          `UPDATE mistakes SET ${CONTENT_COLS.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`,
+          [...CONTENT_COLS.map((c) => target[c]), existing.id]
+        );
+      }
+      if (nextLastLessonId != null) {
+        await db.executeOn(conn, 'UPDATE mistakes SET last_lesson_id = ? WHERE id = ?', [nextLastLessonId, existing.id]);
+        lastDiff = `${existing.last_lesson_id ?? ''} → ${nextLastLessonId}`;
+      }
       stats.updated += 1;
-      details.push(`~ 更新 id=${existing.id} ｜ ${diffs.map((c) => `${c}: "${existing[c] ?? ''}" → "${target[c] ?? ''}"`).join(' ; ')}`);
+      const shown = diffs.map((c) => `${c}: "${existing[c] ?? ''}" → "${target[c] ?? ''}"`);
+      if (lastDiff) shown.push(`last_lesson_id: "${lastDiff}"`);
+      details.push(`~ 更新 id=${existing.id} ｜ ${shown.join(' ; ')}`);
     }
 
     if (args.dryRun) throw Object.assign(new Error('__DRY_RUN_ROLLBACK__'), { dryRun: true });
