@@ -34,12 +34,17 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 const db = require('../../src/config/db');
+// 判重键**唯一实现**：与写接口 `POST /api/mistakes` 共用同一份，
+// 两条「错词本 → 库」路径对「同一行」的判断必须逐字一致（否则即 DQ1 成因）。
+const { normKey } = require('../../src/utils/mistakeKey');
+// 枚举白名单**只从 src/constants.js 取**（唯一来源，与 schema.sql 的 ENUM 同源）。
+// 原先本文件内联了 2 份局部数组，与 constants 各存一份 —— 改枚举时极易只改一处而漂移。
+const {
+  ERROR_TYPE: ERROR_TYPES,
+  MISTAKE_STATUS: STATUSES,
+} = require('../../src/constants');
 
 const DEFAULT_SNAPSHOT = path.join(__dirname, '_snapshot.json');
-
-/** 与 schema.sql / constants.js 同源的枚举白名单 */
-const ERROR_TYPES = ['grammar', 'spelling', 'punctuation', 'word_choice', 'capitalization', 'other'];
-const STATUSES = ['pending', 'passed'];
 
 const CONTENT_COLS = [
   'wrong_text', 'correct_text', 'error_reason', 'error_type', 'streak', 'wrong_count', 'status',
@@ -61,18 +66,6 @@ function parseArgs(argv) {
     else if (a === '--student') args.student = argv[++i];
   }
   return args;
-}
-
-/**
- * 匹配键：去掉 `（……）` 批注、折叠空白、转小写。
- * 只用于「找同一行」，不用于落库 —— 落库一律用 md 的原始文本。
- */
-function normKey(text) {
-  return String(text == null ? '' : text)
-    .replace(/（[^）]*）/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
 }
 
 function asEnum(value, allowed, label) {

@@ -88,4 +88,17 @@ const events = asyncHandler(async (req, res) => {
   return ok(res, data);
 });
 
-module.exports = { list, pending, stats, detail, review, events };
+/**
+ * POST /api/mistakes —— 批量写入错词本条目（Step 2b）。
+ * 载荷为「原始错词条目」（`wrong-words.md` 的 8 列），**不喂 `before/after` 全状态**；
+ * `error_type` / `wrong_count` / `streak` / `status` 一律取入参、服务端不推导。
+ * 字段级校验在 service 内完成（嵌套数组，`validate` 的扁平 DSL 不适用）。
+ */
+const create = asyncHandler(async (req, res) => {
+  const query = validate(req.query, STUDENT_SCHEMA);
+  const studentId = await studentService.resolveStudentId({ studentId: query.studentId });
+  const data = await mistakeService.createMistakesBatch(studentId, req.body || {});
+  return ok(res, data);
+});
+
+module.exports = { list, pending, stats, detail, review, events, create };

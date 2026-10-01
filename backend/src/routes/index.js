@@ -74,6 +74,7 @@ router.get('/', (req, res) =>
       'GET /api/mistakes/stats',
       'GET /api/mistakes/:id',
       'GET /api/mistakes/:id/events',
+      'POST /api/mistakes',
       'POST /api/mistakes/:id/review',
       'GET /api/study-records',
       'GET /api/study-records/stats',

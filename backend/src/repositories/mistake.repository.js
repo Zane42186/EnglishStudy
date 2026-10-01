@@ -75,6 +75,51 @@ async function updateReviewState(conn, id, { streak, wrongCount, status, lastRev
   return result.affectedRows;
 }
 
+/* ---------------- 写路径（POST /api/mistakes 批量写入） ---------------- */
+
+/**
+ * 内容列白名单（**唯一来源**）：判重命中时同步这 7 列。
+ * 刻意**不含 `first_lesson_id` / `last_lesson_id`** —— 课号归属是「首次/最近犯错课」，
+ * 由迁移器与写接口共用同一口径（与 `db:sync-mistakes` 逐列一致），不在此处改写。
+ */
+const MISTAKE_CONTENT_COLS = [
+  'wrong_text', 'correct_text', 'error_reason', 'error_type', 'streak', 'wrong_count', 'status',
+];
+
+/** 事务内取某学生全部错词（判重映射用；错词本规模 ≤ 数百行，全量取回后在 JS 侧按 normKey 比对） */
+async function listByStudentOn(conn, studentId) {
+  return queryOn(conn,
+    `SELECT id, first_lesson_id, last_lesson_id, ${MISTAKE_CONTENT_COLS.join(', ')}
+       FROM mistakes WHERE student_id = ?`,
+    [studentId]
+  );
+}
+
+/** 事务内新建错词条目；返回新行 id */
+async function insertMistakeOn(conn, v) {
+  const after = await executeOn(conn,
+    `INSERT INTO mistakes
+       (student_id, first_lesson_id, last_lesson_id, wrong_text, correct_text,
+        error_type, error_reason, streak, wrong_count, status)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    [
+      v.studentId, v.firstLessonId ?? null, v.lastLessonId ?? null,
+      v.wrongText, v.correctText, v.errorType, v.errorReason ?? null,
+      v.streak, v.wrongCount, v.status,
+    ]
+  );
+  return after.insertId;
+}
+
+/** 事务内同步 7 个内容列（判重命中）；只更新内容列，不动 first/last_lesson_id */
+async function updateContentOn(conn, id, v) {
+  const result = await executeOn(conn,
+    `UPDATE mistakes SET ${MISTAKE_CONTENT_COLS.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`,
+    [...MISTAKE_CONTENT_COLS.map((c) => v[c]), id]
+  );
+  return result.affectedRows;
+}
+
 /** 未过关错词的 error_type 分布（快照 pendingMistakeStats.byType） */
 async function pendingByType(studentId) {
   return query(
@@ -167,4 +212,6 @@ async function stats(studentId) {
 module.exports = {
   count, list, findById, findByIdOn, lockRow, updateReviewState, findPending, stats, pendingByType,
   findEventByClientId, insertEvent, listEvents,
+  // 写路径（POST /api/mistakes）
+  MISTAKE_CONTENT_COLS, listByStudentOn, insertMistakeOn, updateContentOn,
 };

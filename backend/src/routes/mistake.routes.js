@@ -8,6 +8,7 @@ const router = express.Router();
 router.get('/', controller.list);
 router.get('/pending', controller.pending);
 router.get('/stats', controller.stats);
+router.post('/', controller.create);
 router.get('/:id', controller.detail);
 router.get('/:id/events', controller.events);
 router.post('/:id/review', controller.review);
