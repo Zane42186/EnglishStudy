@@ -661,6 +661,151 @@ async function cleanup(studentId) {
     r = await get(`/api/readings/${TEST_READ_DATE}`);
     check('RW17 学生隔离：默认学生读不到临时学生的阅读 → 404', r.status === 404, `status=${r.status}`);
 
+    // ---------- G. POST /api/mistakes 批量错词写入（Step 2b） ----------
+    console.log('\n— G. POST /api/mistakes 批量错词写入（R3：只喂原始条目）—');
+
+    const cntMistakes = async () => {
+      const rows = await db.query('SELECT COUNT(*) AS n FROM mistakes WHERE student_id = ?', [testStudentId]);
+      return rows[0].n;
+    };
+    const dbMistake = async (wrongText) => {
+      const rows = await db.query(
+        'SELECT * FROM mistakes WHERE student_id = ? AND wrong_text = ? LIMIT 1',
+        [testStudentId, wrongText]
+      );
+      return rows[0] || null;
+    };
+    const batch = (items, lessonNo = TEST_LESSON_NO) => ({ lessonNo, items });
+    const MW_TEXT = 'MW go to school yesterday';
+
+    const mwBase = await cntMistakes(); // 前置 2 条（probe m1 / m2）
+
+    // MW1 新建（未给 streak/status → 应取默认 0 / pending）
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: MW_TEXT, correctText: 'MW went to school yesterday',
+        errorType: 'grammar', errorReason: '过去式误用', wrongCount: 2, courseNo: TEST_LESSON_NO },
+    ]));
+    check('MW1 新建一条 → 200 且 created=1',
+      r.status === 200 && r.json && r.json.data && r.json.data.created === 1,
+      `status=${r.status} ${JSON.stringify(r.json && r.json.data)}`);
+
+    // MW2 落库核对：原文 / 7 内容列 / 课号解析
+    let row = await dbMistake(MW_TEXT);
+    check('MW2 落库存**原始文本**（不经规范化）',
+      !!row && row.wrong_text === MW_TEXT, row ? row.wrong_text : 'null');
+    eq('MW2b 7 个内容列与入参一致（streak/status 取默认）',
+      row && [row.correct_text, row.error_type, row.error_reason, row.streak, row.wrong_count, row.status],
+      ['MW went to school yesterday', 'grammar', '过去式误用', 0, 2, 'pending']);
+    eq('MW2c first/last_lesson_id 按 courseNo 解析',
+      row && [row.first_lesson_id, row.last_lesson_id], [testLessonId, testLessonId]);
+
+    // MW3 幂等：同 payload 重复提交
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: MW_TEXT, correctText: 'MW went to school yesterday',
+        errorType: 'grammar', errorReason: '过去式误用', wrongCount: 2, courseNo: TEST_LESSON_NO },
+    ]));
+    check('MW3 同 payload 重复提交 → created=0 / unchanged=1（幂等）',
+      r.json.data.created === 0 && r.json.data.unchanged === 1, JSON.stringify(r.json.data));
+    eq('MW3b 未新增行', await cntMistakes(), mwBase + 1);
+
+    // MW4 判重键规范化：大小写 + 空白变体应命中同一行
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: 'MW  Go To School   Yesterday', correctText: 'MW went to school yesterday',
+        errorType: 'grammar', errorReason: '过去式误用', wrongCount: 2, courseNo: TEST_LESSON_NO },
+    ]));
+    check('MW4 规范化后同键（大小写/空白差异）→ updated=1 且不新建',
+      r.json.data.created === 0 && r.json.data.updated === 1, JSON.stringify(r.json.data));
+    eq('MW4b 行数未增（判重键真的生效）', await cntMistakes(), mwBase + 1);
+    row = await dbMistake('MW  Go To School   Yesterday');
+    check('MW4c 命中后 wrong_text 写本次原文（落库一律不经规范化）',
+      !!row && row.wrong_text === 'MW  Go To School   Yesterday', row ? row.wrong_text : 'null');
+
+    // MW5 DQ1 守卫：错误点不得夹带全角括号批注
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: 'MW go to school（批注）', correctText: 'MW x', errorType: 'grammar', wrongCount: 1 },
+    ]));
+    check('MW5 wrongText 含全角括号批注 → 400（DQ1 守卫）', r.status === 400, `status=${r.status}`);
+    check('MW5b 400 明细指向 wrongText',
+      Array.isArray(r.json && r.json.data) && r.json.data.some((e) => /\.wrongText$/.test(String(e.field))),
+      JSON.stringify(r.json && r.json.data));
+
+    // MW6 R3：人工值为准覆盖写 + 差异逐条告警
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: 'MW  Go To School   Yesterday', correctText: 'MW went to school yesterday',
+        errorType: 'grammar', errorReason: '过去式误用', wrongCount: 5, courseNo: TEST_LESSON_NO },
+    ]));
+    check('MW6 wrong_count 以人工值为准覆盖写（2 → 5）', r.json.data.updated === 1, JSON.stringify(r.json.data));
+    check('MW6b 与库内自动累计值不一致 → **逐条告警**（不静默改写人工判定）',
+      Array.isArray(r.json.data.warnings) && r.json.data.warnings.some((w) => w.includes('≠')),
+      JSON.stringify(r.json.data.warnings));
+    row = await dbMistake('MW  Go To School   Yesterday');
+    check('MW6c 库内 wrong_count 已按人工值落库', !!row && row.wrong_count === 5, row ? String(row.wrong_count) : 'null');
+
+    // MW7 error_type 只取入参、服务端不推导（文本看似拼写错，仍按入参落 other）
+    await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: 'MW recieve', correctText: 'MW receive', errorType: 'other',
+        errorReason: '待人工复核', wrongCount: 1, courseNo: TEST_LESSON_NO },
+    ]));
+    row = await dbMistake('MW recieve');
+    check('MW7 error_type 取入参、不推导', !!row && row.error_type === 'other', row ? row.error_type : 'null');
+
+    // MW8 混合批：1 更新 + 1 新建
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: 'MW recieve', correctText: 'MW receive', errorType: 'other', errorReason: '待人工复核', wrongCount: 2 },
+      { wrongText: 'MW a new one', correctText: 'MW a new one fixed', errorType: 'word_choice', wrongCount: 1 },
+    ]));
+    check('MW8 混合批 → created=1 / updated=1 / unchanged=0',
+      r.json.data.created === 1 && r.json.data.updated === 1 && r.json.data.unchanged === 0,
+      JSON.stringify(r.json.data));
+
+    // MW9—MW12 字段级 400
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, { lessonNo: TEST_LESSON_NO, items: [] });
+    check('MW9 items 为空 → 400', r.status === 400, `status=${r.status}`);
+
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: 'MW x', correctText: 'MW x fixed', errorType: 'syntax', wrongCount: 1 },
+    ]));
+    check('MW10 非法 errorType → 400', r.status === 400, `status=${r.status}`);
+
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: 'MW y', correctText: 'MW y fixed', errorType: 'grammar' },
+    ]));
+    check('MW11 缺 wrongCount → 400（人工判定值必填、不推导）', r.status === 400, `status=${r.status}`);
+
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: 'MW dup', correctText: 'MW dup a', errorType: 'grammar', wrongCount: 1 },
+      { wrongText: 'mw  DUP', correctText: 'MW dup b', errorType: 'grammar', wrongCount: 1 },
+    ]));
+    check('MW12 批内规范化同键 → 400（不静默取一条）', r.status === 400, `status=${r.status}`);
+
+    // MW13 批内一条非法 → 整批不落库
+    const beforeFail = await cntMistakes();
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: 'MW ok', correctText: 'MW ok fixed', errorType: 'grammar', wrongCount: 1 },
+      { wrongText: 'MW bad', correctText: 'MW bad fixed', errorType: 'nope', wrongCount: 1 },
+    ]));
+    eq('MW13 批内一条非法 → 整批 400 且一行未写', [r.status, await cntMistakes()], [400, beforeFail]);
+
+    // MW14 课号不存在 → 仍写入，但课号置空并告警（刻意不丢词）
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: 'MW orphan', correctText: 'MW orphan fixed', errorType: 'grammar', wrongCount: 1, courseNo: 999 },
+    ]));
+    row = await dbMistake('MW orphan');
+    check('MW14 课号不存在 → 仍写入但 first/last_lesson_id 为空 + 告警',
+      r.json.data.created === 1 && !!row && row.first_lesson_id === null
+        && r.json.data.warnings.some((w) => w.includes('999')),
+      `created=${r.json.data.created} first=${row && row.first_lesson_id} warn=${JSON.stringify(r.json.data.warnings)}`);
+
+    // MW15 学生隔离：默认学生列表不含临时学生错词
+    r = await get('/api/mistakes?size=500');
+    check('MW15 学生隔离：默认学生列表不含临时学生的错词',
+      r.status === 200 && !JSON.stringify(r.json).includes('MW go to school'),
+      `默认学生 total=${r.json && r.json.data && r.json.data.total}`);
+
+    // MW16 清理
+    await cleanup(testStudentId);
+    eq('MW16 清理后错词零残留', await cntMistakes(), 0);
+
     await cleanup(testStudentId);
     eq('RW18 清理后阅读三表零残留', await cnt(), { days: 0, pieces: 0, questions: 0 });
 
