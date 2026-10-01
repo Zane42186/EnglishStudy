@@ -59,6 +59,7 @@ async function api(method, urlPath, body) {
 
 const get = (p) => api('GET', p);
 const post = (p, body) => api('POST', p, body);
+const put = (p, body) => api('PUT', p, body);
 
 /** 全库计数快照（用于证明零影响） */
 async function snapshotCounts() {
@@ -353,6 +354,198 @@ async function cleanup(studentId) {
     await db.execute('DELETE FROM lesson_exercises WHERE lesson_id = ?', [testLessonId]);
     const exLeft = await db.query('SELECT COUNT(*) AS n FROM lesson_exercises WHERE lesson_id = ?', [testLessonId]);
     check('SC8 测试练习已清理', exLeft[0].n === 0, `残留 ${exLeft[0].n} 行`);
+
+    // ---------- D3. POST / PUT /api/lessons（LessonRecord 写路径，Step 2a）----------
+    // 契约：docs/schemas/lesson-record.schema.json。产出者 = Skill 侧 daily-lesson 归档步。
+    // 本段逐条证明：契约字段 → 四表落库 / 409 不覆盖 / 部分更新不抹字段 /
+    //              接口**不推导 error_type** / 无落库点的字段须进 warnings（不静默丢弃）。
+    console.log('\n— D3. POST/PUT /api/lessons（LessonRecord → 四表）—');
+
+    const NEW_LESSON_NO = TEST_LESSON_NO + 1; // 91（临时学生的课，与真实 1—7 课无关）
+    const lessonPayload = {
+      lessonNo: NEW_LESSON_NO,
+      lessonDate: '2026-10-02',
+      levelCode: 'Level 2',
+      summary: 'probe: 写接口验证课',
+      grammarPoint: 'probe 语法点',
+      sourceFile: 'day-08-14.md',
+      sections: [
+        { sectionType: 'review', contentMd: 'probe review 正文', orderIndex: 0 },
+        { sectionType: 'grammar', contentMd: 'probe grammar 正文', orderIndex: 1 },
+        { sectionType: 'homework', contentMd: 'probe homework 正文', orderIndex: 2 },
+      ],
+      vocabulary: [
+        { word: 'probe lesson word', phonetic: '/prəʊb/', meaning: '探针', example: 'This is a probe.', isNew: true },
+        { word: 'probe lesson word 2', meaning: '探针二', isNew: true },
+      ],
+      exercises: [
+        { exerciseNo: 1, exerciseType: 'fill_blank', prompt: 'probe 题 1', selfCheck: '句尾标点', referenceAnswer: 'probe 答案 1', userAnswer: 'probe 作答 1', isCorrect: false, errorNote: 'probe 错因' },
+        { exerciseNo: 2, exerciseType: 'translate', prompt: 'probe 题 2', referenceAnswer: 'probe 答案 2', userAnswer: 'probe 作答 2', isCorrect: true },
+        // 补漏块与作业共用题号 1 —— 唯一键必须放行（(lesson_id, block_kind, block_no, exercise_no)）
+        { exerciseNo: 1, blockKind: 'backfill', blockNo: 1, exerciseType: 'reorder', prompt: 'probe 补漏题 1' },
+      ],
+      gradeSummary: { exerciseCount: 2, errorCount: 1 },
+      studyMinutes: 28,                                  // 契约内、但 lessons 无该列（G5）→ 应进 warnings
+      knowledgePoints: [{ code: 'probe-kp', role: 'new' }], // 表未建（P1）→ 应进 warnings
+    };
+
+    r = await post(`/api/lessons?studentId=${testStudentId}`, lessonPayload);
+    check('LW1 POST /api/lessons 首次 → 201', r.status === 201, `status=${r.status} ${JSON.stringify(r.json && r.json.data)}`);
+    const lw = (r.json && r.json.data) || {};
+    eq('LW2 返回计数与契约字段一致（小节 3 / 词 2 / 题 3 / 错误 1）',
+      [lw.sectionCount, lw.vocabCount, lw.exerciseCount, lw.errorCount], [3, 2, 3, 1]);
+    eq('LW3 status 缺省为 taught（与 schema 默认值、现有 1—7 课一致）', lw.status, 'taught');
+    check('LW4 无落库点的契约字段进 warnings（不静默丢弃）',
+      Array.isArray(lw.warnings) && lw.warnings.length === 2
+      && lw.warnings.some((w) => /studyMinutes/.test(w)) && lw.warnings.some((w) => /knowledgePoints/.test(w)),
+      JSON.stringify(lw.warnings));
+    const newLessonId = lw.id;
+
+    const lwCounts = async () => {
+      const rows = await db.query(
+        `SELECT (SELECT COUNT(*) FROM lessons WHERE student_id = ? AND lesson_no = ?) AS lessons,
+                (SELECT COUNT(*) FROM lesson_sections  WHERE lesson_id = ?) AS sections,
+                (SELECT COUNT(*) FROM lesson_exercises WHERE lesson_id = ?) AS exercises,
+                (SELECT COUNT(*) FROM lesson_vocabulary WHERE lesson_id = ?) AS lesson_vocab`,
+        [testStudentId, NEW_LESSON_NO, newLessonId, newLessonId, newLessonId]
+      );
+      return {
+        lessons: Number(rows[0].lessons), sections: Number(rows[0].sections),
+        exercises: Number(rows[0].exercises), lessonVocab: Number(rows[0].lesson_vocab),
+      };
+    };
+    eq('LW5 四表落库 1 课 / 3 小节 / 3 题 / 2 词', await lwCounts(),
+      { lessons: 1, sections: 3, exercises: 3, lessonVocab: 2 });
+
+    const lwRow = (await db.query(
+      'SELECT lesson_date, level_code, summary, grammar_point, source_file, status, vocab_count, exercise_count, error_count FROM lessons WHERE id = ?',
+      [newLessonId]
+    ))[0];
+    eq('LW6 标量字段落库（日期 / 级别 / 摘要 / 语法点 / 来源 / 状态）',
+      [lwRow.lesson_date, lwRow.level_code, lwRow.grammar_point, lwRow.source_file, lwRow.status],
+      ['2026-10-02', 'Level 2', 'probe 语法点', 'day-08-14.md', 'taught']);
+    eq('LW7 三项计数按子表派生 + gradeSummary 的作业错误处数',
+      [Number(lwRow.vocab_count), Number(lwRow.exercise_count), Number(lwRow.error_count)], [2, 3, 1]);
+
+    // 接口**不得**写 error_type：该列只由 Amy 人工判定（records → db:apply-error-types）
+    const errTypes = await db.query('SELECT DISTINCT error_type FROM lesson_exercises WHERE lesson_id = ?', [newLessonId]);
+    check('LW8 接口不推导 error_type（3 题全为 NULL）',
+      errTypes.length === 1 && errTypes[0].error_type === null,
+      JSON.stringify(errTypes.map((x) => x.error_type)));
+
+    // selfCheck / blockKind / blockNo 三个「曾静默丢弃」的字段
+    const exRows = await db.query(
+      `SELECT block_kind, block_no, exercise_no, self_check, user_answer, is_correct
+         FROM lesson_exercises WHERE lesson_id = ? ORDER BY block_kind, block_no, exercise_no`,
+      [newLessonId]
+    );
+    const hw1 = exRows.find((x) => x.block_kind === 'homework' && x.exercise_no === 1);
+    const bf1 = exRows.find((x) => x.block_kind === 'backfill');
+    eq('LW9 selfCheck 落库（句尾标点）', hw1 && hw1.self_check, '句尾标点');
+    eq('LW10 补漏块 blockKind/blockNo 落库', bf1 && [bf1.block_kind, Number(bf1.block_no)], ['backfill', 1]);
+    eq('LW11 isCorrect false → 0、true → 1（不是字符串）',
+      [hw1 && hw1.is_correct, exRows.find((x) => x.exercise_no === 2 && x.block_kind === 'homework').is_correct], [0, 1]);
+
+    r = await get(`/api/lessons/${newLessonId}?studentId=${testStudentId}`);
+    const detail = (r.json && r.json.data) || {};
+    check('LW12 GET /api/lessons/:id 读回小节与词表',
+      r.status === 200 && detail.sections && detail.sections.length === 3 && detail.vocabulary.length === 2,
+      `sections=${detail.sections && detail.sections.length} vocab=${detail.vocabulary && detail.vocabulary.length}`);
+    eq('LW13 词表 isNew / 例句读回', [detail.vocabulary[0].word, detail.vocabulary[0].isNew, detail.vocabulary[0].example],
+      ['probe lesson word', true, 'This is a probe.']);
+
+    r = await get(`/api/lessons/${newLessonId}/exercises?studentId=${testStudentId}`);
+    check('LW14 GET /:id/exercises 读回 3 题（含补漏块）', r.status === 200 && r.json.data.list.length === 3,
+      `list=${r.json.data && r.json.data.list.length}`);
+
+    // ---- 409：POST 只新建，已存在不覆盖 ----
+    r = await post(`/api/lessons?studentId=${testStudentId}`, lessonPayload);
+    check('LW15 重复 POST 同课号 → 409（不静默覆盖）', r.status === 409, `status=${r.status} ${r.json && r.json.message}`);
+    eq('LW16 409 未改动任何内容', await lwCounts(), { lessons: 1, sections: 3, exercises: 3, lessonVocab: 2 });
+
+    // ---- 400：字段级校验 ----
+    const badEnum = JSON.parse(JSON.stringify(lessonPayload));
+    badEnum.lessonNo = NEW_LESSON_NO + 1;
+    badEnum.levelCode = 'Level 9';
+    badEnum.sections[0].sectionType = 'not_a_section';
+    r = await post(`/api/lessons?studentId=${testStudentId}`, badEnum);
+    check('LW17 非法 levelCode + 非法 sectionType → 400', r.status === 400, `status=${r.status}`);
+    check('LW18 400 带字段级明细（指向 levelCode 与 sections[0].sectionType）',
+      Array.isArray(r.json && r.json.data)
+      && r.json.data.some((e) => e.field === 'levelCode')
+      && r.json.data.some((e) => /sections\[0\]\.sectionType/.test(String(e.field))),
+      JSON.stringify(r.json && r.json.data));
+
+    const dupSection = JSON.parse(JSON.stringify(lessonPayload));
+    dupSection.lessonNo = NEW_LESSON_NO + 1;
+    dupSection.sections.push({ sectionType: 'grammar', contentMd: '重复类型' });
+    r = await post(`/api/lessons?studentId=${testStudentId}`, dupSection);
+    check('LW19 同课重复 sectionType → 400（唯一键 lesson_id + section_type 前置校验）', r.status === 400, `status=${r.status}`);
+
+    const dupExercise = JSON.parse(JSON.stringify(lessonPayload));
+    dupExercise.lessonNo = NEW_LESSON_NO + 1;
+    dupExercise.exercises.push({ exerciseNo: 1, exerciseType: 'open', prompt: '重复题号' });
+    r = await post(`/api/lessons?studentId=${testStudentId}`, dupExercise);
+    check('LW20 同题块内重复题号 → 400（唯一键 uk_exercise 前置校验）', r.status === 400, `status=${r.status}`);
+
+    const badBackfill = JSON.parse(JSON.stringify(lessonPayload));
+    badBackfill.lessonNo = NEW_LESSON_NO + 1;
+    badBackfill.exercises = [{ exerciseNo: 1, blockKind: 'backfill', exerciseType: 'open', prompt: '缺 blockNo' }];
+    r = await post(`/api/lessons?studentId=${testStudentId}`, badBackfill);
+    check('LW21 backfill 缺 blockNo → 400', r.status === 400, `status=${r.status}`);
+    eq('LW22 三次校验失败均未写库', (await lwCounts()).lessons, 1);
+
+    // ---- PUT：部分更新 ----
+    r = await put(`/api/lessons/${newLessonId}?studentId=${testStudentId}`, {
+      exercises: [
+        { exerciseNo: 1, exerciseType: 'fill_blank', prompt: 'probe 题 1（改）', selfCheck: '句尾标点', userAnswer: 'probe 重交作答', isCorrect: false, errorNote: 'probe 错因（改）' },
+      ],
+      gradeSummary: { exerciseCount: 2, errorCount: 2 },
+    });
+    check('LW23 PUT 部分更新 → 200', r.status === 200, `status=${r.status} ${JSON.stringify(r.json && r.json.data)}`);
+    const afterPut = (await db.query(
+      'SELECT summary, level_code, exercise_count, error_count FROM lessons WHERE id = ?', [newLessonId]
+    ))[0];
+    eq('LW24 未提交的字段保持原值（summary / level_code 不被抹掉）',
+      [afterPut.summary, afterPut.level_code], ['probe: 写接口验证课', 'Level 2']);
+    eq('LW25 提交的字段生效（errorCount 1 → 2）', Number(afterPut.error_count), 2);
+    const putEx = (await db.query(
+      "SELECT prompt, user_answer FROM lesson_exercises WHERE lesson_id = ? AND block_kind='homework' AND exercise_no=1",
+      [newLessonId]
+    ))[0];
+    eq('LW26 练习按唯一键 upsert（题干与作答已更新）', [putEx.prompt, putEx.user_answer], ['probe 题 1（改）', 'probe 重交作答']);
+    const putErr = await db.query('SELECT error_type FROM lesson_exercises WHERE lesson_id = ?', [newLessonId]);
+    check('LW27 回填批改不覆盖 error_type（仍全为 NULL）', putErr.every((x) => x.error_type === null),
+      JSON.stringify(putErr.map((x) => x.error_type)));
+    eq('LW28 PUT 不删除未提交的子行（仍 3 题 / 3 小节）', await lwCounts(),
+      { lessons: 1, sections: 3, exercises: 3, lessonVocab: 2 });
+
+    // ---- 计数派生只对 >=8 的课生效（第 1—6 课是 Amy 手工口径，不得覆盖）----
+    const oldIns = await db.execute(
+      `INSERT INTO lessons (student_id, lesson_no, lesson_date, level_code, summary, status, vocab_count, exercise_count, error_count)
+       VALUES (?, 3, '2026-09-01', 'Level 1', 'probe 历史课口径保护', 'taught', 99, 99, 99)`,
+      [testStudentId]
+    );
+    r = await put(`/api/lessons/${oldIns.insertId}?studentId=${testStudentId}`, {
+      exercises: [{ exerciseNo: 1, exerciseType: 'open', prompt: 'probe 历史课题' }],
+    });
+    const oldRow = (await db.query('SELECT vocab_count, exercise_count, error_count FROM lessons WHERE id = ?', [oldIns.insertId]))[0];
+    check('LW29 课号 <8 时不回写计数（保护 Amy 手工口径 99/99/99）',
+      [Number(oldRow.vocab_count), Number(oldRow.exercise_count), Number(oldRow.error_count)].join(',') === '99,99,99',
+      `${oldRow.vocab_count}/${oldRow.exercise_count}/${oldRow.error_count}`);
+    check('LW30 计数跳过时给出 warnings（不静默）',
+      r.status === 200 && (r.json.data.warnings || []).some((w) => /计数/.test(w)),
+      JSON.stringify(r.json && r.json.data && r.json.data.warnings));
+
+    // ---- 404：不存在 / 跨学生 ----
+    r = await put(`/api/lessons/99999999?studentId=${testStudentId}`, { summary: 'probe 不存在' });
+    check('LW31 PUT 不存在的 id → 404', r.status === 404, `status=${r.status}`);
+
+    r = await put(`/api/lessons/${newLessonId}`, { summary: 'probe 跨学生篡改' });
+    check('LW32 跨学生隔离：默认学生 PUT 测试学生的课 → 404', r.status === 404, `status=${r.status}`);
+
+    r = await get(`/api/lessons/${newLessonId}`);
+    check('LW33 跨学生隔离：默认学生 GET 测试学生的课 → 404', r.status === 404, `status=${r.status}`);
 
     // ---------- E2. POST /api/readings（R7 阅读写入）----------
     // 契约：docs/schemas/reading-set.schema.json。同一日期已存在 → 409（「当天不覆盖」硬规则），
