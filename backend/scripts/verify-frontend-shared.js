@@ -46,20 +46,30 @@ function ok(name, cond, detail) {
     health.ok && health.d && health.d.service === 'english-learning-backend' && health.d.code === undefined,
     JSON.stringify(health).slice(0, 160));
 
-  const stats = await page.evaluate(() => API.get('/vocabulary/stats').then(d => d.total).catch(e => 'ERR:' + e.code));
-  ok('api.js: /vocabulary/stats 返回 data.total === 51（口径 51）', stats === 51, 'total=' + stats);
+  // 2026-10-01：口径不再写死常数（第 7 课入库后 51→61），改为「接口自身一致 + 与全量去重比对」：
+  // ① stats.total === getAll 去重后的词条数；② getAll 不静默截断（len === total）。
+  const vocab = await page.evaluate(async () => {
+    const vs = await API.get('/vocabulary/stats');
+    const all = await API.getAll('/vocabulary', { size: 20 });
+    return { total: vs.total, letters: Object.keys(vs.byLetter || {}).length, len: all.list.length, apiTotal: all.total,
+      distinct: new Set(all.list.map(v => v.word)).size };
+  });
+  ok('api.js: /vocabulary/stats.total === getAll 去重词条数（口径：按 word 去重）',
+    Number.isInteger(vocab.total) && vocab.total > 0 && vocab.total === vocab.distinct,
+    JSON.stringify(vocab));
 
   // ---------- api.js：分页 ----------
   const pg = await page.evaluate(() => API.getPage('/vocabulary', 1, 3));
   ok('api.js: getPage 返回 {list,total,page,size}',
-    pg && Array.isArray(pg.list) && pg.list.length === 3 && pg.total === 51 && pg.page === 1 && pg.size === 3,
-    JSON.stringify({ len: pg && pg.list && pg.list.length, total: pg && pg.total, page: pg && pg.page, size: pg && pg.size }));
+    pg && Array.isArray(pg.list) && pg.list.length === 3 && pg.total === vocab.total && pg.page === 1 && pg.size === 3,
+    JSON.stringify({ len: pg && pg.list && pg.list.length, total: pg && pg.total, page: pg && pg.page, size: pg && pg.size,
+      expectTotal: vocab.total }));
 
   // ---------- api.js：getAll 循环取全量（规避 size 上限静默截断） ----------
   const all = await page.evaluate(() => API.getAll('/vocabulary', { size: 20 }));
-  ok('api.js: getAll 循环取全量（51 条，无静默截断）',
-    all && all.list.length === 51 && all.total === 51,
-    'len=' + (all && all.list.length) + ' total=' + (all && all.total));
+  ok('api.js: getAll 循环取全量（无静默截断）',
+    all && all.list.length === vocab.total && all.total === vocab.total,
+    'len=' + (all && all.list.length) + ' total=' + (all && all.total) + ' expect=' + vocab.total);
 
   // ---------- api.js：业务错误分支（404） ----------
   const e404 = await page.evaluate(async () => {
@@ -98,8 +108,12 @@ function ok(name, cond, detail) {
     n: d.list.length, total: d.total, hasGP: d.list.every(x => 'grammarPoint' in x),
     map: d.list.map(x => x.lessonNo + ':' + x.id).join(',')
   })));
+  // 课数不写死：只要求「全量（n === total）」且「含 grammarPoint 键」；
+  // 另查 /lessons 分页 total 做交叉校验，避免 /lessons/all 与分页口径不一致。
+  const lt = await page.evaluate(() => API.getPage('/lessons', 1, 1).then(d => d.total));
   ok('api.js: lessonIndex 返回全量课程且含 grammarPoint（用于 lessonNo↔id 映射）',
-    li.n === 6 && li.total === 6 && li.hasGP, JSON.stringify(li));
+    li.n === li.total && li.n === lt && li.hasGP && li.n > 0,
+    JSON.stringify(li) + ' lessonsTotal=' + lt);
 
   // ---------- ui.js：纯函数渲染 ----------
   const ui = await page.evaluate(() => {

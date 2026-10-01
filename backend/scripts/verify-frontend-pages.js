@@ -41,7 +41,13 @@ async function waitRendered(page, sel, timeout = 8000) {
       const cs = n => getComputedStyle(n).display;
       const ms = await API.get('/mistakes/stats');
       const rs = await API.get('/readings/stats');
+      const ls = await API.getPage('/lessons', 1, 1);
+      const vs = await API.get('/vocabulary/stats');
       return {
+        // 2026-10-01：统计口径不再写死常数（第 7 课入库后 6→7、51→61），
+        // 一律与接口值比对；新增接口值只是「当前口径快照」，不再随每次导入失效。
+        apiLessonTotal: String(ls.total),
+        apiVocab: String(vs.total),
         lessons: txt('statLessons'), level: txt('statLevel'), vocab: txt('statVocab'),
         reading: txt('statReading'), readingTitle: document.getElementById('statReading').title,
         mistakes: txt('statMistakes'),
@@ -58,9 +64,10 @@ async function waitRendered(page, sel, timeout = 8000) {
         errHidden: cs(document.getElementById('apiError')),
       };
     });
-    ok('[index] 已上课数 = 6', d.lessons === '6', 'got=' + d.lessons);
+    ok('[index] 已上课数 = /lessons.total', d.lessons === d.apiLessonTotal, `got=${d.lessons} api=${d.apiLessonTotal}`);
     ok('[index] 当前级别 = Level 2', d.level === 'Level 2', 'got=' + d.level);
-    ok('[index] 累计生词 = 51（口径 51）', d.vocab === '51', 'got=' + d.vocab);
+    ok('[index] 累计生词 = /vocabulary/stats.total（按 word 去重）',
+      d.vocab === d.apiVocab, `got=${d.vocab} api=${d.apiVocab}`);
     ok('[index] 未过关错词 = /mistakes/stats.pending', d.mistakes === d.apiPending, `got=${d.mistakes} api=${d.apiPending}`);
     // 2026-09-30 更新：阅读篇数已由占位 `—` 改为接 `/readings/stats.pieceCount`（前端 18749e1）。
     // 旧断言仍期望占位符，属**测试滞后**，此处改为与接口值比对（同 mistakes 的写法），
@@ -68,9 +75,10 @@ async function waitRendered(page, sel, timeout = 8000) {
     ok('[index] 阅读篇数 = /readings/stats.pieceCount 且 title 含「读了 N 天」',
       d.reading === d.apiPieces && new RegExp(`读了 ${d.apiDays} 天`).test(d.readingTitle || ''),
       `got=${d.reading} api=${d.apiPieces} title=${d.readingTitle}`);
-    ok('[index] 课程卡 6 张', d.cardCount === 6, 'got=' + d.cardCount);
+    ok('[index] 课程卡数 = /lessons.total', d.cardCount === Number(d.apiLessonTotal), `cards=${d.cardCount} api=${d.apiLessonTotal}`);
     ok('[index] 课程卡链接指向参数化页 lesson.html?no=', /lessons\/lesson\.html\?no=\d+/.test(d.firstHref || ''), 'href=' + d.firstHref);
-    ok('[index] F6 趋势图 6 根柱 + 目标带 2—4', d.trendCols === 6 && d.hasBand, 'cols=' + d.trendCols + ' band=' + d.hasBand);
+    // 前端写死 `?limit=6`（见 review/index.html:107），故柱数恒为 6，与总课数无关。
+    ok('[index] F6 趋势图 6 根柱（limit=6）+ 目标带 2—4', d.trendCols === 6 && d.hasBand, 'cols=' + d.trendCols + ' band=' + d.hasBand);
     ok('[index] lastRecommendation=null 时「为什么今天学这个」整块不渲染（无空白框）',
       d.whyHTML === '' , 'whyBlock="' + String(d.whyHTML).slice(0, 60) + '"');
     ok('[index] 无错误时横幅 computed display = none', d.errHidden === 'none', 'display=' + d.errHidden);
@@ -84,7 +92,7 @@ async function waitRendered(page, sel, timeout = 8000) {
       return { total: cards.length, none: disp.filter(x => x === 'none').length, shown: disp.filter(x => x !== 'none').length };
     });
     ok('[index] 搜索「was」按 data-text 过滤（有隐藏有显示，隐藏项 display=none）',
-      f.total === 6 && f.none > 0 && f.shown > 0, JSON.stringify(f));
+      f.total === Number(d.apiLessonTotal) && f.none > 0 && f.shown > 0, JSON.stringify(f));
     ok('[index] 无 JS 运行时异常', jsErr.length === 0, jsErr.join(' ; '));
     await page.close();
   }
@@ -97,13 +105,19 @@ async function waitRendered(page, sel, timeout = 8000) {
     await page.goto(SITE + '/words.html', { waitUntil: 'networkidle' });
     await waitRendered(page, '#wordGroups .wcard');
 
-    const d = await page.evaluate(() => {
+    const d = await page.evaluate(async () => {
       const cs = n => getComputedStyle(n).display;
       const first = document.querySelector('#wordGroups .wcard');
       const before = { c: cs(first.querySelector('.c')), e: cs(first.querySelector('.e')) };
       first.click();
       const after = { c: cs(first.querySelector('.c')), e: cs(first.querySelector('.e')) };
+      const vs = await API.get('/vocabulary/stats');
+      const all = await API.getAll('/vocabulary', { size: 50 });
       return {
+        apiVocab: vs.total,
+        apiLetters: Object.keys(vs.byLetter || {}).length,
+        apiDistinct: new Set(all.list.map(v => v.word)).size,
+        apiRows: all.total,
         note: document.getElementById('totalNote').textContent,
         navs: document.querySelectorAll('#letterNav a').length,
         groups: document.querySelectorAll('#wordGroups h2[id^=letter-]').length,
@@ -112,10 +126,15 @@ async function waitRendered(page, sel, timeout = 8000) {
         before, after,
       };
     });
-    ok('[words] 顶部标注口径 51（按单词去重）', /共 51 个词条/.test(d.note), 'note=' + d.note);
-    ok('[words] 字母导航 20 个（= byLetter 键数）', d.navs === 20, 'navs=' + d.navs);
-    ok('[words] 词汇卡 51 张（去重后，非 52）', d.cards === 51, 'cards=' + d.cards);
-    ok('[words] 分组内卡片数合计 = 51，与顶部口径一致', d.sumCounts === 51, 'sum=' + d.sumCounts);
+    // 口径：按 word 全局去重（/vocabulary/stats.total），不是 lesson_vocabulary 关联行数。
+    // 2026-10-01 起与接口比对，不再写死 51/52。
+    ok('[words] 顶部标注口径 = /vocabulary/stats.total（按单词去重）',
+      new RegExp(`共 ${d.apiVocab} 个词条`).test(d.note), `note=${d.note} api=${d.apiVocab}`);
+    ok('[words] 字母导航数 = byLetter 键数', d.navs === d.apiLetters, `navs=${d.navs} api=${d.apiLetters}`);
+    ok('[words] 词汇卡数 = 去重词条数（非 /vocabulary 原始行数）',
+      d.cards === d.apiVocab && d.apiDistinct === d.apiVocab,
+      `cards=${d.cards} distinct=${d.apiDistinct} api=${d.apiVocab} rows=${d.apiRows}`);
+    ok('[words] 分组内卡片数合计 = 顶部口径', d.sumCounts === d.apiVocab, `sum=${d.sumCounts} api=${d.apiVocab}`);
     ok('[words] 点击卡片 .c/.e 由 none 变可见（getComputedStyle）',
       d.before.c === 'none' && d.before.e === 'none' && d.after.c !== 'none' && d.after.e !== 'none',
       JSON.stringify(d.after));

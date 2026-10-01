@@ -429,10 +429,36 @@ def parse_progress_md(root: Path) -> dict:
         return m.group(1).strip() if m else None
 
     current_no = grab(r"当前课号[:：]\s*(\d+)")
+
+    # 逐课级别：progress.md 的「已学完清单」形如 `- 第 7 课（Level 2）规则动词过去式 -ed …`
+    # 这是 Amy 维护的**逐课权威声明**（第 1—3 课是 Level 1，与「当前级别」不同，不可替换）。
+    # lessons.level_code 是 NOT NULL：已存在的课由写库器只更新、无需该值；
+    # 但**首次入库的新课**必须带上，否则写库器会「无法凭空造行」而整课跳过。
+    per_lesson_level = {
+        int(no): f"Level {int(lv)}"
+        for no, lv in re.findall(r"第\s*(\d+)\s*课\s*[（(]\s*Level\s*(\d+)\s*[）)]", text)
+    }
+
+    # 逐课语法点：同一行「第 N 课（Level X）<语法点>（补充说明）」。
+    # lessons.grammar_point 用于课程卡/详情页展示；第 1—6 课的值历史上由 seed 写死，
+    # 首次入库的新课（如第 7 课）若无此值会留 NULL，故在此解析。
+    per_lesson_grammar = {}
+    for line in text.splitlines():
+        m = re.match(r"^\s*-\s*第\s*(\d+)\s*课\s*[（(]\s*Level\s*\d+\s*[）)]\s*(.+?)\s*$", line)
+        if not m:
+            continue
+        no, rest = int(m.group(1)), m.group(2)
+        # 去掉行尾括号补充说明，只留语法点本体
+        rest = re.split(r"[（(]", rest)[0].strip()
+        if rest:
+            per_lesson_grammar[no] = rest
+
     return {
         "levelCode": grab(r"当前级别[:：]\s*(.+?)\s*$"),
         "currentLessonNo": int(current_no) if current_no else None,
         "lastClassDate": grab(r"上次上课[:：]\s*(\d{4}-\d{2}-\d{2})"),
+        "perLessonLevel": per_lesson_level,
+        "perLessonGrammar": per_lesson_grammar,
     }
 
 
@@ -516,6 +542,10 @@ def build_snapshot(root: Path) -> dict:
     error_types, w = parse_exercise_error_types(root)
     warnings += w
 
+    progress = parse_progress_md(root)
+    # 逐课级别优先于「当前级别」：第 1—3 课是 Level 1，用当前级别会全部错标成 Level 2
+    per_lesson_level = progress.get("perLessonLevel") or {}
+
     out_lessons = []
     totals = {"md": 0, "records": 0, "matched": 0, "mdOnly": 0, "recordsOnly": 0}
     for lesson in lessons:
@@ -542,6 +572,8 @@ def build_snapshot(root: Path) -> dict:
         out_lessons.append({
             "lessonNo": lesson["lessonNo"],
             "lessonDate": lesson["lessonDate"],
+            "levelCode": per_lesson_level.get(lesson["lessonNo"]) or progress.get("levelCode"),
+            "grammarPoint": (progress.get("perLessonGrammar") or {}).get(lesson["lessonNo"]),
             "summary": lesson["summary"],
             "sourceFile": lesson["sourceFile"],
             "feedback": FEEDBACK_MAP.get(lesson["feedbackRaw"] or ""),
@@ -590,7 +622,7 @@ def build_snapshot(root: Path) -> dict:
             "progress": "progress.md",
         },
         "degraded": not records,
-        "progress": parse_progress_md(root),
+        "progress": progress,
         "lessons": out_lessons,
         "mistakes": mistakes,
         "readings": readings,

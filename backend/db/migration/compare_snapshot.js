@@ -200,10 +200,19 @@ async function main() {
     `homework ${dbExHw} / backfill ${dbExBf}`,
     '两套题号命名空间，唯一键含 block_kind + block_no'
   );
+  // `verdict=blank`（学生空题）按口径落 is_correct = NULL（见 records/README.md 的 verdict 映射），
+  // 因此「未批改」不能一律判 diff —— 只有**未空题却没判定**的才算缺陷。
+  // 用快照的 blankCount 做基线：未批改数 ≤ blank 数即视为一致。
+  const mdBlank = snap.lessons.reduce(
+    (n, l) => n
+      + (((l.recordsSummary || {}).homework || {}).blankCount || 0)
+      + (((l.recordsSummary || {}).backfill || {}).blankCount || 0),
+    0
+  );
   add(
-    dbExUngraded === 0 ? 'match' : 'diff',
+    dbExUngraded <= mdBlank ? 'match' : 'diff',
     'lesson_exercises 已批改覆盖',
-    '全部有 is_correct',
+    `全部有 is_correct（空题 blank 为 NULL，期望 ${mdBlank} 条）`,
     `未批改 ${dbExUngraded} 条`,
     `答错 ${dbExWrong} 条`
   );

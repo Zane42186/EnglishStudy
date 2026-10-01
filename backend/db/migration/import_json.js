@@ -18,7 +18,10 @@
  *   ⛔ mistakes        —— **不写**：权威是 `wrong-words.md`，库内已一致；
  *                         records 的 mistakeCandidates 与错词本有 8 条同义不同文本，
  *                         按「以错词本为准、不得新建」口径，须 amy 复核后再定
- *   ⛔ vocabulary / lesson_vocabulary —— 不写：库内已一致，只做断言比对
+ *   ✅ vocabulary / lesson_vocabulary —— 幂等补写（2026-10-01 起）：
+ *                        原为「⛔ 不写」，前提是「库内已一致」；第 7 课带进 10 个新词后
+ *                        该前提失效（51 vs 61），不补写会让摘要里新课没有词汇。
+ *                        走 uk_vocab_word / uk_lesson_vocab 幂等；已存在的词只补齐空字段，不覆盖释义。
  *
  * 幂等保证：重复执行不产生新行；`import_json.js` 前后各表的计数与 `mistakes` md5 不变。
  * 安全保证：所有写入都以解析出的 `student_id` 为范围，绝不影响其他学生；
@@ -57,6 +60,10 @@ const LIMITS = { targetPoint: 64, selfCheck: 128, title: 255, levelCode: 16 };
 const stats = {
   lessonDateFilled: 0,
   lessonDateMismatch: 0,
+  lessonsCreated: 0,
+  lessonCountsFilled: 0,
+  grammarPointFilled: 0,
+  vocabLinked: 0,
   sectionsWritten: 0,
   exercisesWritten: 0,
   readingDays: 0,
@@ -65,6 +72,8 @@ const stats = {
   byTypeBackfilled: 0,
   skipped: 0,
 };
+/** 本轮新建的课号（供计数回写识别「新课」，历史课计数按 Amy 裁定保留不动） */
+stats.createdLessonNos = new Set();
 const warnings = [];
 
 // ------------------------------------------------------------------ 工具
@@ -162,8 +171,35 @@ async function syncLessons(executor, studentId, lessons, dates) {
       [studentId, l.lessonNo]
     );
     if (!rows.length) {
-      stats.skipped += 1;
-      warn(`第 ${l.lessonNo} 课在库内不存在，跳过（level_code 为 NOT NULL 且快照无该字段，无法凭空造行）`);
+      // 首次入库的新课（如第 7 课）：快照带了 NOT NULL 必需的 level_code / summary 就直接建行；
+      // 否则维持原行为（跳过 + 告警），绝不凭空造出字段残缺的行。
+      const levelCode = clip(l.levelCode, 10, `第 ${l.lessonNo} 课 level_code`);
+      const summary = clip(l.summary, 255, `第 ${l.lessonNo} 课 summary`);
+      if (!levelCode || !summary) {
+        stats.skipped += 1;
+        warn(`第 ${l.lessonNo} 课在库内不存在，且快照缺 ${!levelCode ? 'level_code' : 'summary'}（NOT NULL），跳过`);
+        continue;
+      }
+      const newRow = dates.get(l.lessonNo);
+      await db.executeOn(
+        executor,
+        `INSERT INTO lessons (student_id, lesson_no, lesson_date, level_code, summary, grammar_point, feedback, source_file)
+         VALUES (?,?,?,?,?,?,?,?)`,
+        [
+          studentId,
+          l.lessonNo,
+          (newRow && newRow.date) || null,
+          levelCode,
+          summary,
+          // 语法点：快照（progress.md「已学知识点」）解析得出；缺失不伪造，留 NULL 由计数回写阶段告警
+          clip(l.grammarPoint, 255, `第 ${l.lessonNo} 课 grammar_point`),
+          asEnum(l.feedback, ['too_easy', 'just_right', 'too_hard'], null, `第 ${l.lessonNo} 课 feedback`),
+          clip(l.sourceFile, 64, `第 ${l.lessonNo} 课 source_file`),
+        ]
+      );
+      stats.lessonsCreated += 1;
+      stats.createdLessonNos.add(l.lessonNo);
+      console.log(`  + 第 ${l.lessonNo} 课入库（level=${levelCode}${newRow && newRow.date ? ` date=${newRow.date}` : ''}）`);
       continue;
     }
     const row = rows[0];
@@ -251,6 +287,123 @@ async function syncExercises(executor, lessonIdByNo, lessons) {
       );
       stats.exercisesWritten += 1;
     }
+  }
+}
+
+async function syncVocabulary(executor, studentId, lessonIdByNo, lessons) {
+  // 说明：早期「⛔ vocabulary 不写」是建立在「库内已一致」的假设上；
+  // 第 7 课把新词带进笔记后该假设失效（51 vs 61），不补写会让摘要里新课没有词汇。
+  // 全部走唯一键幂等：uk_vocab_word (student_id, word) / uk_lesson_vocab (lesson_id, vocabulary_id)。
+  for (const l of lessons) {
+    const lessonId = lessonIdByNo.get(l.lessonNo);
+    if (!lessonId) continue;
+    let idx = 0;
+    for (const v of l.vocabulary || []) {
+      const word = (v.word || '').trim();
+      if (!word) continue;
+      const label = `第 ${l.lessonNo} 课词汇 ${word}`;
+      await db.executeOn(
+        executor,
+        `INSERT INTO vocabulary (student_id, word, phonetic, meaning, example, first_lesson_id)
+         VALUES (?,?,?,?,?,?)
+         ON DUPLICATE KEY UPDATE
+           phonetic = COALESCE(vocabulary.phonetic, VALUES(phonetic)),
+           meaning  = COALESCE(vocabulary.meaning,  VALUES(meaning)),
+           example  = COALESCE(vocabulary.example,  VALUES(example))`,
+        [
+          studentId,
+          clip(word, 64, `${label} word`),
+          clip(v.phonetic, 64, `${label} phonetic`),
+          clip(v.meaning, 255, `${label} meaning`),
+          clip(v.example, 255, `${label} example`),
+          lessonId,
+        ]
+      );
+      const [vrow] = await db.queryOn(
+        executor,
+        'SELECT id, first_lesson_id FROM vocabulary WHERE student_id = ? AND word = ?',
+        [studentId, clip(word, 64, `${label} word`)]
+      );
+      if (!vrow) continue;
+      await db.executeOn(
+        executor,
+        `INSERT INTO lesson_vocabulary (lesson_id, vocabulary_id, example, is_new, order_index)
+         VALUES (?,?,?,?,?)
+         ON DUPLICATE KEY UPDATE
+           example = VALUES(example), is_new = VALUES(is_new), order_index = VALUES(order_index)`,
+        [
+          lessonId,
+          vrow.id,
+          clip(v.example, 255, `${label} example`),
+          String(vrow.first_lesson_id) === String(lessonId) ? 1 : 0,
+          idx,
+        ]
+      );
+      stats.vocabLinked += 1;
+      idx += 1;
+    }
+  }
+}
+
+/**
+ * 回写 lessons 的三项计数（vocab_count / exercise_count / error_count）
+ *
+ * ⚠️ 口径：只写「本轮新建的课」或「三项计数全为 0 的课」——
+ *    第 1—6 课的值是 Amy 手工口径（seed 写死），与子表行数并不吻合
+ *    （例：第 1 课 exercise_count=7 而 lesson_exercises 只有 4 行），
+ *    Amy 已裁定「历史 error_count 保留原值，口径切换点 = 第 7 课」，故绝不覆盖。
+ *
+ * 派生规则（仅用于新课）：
+ *   vocab_count    = lesson_vocabulary 行数
+ *   exercise_count = lesson_exercises 行数（作业 + 补漏块）
+ *   error_count    = recordsSummary.homework.errorCount（**作业口径，不含补漏块**；
+ *                    缺失时回落为 lesson_exercises 中 block_kind='homework' 且 is_correct=0 的行数）
+ */
+async function syncLessonCounts(executor, studentId, lessonIdByNo, lessons) {
+  for (const l of lessons) {
+    const lessonId = lessonIdByNo.get(l.lessonNo);
+    if (!lessonId) continue;
+    const [row] = await db.queryOn(
+      executor,
+      'SELECT vocab_count, exercise_count, error_count, grammar_point FROM lessons WHERE id = ?',
+      [lessonId]
+    );
+    if (!row) continue;
+    // 语法点：只在库内为 NULL 时补（第 1—6 课 seed 写死的值一律不动；
+    // 第 7 课上一轮建行时该字段还没解析出来，此处补齐）
+    if (row.grammar_point == null && l.grammarPoint) {
+      await db.executeOn(executor, 'UPDATE lessons SET grammar_point = ? WHERE id = ?',
+        [clip(l.grammarPoint, 255, `第 ${l.lessonNo} 课 grammar_point`), lessonId]);
+      stats.grammarPointFilled += 1;
+      console.log(`  · 第 ${l.lessonNo} 课补 grammar_point = ${l.grammarPoint}`);
+    }
+    const isNew = stats.createdLessonNos.has(l.lessonNo);
+    const allZero = !row.vocab_count && !row.exercise_count && !row.error_count;
+    if (!isNew && !allZero) continue;
+
+    const [v] = await db.queryOn(
+      executor, 'SELECT COUNT(*) AS n FROM lesson_vocabulary WHERE lesson_id = ?', [lessonId]
+    );
+    const [e] = await db.queryOn(
+      executor, 'SELECT COUNT(*) AS n FROM lesson_exercises WHERE lesson_id = ?', [lessonId]
+    );
+    const hwSummary = (l.recordsSummary || {}).homework || {};
+    let errCount = Number.isFinite(hwSummary.errorCount) ? hwSummary.errorCount : null;
+    if (errCount == null) {
+      const [w] = await db.queryOn(
+        executor,
+        "SELECT COUNT(*) AS n FROM lesson_exercises WHERE lesson_id = ? AND block_kind = 'homework' AND is_correct = 0",
+        [lessonId]
+      );
+      errCount = w.n;
+    }
+    await db.executeOn(
+      executor,
+      'UPDATE lessons SET vocab_count = ?, exercise_count = ?, error_count = ? WHERE id = ?',
+      [v.n, e.n, errCount, lessonId]
+    );
+    stats.lessonCountsFilled += 1;
+    console.log(`  · 第 ${l.lessonNo} 课计数回写：生词 ${v.n} · 作业 ${e.n} · 错误 ${errCount}（${isNew ? '新课' : '原为 0'}）`);
   }
 }
 
@@ -398,6 +551,8 @@ async function main() {
 
     await syncSections(conn, lessonIdByNo, lessons);
     await syncExercises(conn, lessonIdByNo, lessons);
+    await syncVocabulary(conn, student.id, lessonIdByNo, lessons);
+    await syncLessonCounts(conn, student.id, lessonIdByNo, lessons);
     await syncReadings(conn, student.id, readings);
     await syncGradeByType(conn, student.id, lessonIdByNo, lessons);
 
@@ -429,6 +584,7 @@ async function main() {
   console.log(`  lesson_date 补齐 ${stats.lessonDateFilled} · 日期冲突(保留库内) ${stats.lessonDateMismatch}`);
   console.log(`  lesson_sections ${stats.sectionsWritten} · lesson_exercises ${stats.exercisesWritten}`);
   console.log(`  readings ${stats.readingDays} 天 / ${stats.readingPieces} 篇 / ${stats.readingQuestions} 题`);
+  console.log(`  lessons 计数回写 ${stats.lessonCountsFilled} 课（历史课按 Amy 裁定不覆盖）`);
   console.log(`  study_records.byType 回填 ${stats.byTypeBackfilled} 课 · 跳过 ${stats.skipped}`);
   console.log('');
   console.log('计数对比：');
