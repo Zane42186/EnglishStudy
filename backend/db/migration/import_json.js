@@ -9,6 +9,9 @@
  *         前端与 Amy 不再需要读 md 散文。
  *
  * 写什么 / 不写什么
+ *   ⏭️ lesson_no>=8   —— **整课跳过**：写路径已切到 `POST/PUT /api/lessons`
+ *                         （2026-10-01 负责人拍板，见下方 WRITE_API_FROM_LESSON_NO），
+ *                         本脚本退化为历史回填，绝不与 API 双写同一批表
  *   ✅ lessons         —— 只补 `lesson_date IS NULL` 的行（含「同日沿用当日日期」规则），
  *                         绝不覆盖既有 `error_count` 等历史值（口径见 04-migration §五之三）
  *   ✅ lesson_sections —— 按 (lesson_id, section_type) upsert，补齐 md 原文小节
@@ -43,17 +46,30 @@ const db = require('../../src/config/db');
 // 正文渲染与词数统计**复用 API 侧同一实现**：read/*.md 回填与 POST /api/readings 写入
 // 必须产出完全一致的 body_md，否则 GET /api/readings/:date 会因来源不同而形状漂移。
 const { renderBodyMd, countWords } = require('../../src/services/reading.service');
+// 词汇落库同样与写接口共用（见 syncVocabulary）。
+const lessonRepository = require('../../src/repositories/lesson.repository');
+// 枚举白名单**只从 src/constants.js 取**（唯一来源，与 schema.sql 的 ENUM 同源）。
+// 原先本文件内联了 4 份局部数组，与 constants 各存一份 —— 改枚举时极易只改一处而漂移。
+const {
+  EXERCISE_TYPE: EXERCISE_TYPES,
+  ERROR_TYPE: ERROR_TYPES,
+  EXERCISE_BLOCK_KIND: BLOCK_KINDS,
+  SECTION_TYPE: SECTION_TYPES,
+} = require('../../src/constants');
 
 const DEFAULT_SNAPSHOT = path.join(__dirname, '_snapshot.json');
 
-/** 与 schema.sql / constants.js 同源的枚举白名单，防止脏值进库被 MySQL 静默截断 */
-const EXERCISE_TYPES = ['fill_blank', 'translate', 'error_correction', 'reorder', 'open', 'choice'];
-const ERROR_TYPES = ['grammar', 'spelling', 'punctuation', 'word_choice', 'capitalization', 'other'];
-const BLOCK_KINDS = ['homework', 'backfill'];
-const SECTION_TYPES = [
-  'review', 'grammar', 'vocab_table', 'examples', 'homework', 'my_answer',
-  'grading', 'feedback', 'objectives', 'expected_mistakes', 'backfill',
-];
+/**
+ * 写路径切换点（2026-10-01 负责人拍板，见 `docs/skills.md` §7.2）：
+ * **第 8 课起改由 `POST/PUT /api/lessons` 归档**，本脚本退化为「历史回填 + 只读校验」。
+ *
+ * 故本脚本**跳过 `lesson_no >= 8`** —— 否则会与 API 路径**双写同一批表**
+ * （`lessons` / `lesson_sections` / `lesson_exercises`），且万一写坏会覆盖 Skill 的归档结果。
+ * 这是「零 DDL 守卫」：不新增 `lessons.write_source` 列即可区分两条写路径，
+ * 因为 `lessons.status` 两条路径取同一个值（实测 1—7 课均为 `taught`），不足以区分。
+ */
+const WRITE_API_FROM_LESSON_NO = 8;
+
 /** 各列上限（严格模式下超长会直接报错，故先截断并告警，避免整批回滚） */
 const LIMITS = { targetPoint: 64, selfCheck: 128, title: 255, levelCode: 16 };
 
@@ -71,6 +87,7 @@ const stats = {
   readingQuestions: 0,
   byTypeBackfilled: 0,
   skipped: 0,
+  skippedByApi: 0,
 };
 /** 本轮新建的课号（供计数回写识别「新课」，历史课计数按 Amy 裁定保留不动） */
 stats.createdLessonNos = new Set();
@@ -293,7 +310,9 @@ async function syncExercises(executor, lessonIdByNo, lessons) {
 async function syncVocabulary(executor, studentId, lessonIdByNo, lessons) {
   // 说明：早期「⛔ vocabulary 不写」是建立在「库内已一致」的假设上；
   // 第 7 课把新词带进笔记后该假设失效（51 vs 61），不补写会让摘要里新课没有词汇。
-  // 全部走唯一键幂等：uk_vocab_word (student_id, word) / uk_lesson_vocab (lesson_id, vocabulary_id)。
+  // 落库语句**与写接口共用** `lessonRepository.upsertVocabularyEntry`
+  // （走 uk_vocab_word / uk_lesson_vocab 双唯一键幂等）—— 两条路径必须产出同样的
+  // first_lesson_id / is_new / 例句，否则同一批数据会因来源不同而形状漂移。
   for (const l of lessons) {
     const lessonId = lessonIdByNo.get(l.lessonNo);
     if (!lessonId) continue;
@@ -302,43 +321,19 @@ async function syncVocabulary(executor, studentId, lessonIdByNo, lessons) {
       const word = (v.word || '').trim();
       if (!word) continue;
       const label = `第 ${l.lessonNo} 课词汇 ${word}`;
-      await db.executeOn(
+      const vocabId = await lessonRepository.upsertVocabularyEntry(
         executor,
-        `INSERT INTO vocabulary (student_id, word, phonetic, meaning, example, first_lesson_id)
-         VALUES (?,?,?,?,?,?)
-         ON DUPLICATE KEY UPDATE
-           phonetic = COALESCE(vocabulary.phonetic, VALUES(phonetic)),
-           meaning  = COALESCE(vocabulary.meaning,  VALUES(meaning)),
-           example  = COALESCE(vocabulary.example,  VALUES(example))`,
-        [
-          studentId,
-          clip(word, 64, `${label} word`),
-          clip(v.phonetic, 64, `${label} phonetic`),
-          clip(v.meaning, 255, `${label} meaning`),
-          clip(v.example, 255, `${label} example`),
-          lessonId,
-        ]
+        studentId,
+        lessonId,
+        {
+          word: clip(word, 64, `${label} word`),
+          phonetic: clip(v.phonetic, 64, `${label} phonetic`),
+          meaning: clip(v.meaning, 255, `${label} meaning`),
+          example: clip(v.example, 255, `${label} example`),
+        },
+        idx
       );
-      const [vrow] = await db.queryOn(
-        executor,
-        'SELECT id, first_lesson_id FROM vocabulary WHERE student_id = ? AND word = ?',
-        [studentId, clip(word, 64, `${label} word`)]
-      );
-      if (!vrow) continue;
-      await db.executeOn(
-        executor,
-        `INSERT INTO lesson_vocabulary (lesson_id, vocabulary_id, example, is_new, order_index)
-         VALUES (?,?,?,?,?)
-         ON DUPLICATE KEY UPDATE
-           example = VALUES(example), is_new = VALUES(is_new), order_index = VALUES(order_index)`,
-        [
-          lessonId,
-          vrow.id,
-          clip(v.example, 255, `${label} example`),
-          String(vrow.first_lesson_id) === String(lessonId) ? 1 : 0,
-          idx,
-        ]
-      );
+      if (!vocabId) continue;
       stats.vocabLinked += 1;
       idx += 1;
     }
@@ -528,12 +523,20 @@ async function main() {
     );
   }
   const snapshot = JSON.parse(fs.readFileSync(args.snapshot, 'utf8'));
-  const lessons = snapshot.lessons || [];
+  const allLessons = snapshot.lessons || [];
+  // 写路径守卫（见文件头 WRITE_API_FROM_LESSON_NO）：第 8 课起改由 API 归档，本脚本跳过。
+  const lessons = allLessons.filter((l) => Number(l.lessonNo) < WRITE_API_FROM_LESSON_NO);
+  const viaApi = allLessons.filter((l) => Number(l.lessonNo) >= WRITE_API_FROM_LESSON_NO);
+  stats.skippedByApi = viaApi.length;
   const readings = snapshot.readings || [];
   const dates = resolveLessonDates(lessons);
 
   console.log(`快照：${args.snapshot}`);
   console.log(`来源：notes=${(snapshot.generatedFrom || {}).notes} records=${((snapshot.generatedFrom || {}).records || []).length} 个`);
+  console.log(`写路径切换点：第 ${WRITE_API_FROM_LESSON_NO} 课 —— 本脚本只回填 lesson_no < ${WRITE_API_FROM_LESSON_NO}`);
+  for (const l of viaApi) {
+    warn(`第 ${l.lessonNo} 课 >= ${WRITE_API_FROM_LESSON_NO}：写路径已切到 API（POST/PUT /api/lessons），本脚本跳过，不写库`);
+  }
   if (args.dryRun) console.log('模式：--dry-run（结束时整体回滚，只报告不改库）');
   console.log('');
 
@@ -585,7 +588,7 @@ async function main() {
   console.log(`  lesson_sections ${stats.sectionsWritten} · lesson_exercises ${stats.exercisesWritten}`);
   console.log(`  readings ${stats.readingDays} 天 / ${stats.readingPieces} 篇 / ${stats.readingQuestions} 题`);
   console.log(`  lessons 计数回写 ${stats.lessonCountsFilled} 课（历史课按 Amy 裁定不覆盖）`);
-  console.log(`  study_records.byType 回填 ${stats.byTypeBackfilled} 课 · 跳过 ${stats.skipped}`);
+  console.log(`  study_records.byType 回填 ${stats.byTypeBackfilled} 课 · 跳过 ${stats.skipped} · 写路径已切 API 跳过 ${stats.skippedByApi}`);
   console.log('');
   console.log('计数对比：');
   const keys = ['lessons', 'sections', 'exercises', 'readings', 'pieces', 'questions', 'mistakes'];
@@ -603,7 +606,7 @@ async function main() {
   if (args.dryRun) {
     console.log(`M2_IMPORT_DRYRUN lessons=${lessons.length} exercises=${stats.exercisesWritten} readings=${readings.length}(pieces=${pieces}) warnings=${warnings.length}`);
   } else {
-    console.log(`M2_IMPORT_OK lessons=${lessons.length} sections=${stats.sectionsWritten} exercises=${stats.exercisesWritten} readings=${stats.readingDays}(pieces=${stats.readingPieces},questions=${stats.readingQuestions}) byType=${stats.byTypeBackfilled} warnings=${warnings.length}`);
+    console.log(`M2_IMPORT_OK lessons=${lessons.length} sections=${stats.sectionsWritten} exercises=${stats.exercisesWritten} readings=${stats.readingDays}(pieces=${stats.readingPieces},questions=${stats.readingQuestions}) byType=${stats.byTypeBackfilled} warnings=${warnings.length} skippedByApi=${stats.skippedByApi}`);
   }
 }
 
