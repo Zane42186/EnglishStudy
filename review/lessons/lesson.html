@@ -1,179 +1,240 @@
-<!DOCTYPE html><html lang="zh-CN"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>课程详情</title>
-<link rel="stylesheet" href="../assets/board.css">
-<style>
-/* 本页特有：可折叠小节 + 缺失占位 */
-.sec details { margin: 0; }
-.sec summary { cursor: pointer; list-style: none; }
-.sec summary::-webkit-details-marker { display: none; }
-.sec summary h4 { display: inline-block; margin: 0; }
-.sec summary::before { content: "\25B8 "; color: #88877f; font-size: 12px; }
-.sec details[open] summary::before { content: "\25BE "; }
-.sec .secbody { margin-top: 6px; }
-.sec.missing { border-style: dashed; background: #fbfbf9; }
-.sec.missing .secbody { color: #88877f; font-size: 13px; margin: 6px 0 0; }
-.lesson-head .meta { color: #6b6b66; font-size: 12px; margin: 4px 0 8px; }
-.lesson-head .gp { color: #3d3d38; font-size: 14px; margin: 4px 0 8px; }
-.selfcheck li { margin: 2px 0; }
-.sec-tools { margin: 10px 0 6px; }
-</style>
-</head><body><div class="wrap">
-<h1 id="ltitle">课程详情</h1>
-<p><a class="plain" href="../index.html">← 返回看板</a></p>
-<div id="apiError" class="api-error hide"><span id="apiErrorMsg"></span><button id="apiRetry" type="button">重试</button></div>
-<div id="lessonBody"><p class="state loading">正在加载课程…</p></div>
-<footer>提示：小节正文以库内数据为准；标注「未入库」的小节表示该小节正文尚未进入数据库。</footer>
-</div>
+<!DOCTYPE html>
+<html lang="zh-CN">
 
-<script src="../assets/api.js"></script>
-<script src="../assets/ui.js"></script>
-<script>
-/* 课程详情 · 参数化（?no=N）
- * 映射：lessonNo → id 由 API.lessonIndex()（优先 /lessons/all，失败回退分页全量）建立
- * 详情：GET /api/lessons/:id（sections[] + vocabulary[]）
- * 折叠（Amy 裁定）：桌面默认展开 语法/例句/作业/批改，其余折叠；移动端只默认展开 批改。
- *                   支持一键全展开/全折叠 + URL 深链（?open=all 或 #sec-<type>）。
- * F4-a：只读「提交前自查清单」，数据期望 exercises[].selfCheck —— 后端当前未返回（缺口），先占位。
- * F10：expectedMistakes 按 Amy 裁定不展示，也不留不可见占位。 */
-(function () {
-  'use strict';
-  var el = UI.el;
-  UI.onRetry(loadAll);
-
-  function param(name) {
-    var m = new RegExp('[?&]' + name + '=([^&]+)').exec(location.search);
-    return m ? decodeURIComponent(m[1]) : null;
-  }
-
-  var ORDER = ['review', 'grammar', 'vocab_table', 'examples', 'homework', 'my_answer', 'grading', 'feedback'];
-  var DEFAULT_OPEN = ['grammar', 'examples', 'homework', 'grading'];   // 桌面默认展开
-  var HIDDEN_TYPES = ['expected_mistakes'];                            // Amy：不展示
-  var NO = param('no');
-  var isMobile = !!(window.matchMedia && window.matchMedia('(max-width: 720px)').matches);
-
-  function shouldOpen(type) {
-    if (param('open') === 'all') { return true; }
-    if (location.hash === '#sec-' + type) { return true; }
-    if (isMobile) { return type === 'grading'; }
-    return DEFAULT_OPEN.indexOf(type) !== -1;
-  }
-
-  function fail(text) {
-    el('lessonBody').innerHTML = UI.stateHTML('empty', text);
-    el('ltitle').textContent = '课程详情';
-  }
-
-  /* 单个可折叠小节 */
-  function block(type, bodyHTML, missing) {
-    var open = shouldOpen(type);
-    return '<section class="card sec' + (missing ? ' missing' : '') + '" data-type="' + UI.esc(type) + '" id="sec-' + UI.esc(type) + '">'
-      + '<details' + (open ? ' open' : '') + '>'
-      + '<summary><h4>' + UI.esc(UI.label('sectionType', type)) + '</h4></summary>'
-      + '<div class="secbody">' + bodyHTML + '</div>'
-      + '</details></section>';
-  }
-
-  /* 8 个小节按契约顺序渲染；库里缺失的显式标注并给静态版入口，绝不静默少给 */
-  function renderSections(lesson) {
-    var byType = {};
-    (lesson.sections || []).forEach(function (s) { byType[s.sectionType] = s; });
-    var known = ORDER.filter(function (t) { return HIDDEN_TYPES.indexOf(t) === -1; }).map(function (t) {
-      if (byType[t]) { return block(t, UI.renderMarkdown(byType[t].content), false); }
-      return block(t, '该小节正文未入库（后端缺口 G-2）。'
-        + '<a class="plain" href="lesson-' + lesson.lessonNo + '.html">查看静态版全文</a>', true);
-    });
-    // 未列出的新增 sectionType 也照常渲染（排除 Amy 裁定不展示的），避免前端硬编码把新类型吃掉
-    var extra = (lesson.sections || []).filter(function (s) {
-      return ORDER.indexOf(s.sectionType) === -1 && HIDDEN_TYPES.indexOf(s.sectionType) === -1;
-    }).map(function (s) { return block(s.sectionType, UI.renderMarkdown(s.content), false); });
-    return '<div class="sec-tools"><button class="btn" type="button" id="toggleAll">全部展开</button></div>'
-      + known.concat(extra).join('');
-  }
-
-  function renderVocab(list) {
-    if (!list || !list.length) { return '<p class="state">本课暂无词汇记录</p>'; }
-    return '<table><thead><tr><th>单词</th><th>音标</th><th>中文</th><th>例句</th></tr></thead><tbody>'
-      + list.map(function (v) {
-        return '<tr><td>' + UI.esc(v.word) + (v.isNew ? ' <span class="tag">新</span>' : '') + '</td>'
-          + '<td>' + UI.esc(v.phonetic || '') + '</td><td>' + UI.esc(v.meaning || '') + '</td>'
-          + '<td>' + UI.esc(v.example || '') + '</td></tr>';
-      }).join('') + '</tbody></table>';
-  }
-
-  /* F4-a：只读自查清单（数据源 exercises[].selfCheck，后端暂无 → 占位） */
-  function renderSelfCheck(lesson) {
-    var checks = [];
-    if (lesson.exercises && lesson.exercises.length) {
-      lesson.exercises.forEach(function (e) { if (e.selfCheck) { checks.push(e.selfCheck); } });
-    } else if (lesson.selfChecks && lesson.selfChecks.length) {
-      checks = lesson.selfChecks;
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>课程详情</title>
+  <link rel="stylesheet" href="../assets/board.css">
+  <style>
+    /* 本页特有：可折叠小节 + 缺失占位 */
+    .sec details {
+      margin: 0;
     }
-    var body = checks.length
-      ? '<ul class="selfcheck">' + checks.map(function (c) { return '<li>' + UI.esc(c) + '</li>'; }).join('') + '</ul>'
-      : '自查清单数据未入库（后端缺口：GET /api/lessons/:id 未返回 exercises[].selfCheck）。'
-        + '<a class="plain" href="lesson-' + lesson.lessonNo + '.html">查看静态版全文</a>';
-    return '<h2>提交前自查清单</h2>' + block('selfcheck', body, !checks.length);
-  }
 
-  function renderLesson(lesson) {
-    el('ltitle').textContent = '第 ' + lesson.lessonNo + ' 课 · ' + (lesson.lessonDate || '');
-    document.title = '第 ' + lesson.lessonNo + ' 课';
-    var head = '<p class="sub">' + UI.esc(lesson.summary || '') + '</p>'
-      + '<p class="gp">语法点：' + UI.esc(lesson.grammarPoint || '—') + '</p>'
-      + '<p class="meta">级别 ' + UI.esc(lesson.level || '—')
-      + '　生词 ' + (lesson.vocabCount || 0) + ' 个　作业 ' + (lesson.exerciseCount || 0)
-      + ' 项　错误 ' + (lesson.errorCount || 0) + ' 处</p>';
-    el('lessonBody').innerHTML = head + renderSelfCheck(lesson) + renderSections(lesson)
-      + '<h2>本课词汇<span class="count">' + (lesson.vocabCount || (lesson.vocabulary || []).length) + ' 个</span></h2>'
-      + renderVocab(lesson.vocabulary);
-    bindTools();
-    var hash = /^#sec-(.+)$/.exec(location.hash);
-    if (hash) {
-      var target = document.getElementById('sec-' + hash[1]);
-      if (target) { target.scrollIntoView(); }
+    .sec summary {
+      cursor: pointer;
+      list-style: none;
     }
-  }
 
-  /* 一键全展开 / 全折叠 */
-  function bindTools() {
-    var btn = el('toggleAll');
-    if (!btn) { return; }
-    btn.addEventListener('click', function () {
-      var all = document.querySelectorAll('#lessonBody details');
-      var anyClosed = false;
-      Array.prototype.forEach.call(all, function (d) { if (!d.open) { anyClosed = true; } });
-      Array.prototype.forEach.call(all, function (d) { d.open = anyClosed; });
-      btn.textContent = anyClosed ? '全部折叠' : '全部展开';
-    });
-  }
+    .sec summary::-webkit-details-marker {
+      display: none;
+    }
 
-  function loadAll() {
-    UI.clearError();
-    if (!NO) { fail('缺少课号参数（正确用法：lesson.html?no=6）'); return Promise.resolve(); }
-    el('lessonBody').innerHTML = UI.stateHTML('loading', '正在加载课程…');
-    // lessonNo → id 映射：优先 /lessons/all，失败回退分页全量（API.lessonIndex 内部处理）
-    return API.lessonIndex().then(function (d) {
-      var hit = null;
-      for (var i = 0; i < d.list.length; i++) {
-        if (String(d.list[i].lessonNo) === String(NO)) { hit = d.list[i]; break; }
+    .sec summary h4 {
+      display: inline-block;
+      margin: 0;
+    }
+
+    .sec summary::before {
+      content: "\25B8 ";
+      color: #88877f;
+      font-size: 12px;
+    }
+
+    .sec details[open] summary::before {
+      content: "\25BE ";
+    }
+
+    .sec .secbody {
+      margin-top: 6px;
+    }
+
+    .sec.missing {
+      border-style: dashed;
+      background: #fbfbf9;
+    }
+
+    .sec.missing .secbody {
+      color: #88877f;
+      font-size: 13px;
+      margin: 6px 0 0;
+    }
+
+    .lesson-head .meta {
+      color: #6b6b66;
+      font-size: 12px;
+      margin: 4px 0 8px;
+    }
+
+    .lesson-head .gp {
+      color: #3d3d38;
+      font-size: 14px;
+      margin: 4px 0 8px;
+    }
+
+    .selfcheck li {
+      margin: 2px 0;
+    }
+
+    .sec-tools {
+      margin: 10px 0 6px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1 id="ltitle">课程详情</h1>
+    <p><a class="plain" href="../index.html">← 返回看板</a></p>
+    <div id="apiError" class="api-error hide"><span id="apiErrorMsg"></span><button id="apiRetry"
+        type="button">重试</button></div>
+    <div id="lessonBody">
+      <p class="state loading">正在加载课程…</p>
+    </div>
+    <footer>提示：小节正文以库内数据为准；标注「未入库」的小节表示该小节正文尚未进入数据库。</footer>
+  </div>
+
+  <script src="../assets/api.js"></script>
+  <script src="../assets/ui.js"></script>
+  <script>
+    /* 课程详情 · 参数化（?no=N）
+     * 映射：lessonNo → id 由 API.lessonIndex()（优先 /lessons/all，失败回退分页全量）建立
+     * 详情：GET /api/lessons/:id（sections[] + vocabulary[]）
+     * 折叠（Amy 裁定）：桌面默认展开 语法/例句/作业/批改，其余折叠；移动端只默认展开 批改。
+     *                   支持一键全展开/全折叠 + URL 深链（?open=all 或 #sec-<type>）。
+     * F4-a：只读「提交前自查清单」，数据期望 exercises[].selfCheck —— 后端当前未返回（缺口），先占位。
+     * F10：expectedMistakes 按 Amy 裁定不展示，也不留不可见占位。 */
+    (function () {
+      'use strict';
+      var el = UI.el;
+      UI.onRetry(loadAll);
+
+      function param(name) {
+        var m = new RegExp('[?&]' + name + '=([^&]+)').exec(location.search);
+        return m ? decodeURIComponent(m[1]) : null;
       }
-      if (!hit) { fail('没有第 ' + NO + ' 课的记录（库内共 ' + d.total + ' 课）'); return; }
-      // 同时拉练习明细：F4-a 的自查项期望来自 exercises[].selfCheck（该字段后端尚未落库，
-      // 一旦补上即自动生效；此刻返回空 list，走占位，不伪造）
-      return Promise.all([
-        API.get('/lessons/' + hit.id),
-        API.get('/lessons/' + hit.id + '/exercises').catch(function () { return null; })
-      ]).then(function (r) {
-        var lesson = r[0];
-        var ex = r[1] && r[1].list ? r[1].list : [];
-        if (ex.length) { lesson.exercises = ex; }
-        renderLesson(lesson);
-      });
-    }).catch(function (e) { UI.partError('课程详情', e); });
-  }
 
-  loadAll();
-})();
-</script>
-</body></html>
+      var ORDER = ['review', 'grammar', 'vocab_table', 'examples', 'homework', 'my_answer', 'grading', 'feedback'];
+      var DEFAULT_OPEN = ['grammar', 'examples', 'homework', 'grading'];   // 桌面默认展开
+      var HIDDEN_TYPES = ['expected_mistakes'];                            // Amy：不展示
+      var NO = param('no');
+      var isMobile = !!(window.matchMedia && window.matchMedia('(max-width: 720px)').matches);
+
+      function shouldOpen(type) {
+        if (param('open') === 'all') { return true; }
+        if (location.hash === '#sec-' + type) { return true; }
+        if (isMobile) { return type === 'grading'; }
+        return DEFAULT_OPEN.indexOf(type) !== -1;
+      }
+
+      function fail(text) {
+        el('lessonBody').innerHTML = UI.stateHTML('empty', text);
+        el('ltitle').textContent = '课程详情';
+      }
+
+      /* 单个可折叠小节 */
+      function block(type, bodyHTML, missing) {
+        var open = shouldOpen(type);
+        return '<section class="card sec' + (missing ? ' missing' : '') + '" data-type="' + UI.esc(type) + '" id="sec-' + UI.esc(type) + '">'
+          + '<details' + (open ? ' open' : '') + '>'
+          + '<summary><h4>' + UI.esc(UI.label('sectionType', type)) + '</h4></summary>'
+          + '<div class="secbody">' + bodyHTML + '</div>'
+          + '</details></section>';
+      }
+
+      /* 8 个小节按契约顺序渲染；库里缺失的显式标注并给静态版入口，绝不静默少给 */
+      function renderSections(lesson) {
+        var byType = {};
+        (lesson.sections || []).forEach(function (s) { byType[s.sectionType] = s; });
+        var known = ORDER.filter(function (t) { return HIDDEN_TYPES.indexOf(t) === -1; }).map(function (t) {
+          if (byType[t]) { return block(t, UI.renderMarkdown(byType[t].content), false); }
+          return block(t, '该小节正文未入库（后端缺口 G-2）。'
+            + '<a class="plain" href="lesson-' + lesson.lessonNo + '.html">查看静态版全文</a>', true);
+        });
+        // 未列出的新增 sectionType 也照常渲染（排除 Amy 裁定不展示的），避免前端硬编码把新类型吃掉
+        var extra = (lesson.sections || []).filter(function (s) {
+          return ORDER.indexOf(s.sectionType) === -1 && HIDDEN_TYPES.indexOf(s.sectionType) === -1;
+        }).map(function (s) { return block(s.sectionType, UI.renderMarkdown(s.content), false); });
+        return '<div class="sec-tools"><button class="btn" type="button" id="toggleAll">全部展开</button></div>'
+          + known.concat(extra).join('');
+      }
+
+      function renderVocab(list) {
+        if (!list || !list.length) { return '<p class="state">本课暂无词汇记录</p>'; }
+        return '<table><thead><tr><th>单词</th><th>音标</th><th>中文</th><th>例句</th></tr></thead><tbody>'
+          + list.map(function (v) {
+            return '<tr><td>' + UI.esc(v.word) + (v.isNew ? ' <span class="tag">新</span>' : '') + '</td>'
+              + '<td>' + UI.esc(v.phonetic || '') + '</td><td>' + UI.esc(v.meaning || '') + '</td>'
+              + '<td>' + UI.esc(v.example || '') + '</td></tr>';
+          }).join('') + '</tbody></table>';
+      }
+
+      /* F4-a：只读自查清单（数据源 exercises[].selfCheck，后端暂无 → 占位） */
+      function renderSelfCheck(lesson) {
+        var checks = [];
+        if (lesson.exercises && lesson.exercises.length) {
+          lesson.exercises.forEach(function (e) { if (e.selfCheck) { checks.push(e.selfCheck); } });
+        } else if (lesson.selfChecks && lesson.selfChecks.length) {
+          checks = lesson.selfChecks;
+        }
+        var body = checks.length
+          ? '<ul class="selfcheck">' + checks.map(function (c) { return '<li>' + UI.esc(c) + '</li>'; }).join('') + '</ul>'
+          : '自查清单数据未入库（后端缺口：GET /api/lessons/:id 未返回 exercises[].selfCheck）。'
+          + '<a class="plain" href="lesson-' + lesson.lessonNo + '.html">查看静态版全文</a>';
+        return '<h2>提交前自查清单</h2>' + block('selfcheck', body, !checks.length);
+      }
+
+      function renderLesson(lesson) {
+        el('ltitle').textContent = '第 ' + lesson.lessonNo + ' 课 · ' + (lesson.lessonDate || '');
+        document.title = '第 ' + lesson.lessonNo + ' 课';
+        var head = '<p class="sub">' + UI.esc(lesson.summary || '') + '</p>'
+          + '<p class="gp">语法点：' + UI.esc(lesson.grammarPoint || '—') + '</p>'
+          + '<p class="meta">级别 ' + UI.esc(lesson.level || '—')
+          + '　生词 ' + (lesson.vocabCount || 0) + ' 个　作业 ' + (lesson.exerciseCount || 0)
+          + ' 项　错误 ' + (lesson.errorCount || 0) + ' 处</p>';
+        el('lessonBody').innerHTML = head + renderSelfCheck(lesson) + renderSections(lesson)
+          + '<h2>本课词汇<span class="count">' + (lesson.vocabCount || (lesson.vocabulary || []).length) + ' 个</span></h2>'
+          + renderVocab(lesson.vocabulary);
+        bindTools();
+        var hash = /^#sec-(.+)$/.exec(location.hash);
+        if (hash) {
+          var target = document.getElementById('sec-' + hash[1]);
+          if (target) { target.scrollIntoView(); }
+        }
+      }
+
+      /* 一键全展开 / 全折叠 */
+      function bindTools() {
+        var btn = el('toggleAll');
+        if (!btn) { return; }
+        btn.addEventListener('click', function () {
+          var all = document.querySelectorAll('#lessonBody details');
+          var anyClosed = false;
+          Array.prototype.forEach.call(all, function (d) { if (!d.open) { anyClosed = true; } });
+          Array.prototype.forEach.call(all, function (d) { d.open = anyClosed; });
+          btn.textContent = anyClosed ? '全部折叠' : '全部展开';
+        });
+      }
+
+      function loadAll() {
+        UI.clearError();
+        if (!NO) { fail('缺少课号参数（正确用法：lesson.html?no=6）'); return Promise.resolve(); }
+        el('lessonBody').innerHTML = UI.stateHTML('loading', '正在加载课程…');
+        // lessonNo → id 映射：优先 /lessons/all，失败回退分页全量（API.lessonIndex 内部处理）
+        return API.lessonIndex().then(function (d) {
+          var hit = null;
+          for (var i = 0; i < d.list.length; i++) {
+            if (String(d.list[i].lessonNo) === String(NO)) { hit = d.list[i]; break; }
+          }
+          if (!hit) { fail('没有第 ' + NO + ' 课的记录（库内共 ' + d.total + ' 课）'); return; }
+          // 同时拉练习明细：F4-a 的自查项期望来自 exercises[].selfCheck（该字段后端尚未落库，
+          // 一旦补上即自动生效；此刻返回空 list，走占位，不伪造）
+          return Promise.all([
+            API.get('/lessons/' + hit.id),
+            API.get('/lessons/' + hit.id + '/exercises').catch(function () { return null; })
+          ]).then(function (r) {
+            var lesson = r[0];
+            var ex = r[1] && r[1].list ? r[1].list : [];
+            if (ex.length) { lesson.exercises = ex; }
+            renderLesson(lesson);
+          });
+        }).catch(function (e) { UI.partError('课程详情', e); });
+      }
+
+      loadAll();
+    })();
+  </script>
+</body>
+
+</html>

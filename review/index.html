@@ -1,131 +1,145 @@
-<!DOCTYPE html><html lang="zh-CN"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>英语复习看板</title>
-<link rel="stylesheet" href="assets/board.css">
-</head><body><div class="wrap">
-<h1>英语复习看板</h1>
-<p class="sub">数据由后端 API（localhost:4000）实时加载。首页只放总结，正文、阅读、词汇都在各自页面。</p>
+<!DOCTYPE html>
+<html lang="zh-CN">
 
-<div id="apiError" class="api-error hide"><span id="apiErrorMsg"></span><button id="apiRetry" type="button">重试</button></div>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>英语复习看板</title>
+  <link rel="stylesheet" href="assets/board.css">
+</head>
 
-<div class="stats">
-<div class="stat"><b id="statLessons" class="pending">…</b><span>已上课数</span></div>
-<div class="stat"><b id="statLevel" class="pending">…</b><span>当前级别</span></div>
-<div class="stat"><b id="statVocab" class="pending">…</b><span>累计生词</span></div>
-<div class="stat"><b id="statReading" class="pending">…</b><span>阅读篇数</span></div>
-<div class="stat"><b id="statMistakes" class="pending">…</b><span>未过关错词</span></div>
-</div>
+<body>
+  <div class="wrap">
+    <h1>英语复习看板</h1>
+    <p class="sub">数据由后端 API（localhost:4000）实时加载。首页只放总结，正文、阅读、词汇都在各自页面。</p>
 
-<div class="entries">
-<a class="entry" href="reading.html"><b>阅读</b><span>按天查看，点击看中文</span></a>
-<a class="entry" href="words.html"><b>词汇卡</b><span>点击翻中文与例句</span></a>
-<a class="entry" href="wrong.html"><b>错词本</b><span>已过关与待复习</span></a>
-</div>
+    <div id="apiError" class="api-error hide"><span id="apiErrorMsg"></span><button id="apiRetry"
+        type="button">重试</button></div>
 
-<div id="whyBlock"></div>
+    <div class="stats">
+      <div class="stat"><b id="statLessons" class="pending">…</b><span>已上课数</span></div>
+      <div class="stat"><b id="statLevel" class="pending">…</b><span>当前级别</span></div>
+      <div class="stat"><b id="statVocab" class="pending">…</b><span>累计生词</span></div>
+      <div class="stat"><b id="statReading" class="pending">…</b><span>阅读篇数</span></div>
+      <div class="stat"><b id="statMistakes" class="pending">…</b><span>未过关错词</span></div>
+    </div>
 
-<h2>近 6 课错误趋势<span class="count">错误处数，目标带 2—4</span></h2>
-<div id="trendBox"><p class="state loading">正在加载趋势…</p></div>
+    <div class="entries">
+      <a class="entry" href="reading.html"><b>阅读</b><span>按天查看，点击看中文</span></a>
+      <a class="entry" href="words.html"><b>词汇卡</b><span>点击翻中文与例句</span></a>
+      <a class="entry" href="wrong.html"><b>错词本</b><span>已过关与待复习</span></a>
+    </div>
 
-<h2>课程<span class="count" id="lessonCount"></span></h2>
-<input id="q" placeholder="搜索课程总结与语法点，输入关键词即时过滤">
-<div id="lessonList"><p class="state loading">正在加载课程…</p></div>
-<footer>提示：先看总结回想，再点「查看全文」核对。</footer>
-</div>
+    <div id="whyBlock"></div>
 
-<script src="assets/api.js"></script>
-<script src="assets/ui.js"></script>
-<script>
-/* 首页 · API 驱动
- * 统计：/lessons（取 total）、/progress、/vocabulary/stats、/mistakes/stats、/readings/stats（R1）
- * 趋势：/lessons/error-trend?limit=6（Amy F6）
- * 课程：/lessons/all（含 grammarPoint，API.lessonIndex 优先用它、失败回退分页全量）
- * 建议：/agent/snapshot 的 lastRecommendation（Amy：替代 progress.note 原文；无数据不显示） */
-(function () {
-  'use strict';
-  var el = UI.el;
-  UI.onRetry(loadAll);
-  var applyFilter = function () {};
+    <h2>近 6 课错误趋势<span class="count">错误处数，目标带 2—4</span></h2>
+    <div id="trendBox">
+      <p class="state loading">正在加载趋势…</p>
+    </div>
 
-  /* ---- 统计卡（分区块降级：某卡失败只让该卡显示 —，不整页报错） ---- */
-  function loadStats() {
-    var jobs = [
-      API.getPage('/lessons', 1, 1).then(function (d) { UI.setText('statLessons', d.total); })
-        .catch(function (e) { UI.setUnknown('statLessons', '加载失败：' + e.message); UI.partError('已上课数', e); }),
-      API.get('/progress').then(function (d) { UI.setText('statLevel', d.currentLevel || '—'); })
-        .catch(function (e) { UI.setUnknown('statLevel', '加载失败：' + e.message); UI.partError('当前级别', e); }),
-      API.get('/vocabulary/stats').then(function (d) { UI.setText('statVocab', d.total); })
-        .catch(function (e) { UI.setUnknown('statVocab', '加载失败：' + e.message); UI.partError('累计生词', e); }),
-      API.get('/mistakes/stats').then(function (d) { UI.setText('statMistakes', d.pending); })
-        .catch(function (e) { UI.setUnknown('statMistakes', '加载失败：' + e.message); UI.partError('未过关错词', e); }),
-      /* 阅读篇数（R1 已可接）：pieceCount；tooltip 附带天数 / 最近阅读 / 连续天数
-       * 「今天有没有读」由前端比 lastReadDate === today 判断，接口不下结论 */
-      API.get('/readings/stats').then(function (d) {
-        UI.setText('statReading', d.pieceCount);
-        var bits = [];
-        if (d.totalDays) { bits.push('读了 ' + d.totalDays + ' 天'); }
-        if (d.lastReadDate) { bits.push('最近 ' + d.lastReadDate); }
-        if (d.currentStreakDays) { bits.push('连续 ' + d.currentStreakDays + ' 天'); }
-        if (d.lastReadDate && d.lastReadDate === d.today) { bits.push('今天已读'); }
-        if (bits.length) { UI.el('statReading').title = bits.join(' ｜ '); }
-      }).catch(function (e) { UI.setUnknown('statReading', '加载失败：' + e.message); UI.partError('阅读篇数', e); })
-    ];
-    return Promise.all(jobs);
-  }
+    <h2>课程<span class="count" id="lessonCount"></span></h2>
+    <input id="q" placeholder="搜索课程总结与语法点，输入关键词即时过滤">
+    <div id="lessonList">
+      <p class="state loading">正在加载课程…</p>
+    </div>
+    <footer>提示：先看总结回想，再点「查看全文」核对。</footer>
+  </div>
 
-  /* ---- 为什么今天学这个（Amy：用 lastRecommendation，不展示 progress.note 原文）
-   * 语义是「当时的建议」而非当前实时判断，故必须标注出自哪一课；
-   * 库内可能恒为 null —— 无数据时整块不渲染（不留空白框），请求失败同样静默降级。 */
-  function loadSnapshot() {
-    return API.get('/agent/snapshot').then(function (d) {
-      var rec = d && d.lastRecommendation;
-      var text = rec && rec.text ? String(rec.text) : '';
-      if (!text) { el('whyBlock').innerHTML = ''; return; }
-      var from = rec.lessonNo ? ('出自第 ' + rec.lessonNo + ' 课的课后反馈') : '出自上一课的课后反馈';
-      el('whyBlock').innerHTML = '<h2>为什么今天学这个</h2>'
-        + '<div class="card"><p class="sum">' + UI.esc(text) + '</p>'
-        + '<p class="meta">' + UI.esc(from) + '（当时的建议，非当前实时判断）</p></div>';
-    }).catch(function () {
-      el('whyBlock').innerHTML = '';   // 可选区块，失败即不显示，不打扰主流程
-    });
-  }
+  <script src="assets/api.js"></script>
+  <script src="assets/ui.js"></script>
+  <script>
+    /* 首页 · API 驱动
+     * 统计：/lessons（取 total）、/progress、/vocabulary/stats、/mistakes/stats、/readings/stats（R1）
+     * 趋势：/lessons/error-trend?limit=6（Amy F6）
+     * 课程：/lessons/all（含 grammarPoint，API.lessonIndex 优先用它、失败回退分页全量）
+     * 建议：/agent/snapshot 的 lastRecommendation（Amy：替代 progress.note 原文；无数据不显示） */
+    (function () {
+      'use strict';
+      var el = UI.el;
+      UI.onRetry(loadAll);
+      var applyFilter = function () { };
 
-  /* ---- 错误趋势（F6） ---- */
-  function loadTrend() {
-    return API.get('/lessons/error-trend?limit=6').then(function (d) {
-      el('trendBox').innerHTML = UI.trendChart(d.byLesson);
-    }).catch(function (e) {
-      el('trendBox').innerHTML = UI.stateHTML('empty', '趋势加载失败：' + e.message);
-      UI.partError('错误趋势', e);
-    });
-  }
-
-  /* ---- 课程列表 ---- */
-  function loadLessons() {
-    el('lessonList').innerHTML = UI.stateHTML('loading', '正在加载课程…');
-    return API.lessonIndex().then(function (d) {
-      if (!d.list.length) {
-        el('lessonList').innerHTML = UI.stateHTML('empty', '暂无课程记录');
-        el('lessonCount').textContent = '';
-        return;
+      /* ---- 统计卡（分区块降级：某卡失败只让该卡显示 —，不整页报错） ---- */
+      function loadStats() {
+        var jobs = [
+          API.getPage('/lessons', 1, 1).then(function (d) { UI.setText('statLessons', d.total); })
+            .catch(function (e) { UI.setUnknown('statLessons', '加载失败：' + e.message); UI.partError('已上课数', e); }),
+          API.get('/progress').then(function (d) { UI.setText('statLevel', d.currentLevel || '—'); })
+            .catch(function (e) { UI.setUnknown('statLevel', '加载失败：' + e.message); UI.partError('当前级别', e); }),
+          API.get('/vocabulary/stats').then(function (d) { UI.setText('statVocab', d.total); })
+            .catch(function (e) { UI.setUnknown('statVocab', '加载失败：' + e.message); UI.partError('累计生词', e); }),
+          API.get('/mistakes/stats').then(function (d) { UI.setText('statMistakes', d.pending); })
+            .catch(function (e) { UI.setUnknown('statMistakes', '加载失败：' + e.message); UI.partError('未过关错词', e); }),
+          /* 阅读篇数（R1 已可接）：pieceCount；tooltip 附带天数 / 最近阅读 / 连续天数
+           * 「今天有没有读」由前端比 lastReadDate === today 判断，接口不下结论 */
+          API.get('/readings/stats').then(function (d) {
+            UI.setText('statReading', d.pieceCount);
+            var bits = [];
+            if (d.totalDays) { bits.push('读了 ' + d.totalDays + ' 天'); }
+            if (d.lastReadDate) { bits.push('最近 ' + d.lastReadDate); }
+            if (d.currentStreakDays) { bits.push('连续 ' + d.currentStreakDays + ' 天'); }
+            if (d.lastReadDate && d.lastReadDate === d.today) { bits.push('今天已读'); }
+            if (bits.length) { UI.el('statReading').title = bits.join(' ｜ '); }
+          }).catch(function (e) { UI.setUnknown('statReading', '加载失败：' + e.message); UI.partError('阅读篇数', e); })
+        ];
+        return Promise.all(jobs);
       }
-      el('lessonList').innerHTML = d.list.map(UI.lessonCard).join('');
-      el('lessonCount').textContent = '共 ' + d.list.length + ' 课';
-      applyFilter();
-    }).catch(function (e) {
-      el('lessonList').innerHTML = UI.stateHTML('empty', '课程加载失败：' + e.message);
-      UI.partError('课程列表', e);
-    });
-  }
 
-  function loadAll() {
-    UI.clearError();
-    return Promise.all([loadStats(), loadTrend(), loadLessons(), loadSnapshot()]);
-  }
+      /* ---- 为什么今天学这个（Amy：用 lastRecommendation，不展示 progress.note 原文）
+       * 语义是「当时的建议」而非当前实时判断，故必须标注出自哪一课；
+       * 库内可能恒为 null —— 无数据时整块不渲染（不留空白框），请求失败同样静默降级。 */
+      function loadSnapshot() {
+        return API.get('/agent/snapshot').then(function (d) {
+          var rec = d && d.lastRecommendation;
+          var text = rec && rec.text ? String(rec.text) : '';
+          if (!text) { el('whyBlock').innerHTML = ''; return; }
+          var from = rec.lessonNo ? ('出自第 ' + rec.lessonNo + ' 课的课后反馈') : '出自上一课的课后反馈';
+          el('whyBlock').innerHTML = '<h2>为什么今天学这个</h2>'
+            + '<div class="card"><p class="sum">' + UI.esc(text) + '</p>'
+            + '<p class="meta">' + UI.esc(from) + '（当时的建议，非当前实时判断）</p></div>';
+        }).catch(function () {
+          el('whyBlock').innerHTML = '';   // 可选区块，失败即不显示，不打扰主流程
+        });
+      }
 
-  loadAll().then(function () {
-    applyFilter = UI.bindFilter('q', 'lessonList', '.lesson', '没有匹配的课程，换个关键词试试');
-  });
-})();
-</script>
-</body></html>
+      /* ---- 错误趋势（F6） ---- */
+      function loadTrend() {
+        return API.get('/lessons/error-trend?limit=6').then(function (d) {
+          el('trendBox').innerHTML = UI.trendChart(d.byLesson);
+        }).catch(function (e) {
+          el('trendBox').innerHTML = UI.stateHTML('empty', '趋势加载失败：' + e.message);
+          UI.partError('错误趋势', e);
+        });
+      }
+
+      /* ---- 课程列表 ---- */
+      function loadLessons() {
+        el('lessonList').innerHTML = UI.stateHTML('loading', '正在加载课程…');
+        return API.lessonIndex().then(function (d) {
+          if (!d.list.length) {
+            el('lessonList').innerHTML = UI.stateHTML('empty', '暂无课程记录');
+            el('lessonCount').textContent = '';
+            return;
+          }
+          el('lessonList').innerHTML = d.list.map(UI.lessonCard).join('');
+          el('lessonCount').textContent = '共 ' + d.list.length + ' 课';
+          applyFilter();
+        }).catch(function (e) {
+          el('lessonList').innerHTML = UI.stateHTML('empty', '课程加载失败：' + e.message);
+          UI.partError('课程列表', e);
+        });
+      }
+
+      function loadAll() {
+        UI.clearError();
+        return Promise.all([loadStats(), loadTrend(), loadLessons(), loadSnapshot()]);
+      }
+
+      loadAll().then(function () {
+        applyFilter = UI.bindFilter('q', 'lessonList', '.lesson', '没有匹配的课程，换个关键词试试');
+      });
+    })();
+  </script>
+</body>
+
+</html>

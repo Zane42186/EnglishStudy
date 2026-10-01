@@ -1,157 +1,650 @@
-<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>第 4 课</title><style>
-:root { color-scheme: light; }
-* { box-sizing: border-box; }
-body { margin: 0; padding: 24px; background: #f7f7f5; color: #2c2c2a;
-  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 15px; line-height: 1.7; }
-.wrap { max-width: 900px; margin: 0 auto; }
-h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
-h2 { font-size: 16px; font-weight: 600; margin: 24px 0 8px; }
-h3 { font-size: 15px; font-weight: 600; margin: 0; }
-h4 { font-size: 13px; font-weight: 600; color: #6b6b66; margin: 14px 0 4px; }
-.sub { color: #6b6b66; font-size: 13px; margin: 0 0 16px; }
-.stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
-.stat { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 14px; min-width: 110px; }
-.stat b { display: block; font-size: 18px; font-weight: 600; }
-.stat span { color: #6b6b66; font-size: 12px; }
-.entries { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 16px 0 4px; }
-a.entry { display: block; background: #fff; border: 1px solid #d9d8d2; border-radius: 10px;
-  padding: 10px 14px; text-decoration: none; color: #2c2c2a; }
-a.entry:hover { border-color: #185fa5; }
-a.entry b { display: block; font-size: 15px; font-weight: 500; }
-a.entry span { color: #6b6b66; font-size: 12px; }
-#q { width: 100%; padding: 8px 12px; border: 1px solid #d9d8d2; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
-.card { background: #fff; border: 1px solid #e3e2dc; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
-.card .meta { color: #6b6b66; font-size: 12px; margin: 4px 0 8px; }
-.sum { color: #3d3d38; margin: 4px 0 8px; font-size: 14px; }
-a.btn { display: inline-block; background: #eef4fb; border: 1px solid #c9dcef; color: #185fa5;
-  border-radius: 8px; padding: 4px 12px; font-size: 13px; text-decoration: none; }
-a.btn:hover { background: #e0ecfa; }
-a.plain { color: #185fa5; }
-details summary { cursor: pointer; color: #185fa5; font-size: 14px; }
-details { margin-top: 8px; }
-table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 14px; }
-th, td { border: 1px solid #e3e2dc; padding: 6px 8px; text-align: left; }
-th { background: #f1efe8; font-weight: 600; }
-blockquote { margin: 0; padding-left: 10px; border-left: 3px solid #d9d8d2; color: #4a4a45; }
-.en { margin: 0 0 2px; }
-.zh { margin: 0 0 12px; color: #4a4a45; }
-.zh[hidden] { display: none; }
-button.zhbtn { background: #eef4fb; border: 1px solid #c9dcef; border-radius: 6px; padding: 2px 10px;
-  font-size: 12px; cursor: pointer; color: #185fa5; margin-bottom: 8px; }
-.words { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-.idx { display: flex; flex-wrap: wrap; gap: 4px; margin: 12px 0 4px; }
-.idx a { display: inline-block; min-width: 24px; text-align: center; background: #fff; border: 1px solid #d9d8d2;
-  border-radius: 6px; padding: 2px 6px; font-size: 13px; color: #185fa5; text-decoration: none; }
-.idx a:hover { border-color: #185fa5; }
-h2 .count { color: #6b6b66; font-size: 12px; font-weight: 400; margin-left: 8px; }
-.wcard { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
-.wcard .w { font-weight: 600; }
-.wcard .p { color: #6b6b66; font-size: 12px; }
-.wcard .c, .wcard .e { display: none; font-size: 13px; margin-top: 4px; }
-.wcard.show .c, .wcard.show .e { display: block; }
-.wcard .e { color: #4a4a45; }
-.hide { display: none; }
-/* 阅读页双栏布局：左侧目录 + 右侧单篇卡片 */
-.reading-layout { display: flex; gap: 16px; align-items: flex-start; }
-.reading-toc { flex: 0 0 190px; position: sticky; top: 16px; background: #fff;
-  border: 1px solid #e3e2dc; border-radius: 12px; overflow: hidden; }
-.reading-toc iframe { display: block; width: 100%; height: 260px; border: 0; }
-.reading-stage { flex: 1 1 auto; min-width: 0; }
-.stage-head { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 2px; }
-.stage-head h2 { margin: 0; }
-.stage-count { color: #6b6b66; font-size: 13px; }
-.stage-file { color: #88877f; font-size: 12px; margin: 0 0 10px; }
-.stage-body { display: flex; align-items: center; gap: 10px; }
-.navbtn { flex: 0 0 36px; height: 36px; border-radius: 50%; border: 1px solid #d9d8d2;
-  background: #fff; color: #185fa5; font-size: 16px; cursor: pointer; line-height: 1; }
-.navbtn:hover:not(:disabled) { border-color: #185fa5; background: #eef4fb; }
-.navbtn:disabled { opacity: .35; cursor: default; }
-.stage-viewport { flex: 1 1 auto; min-width: 0; }
-.rcard { margin-bottom: 0; animation: cardin .18s ease; }
-.rcard h3 { margin: 0 0 2px; font-size: 17px; }
-@keyframes cardin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-@media (max-width: 720px) {
-  .reading-layout { flex-direction: column; }
-  .reading-toc { position: static; flex: none; width: 100%; }
-  .reading-toc iframe { height: 150px; }
-}
-footer { color: #88877f; font-size: 12px; margin: 24px 0; }
-</style></head><body><div class="wrap"><h1>第 4 课</h1>
-<p class="sub">学会现在进行时 am/is/are + -ing，能说清「此刻正在做什么」</p>
-<p><a class="plain" href="../index.html">← 返回看板</a></p>
-<h4>复习</h4>
-<ol><li>第 3 课物主代词（翻译：他的包很大）：正确。His bag is very big.</li><li>第 1 课主谓宾语序（连词成句 likes / music / she）：正确。She likes music. 三单 -s 也用对了。</li><li>错词逗号连句（改错 I am a student now, I like my English teacher）：正确。用句号断开即正确：I am a student now. I like my English teacher. 第 1 次答对 → 1。</li><li>错词 always 位置（改错 She always is busy）：作答 She always is bush。语法错误（词序没改）+ 拼写错误（bush 是灌木，busy 是忙的）。正确句：She is always busy. 第 2 次答错 → 连续答对清零。</li><li>错词 there is（翻译：桌上有一本书）：正确。There is a book on the table. 第 1 次答对 → 1。</li></ol>
-<h4>今日语法</h4>
-<p>表示「此刻正在做」，用 <strong>主语 + am / is / are + 动词的 -ing 形式</strong>：</p>
-<ul><li>I am studying English now.（我正在学英语。）</li><li>He is reading a book.（他正在读一本书。）</li><li>We are watching TV.（我们正在看电视。）</li></ul>
-<p>和一般现在时对比着看：</p>
-<ul><li>每天都这样：I study English every day.（一般现在时）</li><li>此刻正在：I <strong>am studying</strong> English now.（现在进行时）</li></ul>
-<p>动词加 -ing 的三条拼写规则：</p>
-<ol><li>一般情况下直接加：study → studying，play → playing</li><li>以不发音的 e 结尾，去掉 e 再加：make → <strong>making</strong>，write → <strong>writing</strong></li><li>重读闭音节（辅音+元音+辅音结尾），双写最后一个辅音字母：run → <strong>running</strong>，sit → <strong>sitting</strong></li></ol>
-<p>否定：在 am / is / are 后面加 not → I am not working now. ／ She isn't studying.<br>疑问：把 am / is / are 提到主语前面 → <strong>Are you studying?</strong> ／ <strong>Is he playing football?</strong> 简答：Yes, I am. ／ No, he isn't.</p>
-<p>标志词：<strong>now</strong>（现在）、right now、at the moment —— 看到 now 就优先考虑进行时。</p>
-<h4>词汇</h4>
-<table><thead><tr><th>单词</th><th>音标</th><th>中文</th><th>例句</th></tr></thead><tbody><tr><td>read</td><td>/riːd/</td><td>读</td><td>He is reading a book.</td></tr><tr><td>write</td><td>/raɪt/</td><td>写</td><td>I am writing an email.</td></tr><tr><td>make</td><td>/meɪk/</td><td>做；制造</td><td>She is making dinner.</td></tr><tr><td>cook</td><td>/kʊk/</td><td>做饭</td><td>My mother is cooking dinner.</td></tr><tr><td>dinner</td><td>/ˈdɪnər/</td><td>晚饭</td><td>We are making dinner now.</td></tr><tr><td>email</td><td>/ˈiːmeɪl/</td><td>电子邮件</td><td>I am writing an email now.</td></tr><tr><td>sit</td><td>/sɪt/</td><td>坐</td><td>I am sitting now.</td></tr><tr><td>run</td><td>/rʌn/</td><td>跑</td><td>Tom is running.</td></tr><tr><td>now</td><td>/naʊ/</td><td>现在</td><td>I am busy now.</td></tr><tr><td>kitchen</td><td>/ˈkɪtʃɪn/</td><td>厨房</td><td>She is in the kitchen.</td></tr></tbody></table>
-<h4>例句</h4>
-<ol><li>I am studying English now.</li><li>He is reading a book.</li><li>She is cooking dinner.</li><li>They are playing football.</li><li>Are you watching TV? — Yes, I am.</li></ol>
-<h4>作业</h4>
-<ol><li>写出 -ing 形式：make / run / write</li></ol>
-<details><summary>看答案</summary>making / running / writing</details>
+<!DOCTYPE html>
+<html lang="zh-CN">
 
-2. 选词填空：He ___ football now.（plays / is playing）
-<details><summary>看答案</summary>is playing（now 表示此刻正在进行）</details>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 4 课</title>
+  <style>
+    :root {
+      color-scheme: light;
+    }
 
-3. 翻译：我正在读一本书。
-<details><summary>看答案</summary>I am reading a book.</details>
+    * {
+      box-sizing: border-box;
+    }
 
-4. 开放题：写 5 句，用进行时描述「此刻你和你身边的人在做什么」，至少包含 1 句否定句和 1 句疑问句。写前自查：句首大写 / 句号后空格 / 人名大写 / 逗号不连句 / 疑问句用问号。
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f7f7f5;
+      color: #2c2c2a;
+      font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+    }
 
-<h4>我的作答</h4>
-<p>补漏块 1：</p>
-<ol><li>There is a bed in the room</li><li>There are two books on the desk.</li><li>There is a book on the table.</li></ol>
-<p>作业：</p>
-<ol><li>making running writing</li><li>He is playing football now.</li><li>I reading a book.</li><li>Now, My grandpa and me sit on the chair. I am not playing game but studying English. what do you do ?</li></ol>
-<h4>批改</h4>
-<p>补漏块 1：</p>
-<ol><li>正确。There is a bed in the room. 句尾补句号。</li><li>正确。复数 two books 用 are。</li><li>正确。写成 There is a book on the table. 既修掉了 an → a，也用对了 there is 结构，第 2 次答对 → 已过关。</li></ol>
-<p>作业：</p>
-<ol><li>正确。making（去 e）、running（双写 n）、writing（去 e）三条拼写规则全对。</li><li>正确。now 表示此刻正在进行，用 is playing。</li><li>语法错误：进行时缺 be 动词。正确句：I am reading a book.</li><li>六处错误。</li></ol>
-<ul><li>语法（时态）：Now, ... sit 与 now 冲突，此刻正在坐要用进行时：my grandpa and I <strong>are sitting</strong>.</li><li>语法（代词）：my grandpa and me 里 me 是宾格，作主语要用主格 I：my grandpa and <strong>I</strong>。（第 3 课刚讲的主格 / 物主代词）</li><li>拼写（大小写）：Now, My 里的 My 不是句首，不需要大写 → Now, my。</li><li>语法：play game → <strong>play games</strong>（或 play a game）。可数名词单数不能裸用，这条上次已经错过。</li><li>用词：what do you do 是问「你是做什么工作的」，问「你此刻在做什么」要说 <strong>What are you doing?</strong></li><li>标点：句首小写 → What；问号前不要留空格，写成 What are you doing?</li></ul>
-<p>完整改后版：Now, my grandpa and I are sitting on the chair. I am not playing games, but I am studying English. What are you doing?</p>
-<h4>难度反馈</h4>
-<p>刚好</p>
-<blockquote>备注：第 4 课数据进行时是新语法点，作业错误数从上一课的 2 处升到 6 处，因此反馈为「刚好」，太简单连击中断归零。第 5 课继续 Level 2，补漏块推进到 this / that / these / those。</blockquote></div><script>
-var tabs = document.querySelectorAll('nav button');
-tabs.forEach(function (btn) {
-  btn.addEventListener('click', function () {
-    tabs.forEach(function (b) { b.classList.remove('on'); });
-    btn.classList.add('on');
-    document.querySelectorAll('main section').forEach(function (s) { s.classList.add('hide'); });
-    document.getElementById('tab-' + btn.dataset.tab).classList.remove('hide');
-  });
-});
-document.querySelectorAll('.zhbtn').forEach(function (b) {
-  b.addEventListener('click', function () {
-    var scope = b.parentElement;
-    var blocks = scope.querySelectorAll('.zh');
-    var hidden = 0;
-    blocks.forEach(function (z) { if (z.hasAttribute('hidden')) { hidden += 1; } });
-    blocks.forEach(function (z) {
-      if (hidden > 0) { z.removeAttribute('hidden'); } else { z.setAttribute('hidden', ''); }
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin: 0 0 4px;
+    }
+
+    h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 24px 0 8px;
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    h4 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #6b6b66;
+      margin: 14px 0 4px;
+    }
+
+    .sub {
+      color: #6b6b66;
+      font-size: 13px;
+      margin: 0 0 16px;
+    }
+
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .stat {
+      background: #fff;
+      border: 1px solid #e3e2dc;
+      border-radius: 10px;
+      padding: 10px 14px;
+      min-width: 110px;
+    }
+
+    .stat b {
+      display: block;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .stat span {
+      color: #6b6b66;
+      font-size: 12px;
+    }
+
+    .entries {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      margin: 16px 0 4px;
+    }
+
+    a.entry {
+      display: block;
+      background: #fff;
+      border: 1px solid #d9d8d2;
+      border-radius: 10px;
+      padding: 10px 14px;
+      text-decoration: none;
+      color: #2c2c2a;
+    }
+
+    a.entry:hover {
+      border-color: #185fa5;
+    }
+
+    a.entry b {
+      display: block;
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    a.entry span {
+      color: #6b6b66;
+      font-size: 12px;
+    }
+
+    #q {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #d9d8d2;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e3e2dc;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+
+    .card .meta {
+      color: #6b6b66;
+      font-size: 12px;
+      margin: 4px 0 8px;
+    }
+
+    .sum {
+      color: #3d3d38;
+      margin: 4px 0 8px;
+      font-size: 14px;
+    }
+
+    a.btn {
+      display: inline-block;
+      background: #eef4fb;
+      border: 1px solid #c9dcef;
+      color: #185fa5;
+      border-radius: 8px;
+      padding: 4px 12px;
+      font-size: 13px;
+      text-decoration: none;
+    }
+
+    a.btn:hover {
+      background: #e0ecfa;
+    }
+
+    a.plain {
+      color: #185fa5;
+    }
+
+    details summary {
+      cursor: pointer;
+      color: #185fa5;
+      font-size: 14px;
+    }
+
+    details {
+      margin-top: 8px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 6px 0;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      border: 1px solid #e3e2dc;
+      padding: 6px 8px;
+      text-align: left;
+    }
+
+    th {
+      background: #f1efe8;
+      font-weight: 600;
+    }
+
+    blockquote {
+      margin: 0;
+      padding-left: 10px;
+      border-left: 3px solid #d9d8d2;
+      color: #4a4a45;
+    }
+
+    .en {
+      margin: 0 0 2px;
+    }
+
+    .zh {
+      margin: 0 0 12px;
+      color: #4a4a45;
+    }
+
+    .zh[hidden] {
+      display: none;
+    }
+
+    button.zhbtn {
+      background: #eef4fb;
+      border: 1px solid #c9dcef;
+      border-radius: 6px;
+      padding: 2px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      color: #185fa5;
+      margin-bottom: 8px;
+    }
+
+    .words {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    .idx {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin: 12px 0 4px;
+    }
+
+    .idx a {
+      display: inline-block;
+      min-width: 24px;
+      text-align: center;
+      background: #fff;
+      border: 1px solid #d9d8d2;
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 13px;
+      color: #185fa5;
+      text-decoration: none;
+    }
+
+    .idx a:hover {
+      border-color: #185fa5;
+    }
+
+    h2 .count {
+      color: #6b6b66;
+      font-size: 12px;
+      font-weight: 400;
+      margin-left: 8px;
+    }
+
+    .wcard {
+      background: #fff;
+      border: 1px solid #e3e2dc;
+      border-radius: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+
+    .wcard .w {
+      font-weight: 600;
+    }
+
+    .wcard .p {
+      color: #6b6b66;
+      font-size: 12px;
+    }
+
+    .wcard .c,
+    .wcard .e {
+      display: none;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .wcard.show .c,
+    .wcard.show .e {
+      display: block;
+    }
+
+    .wcard .e {
+      color: #4a4a45;
+    }
+
+    .hide {
+      display: none;
+    }
+
+    /* 阅读页双栏布局：左侧目录 + 右侧单篇卡片 */
+    .reading-layout {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .reading-toc {
+      flex: 0 0 190px;
+      position: sticky;
+      top: 16px;
+      background: #fff;
+      border: 1px solid #e3e2dc;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .reading-toc iframe {
+      display: block;
+      width: 100%;
+      height: 260px;
+      border: 0;
+    }
+
+    .reading-stage {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .stage-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin: 4px 0 2px;
+    }
+
+    .stage-head h2 {
+      margin: 0;
+    }
+
+    .stage-count {
+      color: #6b6b66;
+      font-size: 13px;
+    }
+
+    .stage-file {
+      color: #88877f;
+      font-size: 12px;
+      margin: 0 0 10px;
+    }
+
+    .stage-body {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .navbtn {
+      flex: 0 0 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid #d9d8d2;
+      background: #fff;
+      color: #185fa5;
+      font-size: 16px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .navbtn:hover:not(:disabled) {
+      border-color: #185fa5;
+      background: #eef4fb;
+    }
+
+    .navbtn:disabled {
+      opacity: .35;
+      cursor: default;
+    }
+
+    .stage-viewport {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .rcard {
+      margin-bottom: 0;
+      animation: cardin .18s ease;
+    }
+
+    .rcard h3 {
+      margin: 0 0 2px;
+      font-size: 17px;
+    }
+
+    @keyframes cardin {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .reading-layout {
+        flex-direction: column;
+      }
+
+      .reading-toc {
+        position: static;
+        flex: none;
+        width: 100%;
+      }
+
+      .reading-toc iframe {
+        height: 150px;
+      }
+    }
+
+    footer {
+      color: #88877f;
+      font-size: 12px;
+      margin: 24px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>第 4 课</h1>
+    <p class="sub">学会现在进行时 am/is/are + -ing，能说清「此刻正在做什么」</p>
+    <p><a class="plain" href="../index.html">← 返回看板</a></p>
+    <h4>复习</h4>
+    <ol>
+      <li>第 3 课物主代词（翻译：他的包很大）：正确。His bag is very big.</li>
+      <li>第 1 课主谓宾语序（连词成句 likes / music / she）：正确。She likes music. 三单 -s 也用对了。</li>
+      <li>错词逗号连句（改错 I am a student now, I like my English teacher）：正确。用句号断开即正确：I am a student now. I like my English
+        teacher. 第 1 次答对 → 1。</li>
+      <li>错词 always 位置（改错 She always is busy）：作答 She always is bush。语法错误（词序没改）+ 拼写错误（bush 是灌木，busy 是忙的）。正确句：She is
+        always busy. 第 2 次答错 → 连续答对清零。</li>
+      <li>错词 there is（翻译：桌上有一本书）：正确。There is a book on the table. 第 1 次答对 → 1。</li>
+    </ol>
+    <h4>今日语法</h4>
+    <p>表示「此刻正在做」，用 <strong>主语 + am / is / are + 动词的 -ing 形式</strong>：</p>
+    <ul>
+      <li>I am studying English now.（我正在学英语。）</li>
+      <li>He is reading a book.（他正在读一本书。）</li>
+      <li>We are watching TV.（我们正在看电视。）</li>
+    </ul>
+    <p>和一般现在时对比着看：</p>
+    <ul>
+      <li>每天都这样：I study English every day.（一般现在时）</li>
+      <li>此刻正在：I <strong>am studying</strong> English now.（现在进行时）</li>
+    </ul>
+    <p>动词加 -ing 的三条拼写规则：</p>
+    <ol>
+      <li>一般情况下直接加：study → studying，play → playing</li>
+      <li>以不发音的 e 结尾，去掉 e 再加：make → <strong>making</strong>，write → <strong>writing</strong></li>
+      <li>重读闭音节（辅音+元音+辅音结尾），双写最后一个辅音字母：run → <strong>running</strong>，sit → <strong>sitting</strong></li>
+    </ol>
+    <p>否定：在 am / is / are 后面加 not → I am not working now. ／ She isn't studying.<br>疑问：把 am / is / are 提到主语前面 →
+      <strong>Are you studying?</strong> ／ <strong>Is he playing football?</strong> 简答：Yes, I am. ／ No, he isn't.</p>
+    <p>标志词：<strong>now</strong>（现在）、right now、at the moment —— 看到 now 就优先考虑进行时。</p>
+    <h4>词汇</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>单词</th>
+          <th>音标</th>
+          <th>中文</th>
+          <th>例句</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>read</td>
+          <td>/riːd/</td>
+          <td>读</td>
+          <td>He is reading a book.</td>
+        </tr>
+        <tr>
+          <td>write</td>
+          <td>/raɪt/</td>
+          <td>写</td>
+          <td>I am writing an email.</td>
+        </tr>
+        <tr>
+          <td>make</td>
+          <td>/meɪk/</td>
+          <td>做；制造</td>
+          <td>She is making dinner.</td>
+        </tr>
+        <tr>
+          <td>cook</td>
+          <td>/kʊk/</td>
+          <td>做饭</td>
+          <td>My mother is cooking dinner.</td>
+        </tr>
+        <tr>
+          <td>dinner</td>
+          <td>/ˈdɪnər/</td>
+          <td>晚饭</td>
+          <td>We are making dinner now.</td>
+        </tr>
+        <tr>
+          <td>email</td>
+          <td>/ˈiːmeɪl/</td>
+          <td>电子邮件</td>
+          <td>I am writing an email now.</td>
+        </tr>
+        <tr>
+          <td>sit</td>
+          <td>/sɪt/</td>
+          <td>坐</td>
+          <td>I am sitting now.</td>
+        </tr>
+        <tr>
+          <td>run</td>
+          <td>/rʌn/</td>
+          <td>跑</td>
+          <td>Tom is running.</td>
+        </tr>
+        <tr>
+          <td>now</td>
+          <td>/naʊ/</td>
+          <td>现在</td>
+          <td>I am busy now.</td>
+        </tr>
+        <tr>
+          <td>kitchen</td>
+          <td>/ˈkɪtʃɪn/</td>
+          <td>厨房</td>
+          <td>She is in the kitchen.</td>
+        </tr>
+      </tbody>
+    </table>
+    <h4>例句</h4>
+    <ol>
+      <li>I am studying English now.</li>
+      <li>He is reading a book.</li>
+      <li>She is cooking dinner.</li>
+      <li>They are playing football.</li>
+      <li>Are you watching TV? — Yes, I am.</li>
+    </ol>
+    <h4>作业</h4>
+    <ol>
+      <li>写出 -ing 形式：make / run / write</li>
+    </ol>
+    <details>
+      <summary>看答案</summary>making / running / writing
+    </details>
+
+    2. 选词填空：He ___ football now.（plays / is playing）
+    <details>
+      <summary>看答案</summary>is playing（now 表示此刻正在进行）
+    </details>
+
+    3. 翻译：我正在读一本书。
+    <details>
+      <summary>看答案</summary>I am reading a book.
+    </details>
+
+    4. 开放题：写 5 句，用进行时描述「此刻你和你身边的人在做什么」，至少包含 1 句否定句和 1 句疑问句。写前自查：句首大写 / 句号后空格 / 人名大写 / 逗号不连句 / 疑问句用问号。
+
+    <h4>我的作答</h4>
+    <p>补漏块 1：</p>
+    <ol>
+      <li>There is a bed in the room</li>
+      <li>There are two books on the desk.</li>
+      <li>There is a book on the table.</li>
+    </ol>
+    <p>作业：</p>
+    <ol>
+      <li>making running writing</li>
+      <li>He is playing football now.</li>
+      <li>I reading a book.</li>
+      <li>Now, My grandpa and me sit on the chair. I am not playing game but studying English. what do you do ?</li>
+    </ol>
+    <h4>批改</h4>
+    <p>补漏块 1：</p>
+    <ol>
+      <li>正确。There is a bed in the room. 句尾补句号。</li>
+      <li>正确。复数 two books 用 are。</li>
+      <li>正确。写成 There is a book on the table. 既修掉了 an → a，也用对了 there is 结构，第 2 次答对 → 已过关。</li>
+    </ol>
+    <p>作业：</p>
+    <ol>
+      <li>正确。making（去 e）、running（双写 n）、writing（去 e）三条拼写规则全对。</li>
+      <li>正确。now 表示此刻正在进行，用 is playing。</li>
+      <li>语法错误：进行时缺 be 动词。正确句：I am reading a book.</li>
+      <li>六处错误。</li>
+    </ol>
+    <ul>
+      <li>语法（时态）：Now, ... sit 与 now 冲突，此刻正在坐要用进行时：my grandpa and I <strong>are sitting</strong>.</li>
+      <li>语法（代词）：my grandpa and me 里 me 是宾格，作主语要用主格 I：my grandpa and <strong>I</strong>。（第 3 课刚讲的主格 / 物主代词）</li>
+      <li>拼写（大小写）：Now, My 里的 My 不是句首，不需要大写 → Now, my。</li>
+      <li>语法：play game → <strong>play games</strong>（或 play a game）。可数名词单数不能裸用，这条上次已经错过。</li>
+      <li>用词：what do you do 是问「你是做什么工作的」，问「你此刻在做什么」要说 <strong>What are you doing?</strong></li>
+      <li>标点：句首小写 → What；问号前不要留空格，写成 What are you doing?</li>
+    </ul>
+    <p>完整改后版：Now, my grandpa and I are sitting on the chair. I am not playing games, but I am studying English. What are
+      you doing?</p>
+    <h4>难度反馈</h4>
+    <p>刚好</p>
+    <blockquote>备注：第 4 课数据进行时是新语法点，作业错误数从上一课的 2 处升到 6 处，因此反馈为「刚好」，太简单连击中断归零。第 5 课继续 Level 2，补漏块推进到 this / that / these /
+      those。</blockquote>
+  </div>
+  <script>
+    var tabs = document.querySelectorAll('nav button');
+    tabs.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        tabs.forEach(function (b) { b.classList.remove('on'); });
+        btn.classList.add('on');
+        document.querySelectorAll('main section').forEach(function (s) { s.classList.add('hide'); });
+        document.getElementById('tab-' + btn.dataset.tab).classList.remove('hide');
+      });
     });
-    b.textContent = hidden > 0 ? '收起中文' : '整篇看中文';
-  });
-});
-document.querySelectorAll('.wcard').forEach(function (c) {
-  c.addEventListener('click', function () { c.classList.toggle('show'); });
-});
-var q = document.getElementById('q');
-if (q) {
-  q.addEventListener('input', function () {
-    var v = q.value.trim().toLowerCase();
-    document.querySelectorAll('.lesson').forEach(function (card) {
-      card.classList.toggle('hide', v !== '' && card.dataset.text.indexOf(v) === -1);
+    document.querySelectorAll('.zhbtn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var scope = b.parentElement;
+        var blocks = scope.querySelectorAll('.zh');
+        var hidden = 0;
+        blocks.forEach(function (z) { if (z.hasAttribute('hidden')) { hidden += 1; } });
+        blocks.forEach(function (z) {
+          if (hidden > 0) { z.removeAttribute('hidden'); } else { z.setAttribute('hidden', ''); }
+        });
+        b.textContent = hidden > 0 ? '收起中文' : '整篇看中文';
+      });
     });
-  });
-}
-</script></body></html>
+    document.querySelectorAll('.wcard').forEach(function (c) {
+      c.addEventListener('click', function () { c.classList.toggle('show'); });
+    });
+    var q = document.getElementById('q');
+    if (q) {
+      q.addEventListener('input', function () {
+        var v = q.value.trim().toLowerCase();
+        document.querySelectorAll('.lesson').forEach(function (card) {
+          card.classList.toggle('hide', v !== '' && card.dataset.text.indexOf(v) === -1);
+        });
+      });
+    }
+  </script>
+</body>
+
+</html>

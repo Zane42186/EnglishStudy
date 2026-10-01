@@ -1,156 +1,668 @@
-<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>第 6 课</title><style>
-:root { color-scheme: light; }
-* { box-sizing: border-box; }
-body { margin: 0; padding: 24px; background: #f7f7f5; color: #2c2c2a;
-  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 15px; line-height: 1.7; }
-.wrap { max-width: 900px; margin: 0 auto; }
-h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
-h2 { font-size: 16px; font-weight: 600; margin: 24px 0 8px; }
-h3 { font-size: 15px; font-weight: 600; margin: 0; }
-h4 { font-size: 13px; font-weight: 600; color: #6b6b66; margin: 14px 0 4px; }
-.sub { color: #6b6b66; font-size: 13px; margin: 0 0 16px; }
-.stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
-.stat { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 14px; min-width: 110px; }
-.stat b { display: block; font-size: 18px; font-weight: 600; }
-.stat span { color: #6b6b66; font-size: 12px; }
-.entries { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 16px 0 4px; }
-a.entry { display: block; background: #fff; border: 1px solid #d9d8d2; border-radius: 10px;
-  padding: 10px 14px; text-decoration: none; color: #2c2c2a; }
-a.entry:hover { border-color: #185fa5; }
-a.entry b { display: block; font-size: 15px; font-weight: 500; }
-a.entry span { color: #6b6b66; font-size: 12px; }
-#q { width: 100%; padding: 8px 12px; border: 1px solid #d9d8d2; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
-.card { background: #fff; border: 1px solid #e3e2dc; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
-.card .meta { color: #6b6b66; font-size: 12px; margin: 4px 0 8px; }
-.sum { color: #3d3d38; margin: 4px 0 8px; font-size: 14px; }
-a.btn { display: inline-block; background: #eef4fb; border: 1px solid #c9dcef; color: #185fa5;
-  border-radius: 8px; padding: 4px 12px; font-size: 13px; text-decoration: none; }
-a.btn:hover { background: #e0ecfa; }
-a.plain { color: #185fa5; }
-details summary { cursor: pointer; color: #185fa5; font-size: 14px; }
-details { margin-top: 8px; }
-table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 14px; }
-th, td { border: 1px solid #e3e2dc; padding: 6px 8px; text-align: left; }
-th { background: #f1efe8; font-weight: 600; }
-blockquote { margin: 0; padding-left: 10px; border-left: 3px solid #d9d8d2; color: #4a4a45; }
-.en { margin: 0 0 2px; }
-.zh { margin: 0 0 12px; color: #4a4a45; }
-.zh[hidden] { display: none; }
-button.zhbtn { background: #eef4fb; border: 1px solid #c9dcef; border-radius: 6px; padding: 2px 10px;
-  font-size: 12px; cursor: pointer; color: #185fa5; margin-bottom: 8px; }
-.words { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-.idx { display: flex; flex-wrap: wrap; gap: 4px; margin: 12px 0 4px; }
-.idx a { display: inline-block; min-width: 24px; text-align: center; background: #fff; border: 1px solid #d9d8d2;
-  border-radius: 6px; padding: 2px 6px; font-size: 13px; color: #185fa5; text-decoration: none; }
-.idx a:hover { border-color: #185fa5; }
-h2 .count { color: #6b6b66; font-size: 12px; font-weight: 400; margin-left: 8px; }
-.wcard { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
-.wcard .w { font-weight: 600; }
-.wcard .p { color: #6b6b66; font-size: 12px; }
-.wcard .c, .wcard .e { display: none; font-size: 13px; margin-top: 4px; }
-.wcard.show .c, .wcard.show .e { display: block; }
-.wcard .e { color: #4a4a45; }
-.hide { display: none; }
-/* 阅读页双栏布局：左侧目录 + 右侧单篇卡片 */
-.reading-layout { display: flex; gap: 16px; align-items: flex-start; }
-.reading-toc { flex: 0 0 190px; position: sticky; top: 16px; background: #fff;
-  border: 1px solid #e3e2dc; border-radius: 12px; overflow: hidden; }
-.reading-toc iframe { display: block; width: 100%; height: 260px; border: 0; }
-.reading-stage { flex: 1 1 auto; min-width: 0; }
-.stage-head { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 2px; }
-.stage-head h2 { margin: 0; }
-.stage-count { color: #6b6b66; font-size: 13px; }
-.stage-file { color: #88877f; font-size: 12px; margin: 0 0 10px; }
-.stage-body { display: flex; align-items: center; gap: 10px; }
-.navbtn { flex: 0 0 36px; height: 36px; border-radius: 50%; border: 1px solid #d9d8d2;
-  background: #fff; color: #185fa5; font-size: 16px; cursor: pointer; line-height: 1; }
-.navbtn:hover:not(:disabled) { border-color: #185fa5; background: #eef4fb; }
-.navbtn:disabled { opacity: .35; cursor: default; }
-.stage-viewport { flex: 1 1 auto; min-width: 0; }
-.rcard { margin-bottom: 0; animation: cardin .18s ease; }
-.rcard h3 { margin: 0 0 2px; font-size: 17px; }
-@keyframes cardin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-@media (max-width: 720px) {
-  .reading-layout { flex-direction: column; }
-  .reading-toc { position: static; flex: none; width: 100%; }
-  .reading-toc iframe { height: 150px; }
-}
-footer { color: #88877f; font-size: 12px; margin: 24px 0; }
-</style></head><body><div class="wrap"><h1>第 6 课 · 2026-09-29</h1>
-<p class="sub">学会过去时 was / were，能说清「昨天怎么样」</p>
-<p><a class="plain" href="../index.html">← 返回看板</a></p>
-<h4>复习</h4>
-<ol><li>第 5 课时态辨析（选填 She usually ___ English in the morning）：正确。studies，usually 是习惯标志词。</li><li>第 3 课物主代词（翻译：他们的学校很大）：作答 Theri school is very big。拼写错误：their 的字母顺序写反了。正确句：Their school is very big.</li><li>错词逗号连句（改错 I drink water every day, I need sleep every night）：正确。用句号断开。第 3 次错后第一次答对 → 1。</li><li>错词 we 配 are（改错 I am very busy → 我们很忙）：正确。We are very busy. 第 1 次答对 → 1。</li><li>错词句首大写（改错 those are their bags）：正确。Those are their bags. 第 1 次答对 → 1。</li></ol>
-<h4>今日语法</h4>
-<p>讲昨天、上次、以前的事，be 动词要换成过去式：</p>
-<table><thead><tr><th>现在</th><th>过去</th></tr></thead><tbody><tr><td>I am busy.</td><td>I was busy.</td></tr><tr><td>He / She / It is busy.</td><td>He / She / It was busy.</td></tr><tr><td>You / We / They are busy.</td><td>You / We / They were busy.</td></tr></tbody></table>
-<p>口诀：am / is → was，are → were。</p>
-<ul><li>否定：was / were 后加 not → I was not busy. ／ They weren't here.</li><li>疑问：把 was / were 提到主语前面 → Was he tired? ／ Were you at school?</li><li>时间标志词：yesterday、last night、last week、two days ago</li></ul>
-<h4>词汇</h4>
-<table><thead><tr><th>单词</th><th>音标</th><th>中文</th><th>例句</th></tr></thead><tbody><tr><td>yesterday</td><td>/ˈjestərdeɪ/</td><td>昨天</td><td>I was tired yesterday.</td></tr><tr><td>last night</td><td>/læst naɪt/</td><td>昨晚</td><td>He was at home last night.</td></tr><tr><td>ago</td><td>/əˈɡoʊ/</td><td>以前（…之前）</td><td>We were in Beijing two days ago.</td></tr><tr><td>week</td><td>/wiːk/</td><td>星期；周</td><td>She was busy last week.</td></tr><tr><td>tired</td><td>/ˈtaɪərd/</td><td>累的</td><td>I was very tired yesterday.</td></tr><tr><td>late</td><td>/leɪt/</td><td>晚的；迟到</td><td>Tom was late this morning.</td></tr><tr><td>sick</td><td>/sɪk/</td><td>生病的</td><td>She was sick last week.</td></tr><tr><td>fine</td><td>/faɪn/</td><td>好的</td><td>I was fine yesterday.</td></tr><tr><td>at home</td><td>/ət hoʊm/</td><td>在家</td><td>They were at home.</td></tr><tr><td>question</td><td>/ˈkwestʃən/</td><td>问题</td><td>The question was easy.</td></tr></tbody></table>
-<h4>例句</h4>
-<ol><li>I was busy yesterday.</li><li>He was at home last night.</li><li>They were in the office two days ago.</li><li>She was sick last week.</li><li>Were you tired? — Yes, I was.</li></ol>
-<h4>作业</h4>
-<ol><li>选填：I ___ tired yesterday.（am / was / were）</li></ol>
-<details><summary>看答案</summary>was</details>
+<!DOCTYPE html>
+<html lang="zh-CN">
 
-2. 选填：They ___ at home last night.（was / were）
-<details><summary>看答案</summary>were</details>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 6 课</title>
+  <style>
+    :root {
+      color-scheme: light;
+    }
 
-3. 改错：He were late this morning.
-<details><summary>看答案</summary>He was late this morning.</details>
+    * {
+      box-sizing: border-box;
+    }
 
-4. 翻译：我昨天很忙。
-<details><summary>看答案</summary>I was busy yesterday.</details>
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f7f7f5;
+      color: #2c2c2a;
+      font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+    }
 
-5. 开放题：写 5 句讲你昨天的一天，每句都要用 was 或 were，至少 1 句否定、1 句疑问。
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+    }
 
-<h4>我的作答</h4>
-<p>补漏块 3：</p>
-<ol><li>What is your name?</li><li>Who is that man?</li><li>Where is your school</li></ol>
-<p>作业：</p>
-<ol><li>was</li><li>were</li><li>were → was</li><li>I was busy yesterday.</li><li>I was busy yesterday. Tom and I were playing game at yesterday at 8.00 p.m. I teached my friend to use AI at yesterday. What were you yesterday.</li></ol>
-<h4>批改</h4>
-<p>补漏块 3：</p>
-<ol><li>正确。What 问名字。</li><li>正确。Who 问人。</li><li>正确。Where is your school? 句尾问号别丢。</li></ol>
-<p>作业：</p>
-<ol><li>正确。yesterday 是过去时间，用 was。</li><li>正确。They 用 were。</li><li>正确。He 配 was。</li><li>正确。I was busy yesterday.</li><li>五处问题。</li></ol>
-<ul><li>语法（时态混用）：Tom and I were playing game 用了进行时，但这句在讲「昨天某个时刻正在做」，进行时本身可以（was / were + -ing 是过去进行时，第 7 课才正式讲），问题在 game 单数裸用 → games。</li><li>语法（介词）：at yesterday 连用两次。yesterday 前面不加 at，直接说 yesterday 或 at 8 p.m. yesterday。正确：Tom and I were playing games at 8 p.m. yesterday.</li><li>拼写（不规则动词）：teached → taught。teach 的过去式是不规则变化。</li><li>语法（介词）：I taught my friend to use AI at yesterday → 去掉 at，或写成 yesterday evening。</li><li>用词（疑问句）：What were you yesterday. 想问「你昨天怎么样」，英语用 How：How were you yesterday? 而且句尾必须是问号。</li><li>任务完成度：5 句里只有 2 个不同句式（was busy / were playing），否定句没写。补一句：I was not happy yesterday.（或 I wasn't tired yesterday.）</li></ul>
-<p>完整改后版：I was busy yesterday. Tom and I were playing games at 8 p.m. We had a good time. I taught my friend to use AI. How were you yesterday? I was not very happy yesterday.</p>
-<h4>难度反馈</h4>
-<p>刚好</p>
-<blockquote>备注：第 6 课作业 5 处错，集中在三处老问题复发（play games 第 3 次、句尾问号、拼写）与两处新知识点（yesterday 前不加介词、teach 的不规则过去式）。反馈「刚好」，维持 Level 2。第 7 课是 day-01-07.md 的最后一课，内容为 Level 2 规则动词过去式 + 补漏块 4（介词 on / at）。</blockquote></div><script>
-var tabs = document.querySelectorAll('nav button');
-tabs.forEach(function (btn) {
-  btn.addEventListener('click', function () {
-    tabs.forEach(function (b) { b.classList.remove('on'); });
-    btn.classList.add('on');
-    document.querySelectorAll('main section').forEach(function (s) { s.classList.add('hide'); });
-    document.getElementById('tab-' + btn.dataset.tab).classList.remove('hide');
-  });
-});
-document.querySelectorAll('.zhbtn').forEach(function (b) {
-  b.addEventListener('click', function () {
-    var scope = b.parentElement;
-    var blocks = scope.querySelectorAll('.zh');
-    var hidden = 0;
-    blocks.forEach(function (z) { if (z.hasAttribute('hidden')) { hidden += 1; } });
-    blocks.forEach(function (z) {
-      if (hidden > 0) { z.removeAttribute('hidden'); } else { z.setAttribute('hidden', ''); }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin: 0 0 4px;
+    }
+
+    h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 24px 0 8px;
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    h4 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #6b6b66;
+      margin: 14px 0 4px;
+    }
+
+    .sub {
+      color: #6b6b66;
+      font-size: 13px;
+      margin: 0 0 16px;
+    }
+
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .stat {
+      background: #fff;
+      border: 1px solid #e3e2dc;
+      border-radius: 10px;
+      padding: 10px 14px;
+      min-width: 110px;
+    }
+
+    .stat b {
+      display: block;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .stat span {
+      color: #6b6b66;
+      font-size: 12px;
+    }
+
+    .entries {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      margin: 16px 0 4px;
+    }
+
+    a.entry {
+      display: block;
+      background: #fff;
+      border: 1px solid #d9d8d2;
+      border-radius: 10px;
+      padding: 10px 14px;
+      text-decoration: none;
+      color: #2c2c2a;
+    }
+
+    a.entry:hover {
+      border-color: #185fa5;
+    }
+
+    a.entry b {
+      display: block;
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    a.entry span {
+      color: #6b6b66;
+      font-size: 12px;
+    }
+
+    #q {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #d9d8d2;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e3e2dc;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+
+    .card .meta {
+      color: #6b6b66;
+      font-size: 12px;
+      margin: 4px 0 8px;
+    }
+
+    .sum {
+      color: #3d3d38;
+      margin: 4px 0 8px;
+      font-size: 14px;
+    }
+
+    a.btn {
+      display: inline-block;
+      background: #eef4fb;
+      border: 1px solid #c9dcef;
+      color: #185fa5;
+      border-radius: 8px;
+      padding: 4px 12px;
+      font-size: 13px;
+      text-decoration: none;
+    }
+
+    a.btn:hover {
+      background: #e0ecfa;
+    }
+
+    a.plain {
+      color: #185fa5;
+    }
+
+    details summary {
+      cursor: pointer;
+      color: #185fa5;
+      font-size: 14px;
+    }
+
+    details {
+      margin-top: 8px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 6px 0;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      border: 1px solid #e3e2dc;
+      padding: 6px 8px;
+      text-align: left;
+    }
+
+    th {
+      background: #f1efe8;
+      font-weight: 600;
+    }
+
+    blockquote {
+      margin: 0;
+      padding-left: 10px;
+      border-left: 3px solid #d9d8d2;
+      color: #4a4a45;
+    }
+
+    .en {
+      margin: 0 0 2px;
+    }
+
+    .zh {
+      margin: 0 0 12px;
+      color: #4a4a45;
+    }
+
+    .zh[hidden] {
+      display: none;
+    }
+
+    button.zhbtn {
+      background: #eef4fb;
+      border: 1px solid #c9dcef;
+      border-radius: 6px;
+      padding: 2px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      color: #185fa5;
+      margin-bottom: 8px;
+    }
+
+    .words {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    .idx {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin: 12px 0 4px;
+    }
+
+    .idx a {
+      display: inline-block;
+      min-width: 24px;
+      text-align: center;
+      background: #fff;
+      border: 1px solid #d9d8d2;
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 13px;
+      color: #185fa5;
+      text-decoration: none;
+    }
+
+    .idx a:hover {
+      border-color: #185fa5;
+    }
+
+    h2 .count {
+      color: #6b6b66;
+      font-size: 12px;
+      font-weight: 400;
+      margin-left: 8px;
+    }
+
+    .wcard {
+      background: #fff;
+      border: 1px solid #e3e2dc;
+      border-radius: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+
+    .wcard .w {
+      font-weight: 600;
+    }
+
+    .wcard .p {
+      color: #6b6b66;
+      font-size: 12px;
+    }
+
+    .wcard .c,
+    .wcard .e {
+      display: none;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .wcard.show .c,
+    .wcard.show .e {
+      display: block;
+    }
+
+    .wcard .e {
+      color: #4a4a45;
+    }
+
+    .hide {
+      display: none;
+    }
+
+    /* 阅读页双栏布局：左侧目录 + 右侧单篇卡片 */
+    .reading-layout {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .reading-toc {
+      flex: 0 0 190px;
+      position: sticky;
+      top: 16px;
+      background: #fff;
+      border: 1px solid #e3e2dc;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .reading-toc iframe {
+      display: block;
+      width: 100%;
+      height: 260px;
+      border: 0;
+    }
+
+    .reading-stage {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .stage-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin: 4px 0 2px;
+    }
+
+    .stage-head h2 {
+      margin: 0;
+    }
+
+    .stage-count {
+      color: #6b6b66;
+      font-size: 13px;
+    }
+
+    .stage-file {
+      color: #88877f;
+      font-size: 12px;
+      margin: 0 0 10px;
+    }
+
+    .stage-body {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .navbtn {
+      flex: 0 0 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid #d9d8d2;
+      background: #fff;
+      color: #185fa5;
+      font-size: 16px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .navbtn:hover:not(:disabled) {
+      border-color: #185fa5;
+      background: #eef4fb;
+    }
+
+    .navbtn:disabled {
+      opacity: .35;
+      cursor: default;
+    }
+
+    .stage-viewport {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .rcard {
+      margin-bottom: 0;
+      animation: cardin .18s ease;
+    }
+
+    .rcard h3 {
+      margin: 0 0 2px;
+      font-size: 17px;
+    }
+
+    @keyframes cardin {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .reading-layout {
+        flex-direction: column;
+      }
+
+      .reading-toc {
+        position: static;
+        flex: none;
+        width: 100%;
+      }
+
+      .reading-toc iframe {
+        height: 150px;
+      }
+    }
+
+    footer {
+      color: #88877f;
+      font-size: 12px;
+      margin: 24px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>第 6 课 · 2026-09-29</h1>
+    <p class="sub">学会过去时 was / were，能说清「昨天怎么样」</p>
+    <p><a class="plain" href="../index.html">← 返回看板</a></p>
+    <h4>复习</h4>
+    <ol>
+      <li>第 5 课时态辨析（选填 She usually ___ English in the morning）：正确。studies，usually 是习惯标志词。</li>
+      <li>第 3 课物主代词（翻译：他们的学校很大）：作答 Theri school is very big。拼写错误：their 的字母顺序写反了。正确句：Their school is very big.</li>
+      <li>错词逗号连句（改错 I drink water every day, I need sleep every night）：正确。用句号断开。第 3 次错后第一次答对 → 1。</li>
+      <li>错词 we 配 are（改错 I am very busy → 我们很忙）：正确。We are very busy. 第 1 次答对 → 1。</li>
+      <li>错词句首大写（改错 those are their bags）：正确。Those are their bags. 第 1 次答对 → 1。</li>
+    </ol>
+    <h4>今日语法</h4>
+    <p>讲昨天、上次、以前的事，be 动词要换成过去式：</p>
+    <table>
+      <thead>
+        <tr>
+          <th>现在</th>
+          <th>过去</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>I am busy.</td>
+          <td>I was busy.</td>
+        </tr>
+        <tr>
+          <td>He / She / It is busy.</td>
+          <td>He / She / It was busy.</td>
+        </tr>
+        <tr>
+          <td>You / We / They are busy.</td>
+          <td>You / We / They were busy.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>口诀：am / is → was，are → were。</p>
+    <ul>
+      <li>否定：was / were 后加 not → I was not busy. ／ They weren't here.</li>
+      <li>疑问：把 was / were 提到主语前面 → Was he tired? ／ Were you at school?</li>
+      <li>时间标志词：yesterday、last night、last week、two days ago</li>
+    </ul>
+    <h4>词汇</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>单词</th>
+          <th>音标</th>
+          <th>中文</th>
+          <th>例句</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>yesterday</td>
+          <td>/ˈjestərdeɪ/</td>
+          <td>昨天</td>
+          <td>I was tired yesterday.</td>
+        </tr>
+        <tr>
+          <td>last night</td>
+          <td>/læst naɪt/</td>
+          <td>昨晚</td>
+          <td>He was at home last night.</td>
+        </tr>
+        <tr>
+          <td>ago</td>
+          <td>/əˈɡoʊ/</td>
+          <td>以前（…之前）</td>
+          <td>We were in Beijing two days ago.</td>
+        </tr>
+        <tr>
+          <td>week</td>
+          <td>/wiːk/</td>
+          <td>星期；周</td>
+          <td>She was busy last week.</td>
+        </tr>
+        <tr>
+          <td>tired</td>
+          <td>/ˈtaɪərd/</td>
+          <td>累的</td>
+          <td>I was very tired yesterday.</td>
+        </tr>
+        <tr>
+          <td>late</td>
+          <td>/leɪt/</td>
+          <td>晚的；迟到</td>
+          <td>Tom was late this morning.</td>
+        </tr>
+        <tr>
+          <td>sick</td>
+          <td>/sɪk/</td>
+          <td>生病的</td>
+          <td>She was sick last week.</td>
+        </tr>
+        <tr>
+          <td>fine</td>
+          <td>/faɪn/</td>
+          <td>好的</td>
+          <td>I was fine yesterday.</td>
+        </tr>
+        <tr>
+          <td>at home</td>
+          <td>/ət hoʊm/</td>
+          <td>在家</td>
+          <td>They were at home.</td>
+        </tr>
+        <tr>
+          <td>question</td>
+          <td>/ˈkwestʃən/</td>
+          <td>问题</td>
+          <td>The question was easy.</td>
+        </tr>
+      </tbody>
+    </table>
+    <h4>例句</h4>
+    <ol>
+      <li>I was busy yesterday.</li>
+      <li>He was at home last night.</li>
+      <li>They were in the office two days ago.</li>
+      <li>She was sick last week.</li>
+      <li>Were you tired? — Yes, I was.</li>
+    </ol>
+    <h4>作业</h4>
+    <ol>
+      <li>选填：I ___ tired yesterday.（am / was / were）</li>
+    </ol>
+    <details>
+      <summary>看答案</summary>was
+    </details>
+
+    2. 选填：They ___ at home last night.（was / were）
+    <details>
+      <summary>看答案</summary>were
+    </details>
+
+    3. 改错：He were late this morning.
+    <details>
+      <summary>看答案</summary>He was late this morning.
+    </details>
+
+    4. 翻译：我昨天很忙。
+    <details>
+      <summary>看答案</summary>I was busy yesterday.
+    </details>
+
+    5. 开放题：写 5 句讲你昨天的一天，每句都要用 was 或 were，至少 1 句否定、1 句疑问。
+
+    <h4>我的作答</h4>
+    <p>补漏块 3：</p>
+    <ol>
+      <li>What is your name?</li>
+      <li>Who is that man?</li>
+      <li>Where is your school</li>
+    </ol>
+    <p>作业：</p>
+    <ol>
+      <li>was</li>
+      <li>were</li>
+      <li>were → was</li>
+      <li>I was busy yesterday.</li>
+      <li>I was busy yesterday. Tom and I were playing game at yesterday at 8.00 p.m. I teached my friend to use AI at
+        yesterday. What were you yesterday.</li>
+    </ol>
+    <h4>批改</h4>
+    <p>补漏块 3：</p>
+    <ol>
+      <li>正确。What 问名字。</li>
+      <li>正确。Who 问人。</li>
+      <li>正确。Where is your school? 句尾问号别丢。</li>
+    </ol>
+    <p>作业：</p>
+    <ol>
+      <li>正确。yesterday 是过去时间，用 was。</li>
+      <li>正确。They 用 were。</li>
+      <li>正确。He 配 was。</li>
+      <li>正确。I was busy yesterday.</li>
+      <li>五处问题。</li>
+    </ol>
+    <ul>
+      <li>语法（时态混用）：Tom and I were playing game 用了进行时，但这句在讲「昨天某个时刻正在做」，进行时本身可以（was / were + -ing 是过去进行时，第 7 课才正式讲），问题在
+        game 单数裸用 → games。</li>
+      <li>语法（介词）：at yesterday 连用两次。yesterday 前面不加 at，直接说 yesterday 或 at 8 p.m. yesterday。正确：Tom and I were playing games
+        at 8 p.m. yesterday.</li>
+      <li>拼写（不规则动词）：teached → taught。teach 的过去式是不规则变化。</li>
+      <li>语法（介词）：I taught my friend to use AI at yesterday → 去掉 at，或写成 yesterday evening。</li>
+      <li>用词（疑问句）：What were you yesterday. 想问「你昨天怎么样」，英语用 How：How were you yesterday? 而且句尾必须是问号。</li>
+      <li>任务完成度：5 句里只有 2 个不同句式（was busy / were playing），否定句没写。补一句：I was not happy yesterday.（或 I wasn't tired
+        yesterday.）</li>
+    </ul>
+    <p>完整改后版：I was busy yesterday. Tom and I were playing games at 8 p.m. We had a good time. I taught my friend to use
+      AI. How were you yesterday? I was not very happy yesterday.</p>
+    <h4>难度反馈</h4>
+    <p>刚好</p>
+    <blockquote>备注：第 6 课作业 5 处错，集中在三处老问题复发（play games 第 3 次、句尾问号、拼写）与两处新知识点（yesterday 前不加介词、teach 的不规则过去式）。反馈「刚好」，维持
+      Level 2。第 7 课是 day-01-07.md 的最后一课，内容为 Level 2 规则动词过去式 + 补漏块 4（介词 on / at）。</blockquote>
+  </div>
+  <script>
+    var tabs = document.querySelectorAll('nav button');
+    tabs.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        tabs.forEach(function (b) { b.classList.remove('on'); });
+        btn.classList.add('on');
+        document.querySelectorAll('main section').forEach(function (s) { s.classList.add('hide'); });
+        document.getElementById('tab-' + btn.dataset.tab).classList.remove('hide');
+      });
     });
-    b.textContent = hidden > 0 ? '收起中文' : '整篇看中文';
-  });
-});
-document.querySelectorAll('.wcard').forEach(function (c) {
-  c.addEventListener('click', function () { c.classList.toggle('show'); });
-});
-var q = document.getElementById('q');
-if (q) {
-  q.addEventListener('input', function () {
-    var v = q.value.trim().toLowerCase();
-    document.querySelectorAll('.lesson').forEach(function (card) {
-      card.classList.toggle('hide', v !== '' && card.dataset.text.indexOf(v) === -1);
+    document.querySelectorAll('.zhbtn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var scope = b.parentElement;
+        var blocks = scope.querySelectorAll('.zh');
+        var hidden = 0;
+        blocks.forEach(function (z) { if (z.hasAttribute('hidden')) { hidden += 1; } });
+        blocks.forEach(function (z) {
+          if (hidden > 0) { z.removeAttribute('hidden'); } else { z.setAttribute('hidden', ''); }
+        });
+        b.textContent = hidden > 0 ? '收起中文' : '整篇看中文';
+      });
     });
-  });
-}
-</script></body></html>
+    document.querySelectorAll('.wcard').forEach(function (c) {
+      c.addEventListener('click', function () { c.classList.toggle('show'); });
+    });
+    var q = document.getElementById('q');
+    if (q) {
+      q.addEventListener('input', function () {
+        var v = q.value.trim().toLowerCase();
+        document.querySelectorAll('.lesson').forEach(function (card) {
+          card.classList.toggle('hide', v !== '' && card.dataset.text.indexOf(v) === -1);
+        });
+      });
+    }
+  </script>
+</body>
+
+</html>
