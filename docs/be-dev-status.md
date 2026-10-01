@@ -1,6 +1,6 @@
 # 后端工程师（be-dev）工作状态
 
-> **更新时间**：2026-09-30 19:35（GMT+8）
+> **更新时间**：2026-10-01 12:40（GMT+8）
 > **角色**：后端工程师 / be-dev —— 负责 Node 22 + Express 4 + MySQL 8.0 后端、数据层、迁移管线与契约实施
 > **证据分级**（全文遵循）：**已实测** = 本仓库脚本/接口跑过的结果；**静态证据** = 文件或提交可查但本次未执行；**推断** = 未见实测依据；**未验证** = 明确没跑过。
 >
@@ -24,6 +24,10 @@
 | A6 | **对账全绿**：`db:compare` 由 `11/3/1` 收口至 **`15/0/0`**；`db:export` warnings 由 1 → **0** | **已实测** | ✅ |
 | A7 | **三件新工具**：`db:sync-mistakes`、`db:apply-error-types`、`db:summary` | **已实测**：均幂等、支持 `--dry-run` | ✅ |
 | A8 | **摘要改由后端生成**：`INDEX.md` / `digest.md` 由 `db:summary` 读库产出（复刻退役的 `build_board.py` 规则） | **已实测**：`db:summary --check` → `stale=0` | ✅ |
+| A9 | **第 7 课入库闭环**（2026-10-01）：`lessons` 6→7、`lesson_sections` 51→60、`lesson_exercises` 34→41、`readings`/`pieces`/`questions` 4/11/22→5/14/28、`vocabulary` 51→61、`lesson_vocabulary` 52→62、`mistakes` 23→26 | **已实测**：`db:export` → `db:import` → `db:compare` **15/0/0**；`db:summary` lessons=7 / pendingMistakes=20 / readingDays=5 / pieces=14 | ✅ |
+| A10 | **修「新课整课被跳过」潜伏 bug**：导出器补 `perLessonLevel`（逐课级别）+ `perLessonGrammar`（逐课语法点，取自 `progress.md`「已学知识点」） | **已实测**：此前**任何课**都不输出 `levelCode`，第 1—6 课已存在所以看不出来；第 7 课因 `level_code` NOT NULL 被整课跳过。现已入库且 `level=Level 2` | ✅ |
+| A11 | **导入器补 `syncVocabulary`**：幂等写入 `vocabulary`（`uk_vocab_word`）+ `lesson_vocabulary`（`uk_lesson_vocab`），`COALESCE` 只补空缺不覆盖 | **已实测**：51 vs 61 的不一致消除；重跑行数 `±0` | ✅ |
+| A12 | **导入器补计数回写 `syncLessonCounts`**：只给「本轮新建」或「三项计数全 0」的课回写 `vocab_count`/`exercise_count`/`error_count`；`grammar_point` 为 NULL 时补写 | **已实测**：第 7 课 → 生词 10 · 作业 7 · 错误 2 · 语法点「规则动词过去式 -ed」；第 1—6 课**一个字节都没动** | ✅ |
 
 ### B. 接口与契约
 
@@ -36,26 +40,29 @@
 | B5 | **前端配合项答复**（V1 正常链路验证 / C6 / C8 / C9 / C10） | 落档 `backend/docs/05-api-reference.md` §六 | ✅（静态证据） |
 | B6 | **批改三字段回填**（amy 交办 ③）：`is_correct` / `error_note` / `revised_answer` | **已实测**：`is_correct` 34/34（0 NULL，答错 10）、`error_note` 10（= 10 道错题）、`revised_answer` 6（与 `records/*.grading.json` 的 `revisedAnswer` 逐条对应） | ✅ |
 | B7 | **`error_count` 历史值处置**（amy 交办 ④） | **已决保留**（3/4/2/6/2/5 vs 重算 5/4/2/6/1/6）；**口径切换点 = 第 7 课**已写入 `04-migration-and-roadmap.md` | ✅ |
+| B8 | **课程详情页渲染崩溃修复**（`review/assets/ui.js`，**跨职责**）：`renderMarkdown` 段落终止条件与三个分支判定不同源，`---` / `**加粗**` 开头的行使 `i` 不前进 → `out` 无限增长 → `RangeError: Invalid array length` | **已实测**：修复前第 1—7 课全崩（`#lessonBody .sec` = 0）；修复后 10 个小节正常渲染、`verify-frontend-pages` **47/47**、shared **35/35** | ✅（**待 fe-dev 复核归属**） |
 
 ### C. 本轮提交
 
-`8f30b59` 三件工具 + 摘要 → `4f936c2` 导出对账与前端滞后断言 → `5e1fef8` 文档同步 → `cc73588` G4 `incompleteStep` → `c5844cb` 三件事落档 → `0d76732` §11.10 测试锁。
+`8f30b59` 三件工具 + 摘要 → `4f936c2` 导出对账与前端滞后断言 → `5e1fef8` 文档同步 → `cc73588` G4 `incompleteStep` → `c5844cb` 三件事落档 → `0d76732` §11.10 测试锁 → **`d868401`** `ui.js` 死循环防御 → **`cf07f29`** 第 7 课入库闭环 + 验证基线动态化。
 **全部用显式路径提交，未使用 `git add -A`**；未提交任何 `backup-*.sql`、`.env` 或 `_snapshot.json`。
 
-### D. 当前验证基线（**已实测**，2026-09-30）
+### D. 当前验证基线（**已实测**，2026-10-01）
 
 | 检查 | 结果 |
 |---|---|
 | `test:api` | 49 / 49 |
 | `test:write` | **66 / 66**（59 → 63 补 G4，→ 66 补 §11.10） |
 | `integration-check` | 17 / 17 |
-| `verify-frontend-pages` | 47 / 47 |
-| `verify-frontend-shared` | 35 / 35 |
+| `verify-frontend-pages` | **47 / 47**（基线已改为**与接口值动态比对**，不再写死 6 课 / 51 词） |
+| `verify-frontend-shared` | **35 / 35**（同上，去掉 51 / 6 / 20 等常数） |
 | `db:compare` | 一致 15 · 差异 0 · 缺口 0 |
 | `db:summary --check` | `stale=0` |
 | `check_schemas` | `SCHEMA_OK` |
 
-**库内计数**（`F2 零影响` 断言锁定）：students 1 / lessons 6 / vocabulary 51 / lesson_vocabulary 52 / **mistakes 23** / study_records 18 / progress 1 / lesson_exercises 34 / lesson_sections 51 / readings 4 / reading_pieces 11 / reading_questions 22。
+**库内计数**（`F2 零影响` 断言锁定，2026-10-01）：students 1 / lessons **7** / vocabulary **61** / lesson_vocabulary **62** / **mistakes 26**（pending 20 / passed 6）/ study_records 18 / progress 1 / lesson_exercises **41** / lesson_sections **60** / readings **5** / reading_pieces **14** / reading_questions **28**。
+
+**第 7 课**（本轮补齐）：语法点「规则动词过去式 -ed」· 生词 10 · 作业 7（作业 4 + 补漏块 3）· 错误 2（作业口径，不含补漏块 3 处）。
 
 ---
 
@@ -82,6 +89,9 @@
 | T6 | **契约描述单点化维护** | 判重键这类口径目前分散在 §11 / skills.md / schema / 实现四处，靠人工对齐 | 属长期治理，非紧急 |
 | T7 | **快照 `currentCourseNo` / `currentLessonNo` 同名双写** | 两值恒等，**非 bug**；暂用断言保证，收敛议定在 P4 | 低优先级 |
 | T8 | **历史文档时点数字** | `docs/plans/*`、`integration-report-01.md` 保留旧快照（mistakes 19 / pending 15 等），属历史记述 | **议定不追改**；待定是否在文件头加「时点快照」注记 |
+| T9 | **第 7 课 `error_type` 未回填** | `records/exercise-error-types.json` **无第 7 课行** → 2 道错题 `error_type` 为 NULL（`db:apply-error-types` 实测 0 更新） | 等 amy 补第 7 课的逐题映射；后端脚本无需改动，补完重跑即可 |
+| T10 | **第 7 课 `study_records`(grade) 缺失** | 导入告警「第 7 课无 grade 学习记录，byType 无处回填」 | 等 amy 写第 7 课的学习记录并在 payload 带 `byType`；与既有约定同（第 1—6 课已由 `db:import` 回填） |
+| T11 | **三项计数口径待统一** | 第 1—6 课是 seed 手工值（第 1 课 `exercise_count=7` 而子表只有 4 行），第 7 课起改「子表行数」口径 —— **两口径不同源** | 待 amy 拍板：① 保持现状（历史不动，新课用新口径）；② 全量重算并作废历史值。在拍板前后端**不会**动历史课 |
 
 ---
 
@@ -98,6 +108,9 @@
 3. **`records/*.json` 保持既有约定**：一套题集一文件；错词本「错误点」只写错误形式、**禁括号批注**（批注入「错因」，否则会被 `uk_mistakes_text` 拆成两行 —— 这是当初 DQ1 的根源）。
 4. **`check_instance.py` 归属待你确认**：全仓无此文件也无引用，不知它应是教学侧产物还是归档在哪。
 5. ✅ 已完成无需再动：`docs/ai-teacher.md` §12.1 已由你更新为「后端 `db:summary`」（`build_board.py` 已退役）。
+6. 🟡 **第 7 课两处数据缺口**（不阻塞，但影响展示完整性）：① `exercise-error-types.json` 里没有第 7 课 → 2 道错题 `error_type` 为 NULL；② 第 7 课没有 grade 学习记录 → `byType` 无处回填。补完告知我，重跑 `db:apply-error-types` / `db:import` 即可，**不用改代码**。
+7. 🟡 **请拍板：三项计数口径是否统一**（详见 T11）。第 1—6 课是 seed 手工值（第 1 课「作业 7 项」但库里只有 4 道题），第 7 课起我改用子表行数（生词 10 / 作业 7 / 错误 2）。**在你拍板前，历史课我一个数字都没动。**
+8. 🟡 **导出器 2 条告警待你定归置**（`db:export`）：① 第 7 课小节「答疑：为什么 play 不双写，stop 要双写」不在 `SectionType` 枚举内（**未入库**）；② 候选错词 `in office` 不在错词本 —— 按「以错词本为准」**未自动创建**，若确认是错词请加进 `wrong-words.md` 后我再跑 `db:sync-mistakes`。
 
 ### B. Skill 设计师
 
@@ -108,14 +121,15 @@
 ### C. 前端工程师（fe-dev）
 
 1. ✅ `review/*` 已全部 API 驱动；首页接 `/readings/stats.pieceCount` + title 的 `totalDays` —— **已实测** 47/47、35/35 全绿。
+1.1 🔴 **请复核 `d868401`（`review/assets/ui.js`）**：`renderMarkdown` 段落终止条件与三个分支判定不同源，`---` / `**加粗**` 开头的行会让 `i` 不前进 → `out` 无限增长 → `RangeError: Invalid array length`，**课程详情页第 1—7 课全崩**。我做了最小防御性修复（谓词同源 + 强制前进兜底），但该文件属你的共享层，**请确认这个改法符合你的设计意图**。
 2. 本轮快照**新增** `lastIncomplete.incompleteStep`（有值才带键）。**当前仍为 `null`**（缺数据），前端若消费请**走降级**，不要当成「上次没有中断」。
 3. 若后续要改任何快照消费字段，请先知会我，避免两侧口径漂移。
 
 ### D. Git 工程师 / 项目负责人
 
-1. **工作区当前尚有 8 个未提交文件属其他角色**（`docs/ai-teacher.md`、`docs/plans/frontend-plan.md`、`docs/schemas/reading-set.schema.json`、`docs/skills.md`、`review/assets/board.css`、`review/reading.html`、`skills/english-daily/SKILL.md`、`skills/english-daily/references/course-template.md`）。
-   **我侧改动已全部提交，一个别人的文件都没碰**（职责隔离 + 显式路径）。
-2. 建议：本轮 6 个提交收尾后可考虑打里程碑 tag（`db:compare` 全绿、mistakes 23 条、G4 代码完备）。
+1. **工作区当前还有一批未提交文件属其他角色**（截至 2026-10-01 12:40）：`docs/ai-teacher.md`、`docs/schemas/reading-set.schema.json`、`docs/skills.md`、`docs/plans/frontend-plan.md`、`notes/day-01-07.md`、`progress.md`、`wrong-words.md`、`review/{index.html,reading.html,assets/board.css,lessons/lesson.html,lesson-4.html,lesson-6.html}`、`skills/english-daily/{SKILL.md,references/course-template.md}`，另有 `read/2026-10-01-read.md`、`records/lesson-07.{grading,backfill}.json` 与 4 份各角色状态文档（`GIT-MANAGER-STATUS.md`、`SKILL-DESIGNER-STATUS.md`、`docs/status-amy.md`、`docs/前端工程师-工作状态.md`）。
+   **我侧改动已全部提交（`d868401`、`cf07f29`），一个别人的文件都没碰**（职责隔离 + 显式路径）。
+2. 建议：本轮收尾后可考虑打里程碑 tag（`db:compare` 15/0/0、mistakes 26 条、第 7 课入库闭环、三套测试全绿）。
 3. **重踩过的坑已写进口径**：跑测试时若结果与预期不符，先怀疑「打到旧实例」—— 残留服务占着 4000 会让 `npm start` 静默 `EADDRINUSE` 失败，测试就全打在**改前代码**上。判定方法：看 `npm start` 日志 + 核对 `netstat` 的 PID。
 
 ---
