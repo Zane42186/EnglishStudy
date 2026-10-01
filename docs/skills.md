@@ -187,13 +187,13 @@ TeachingBlock  ExerciseSet ──▶ 学生作答             │
 | `TeachingBlock` | `lesson_sections`、`vocabulary`（随 `POST /lessons` 提交） | 写 |
 | `ExerciseSet` | `lesson_exercises`（随 `POST /lessons` 提交） | 写 |
 | `GradingResult` | `lesson_exercises.is_correct / error_note`（随 `PUT /lessons/:id` 回填） | 写 |
-| `MistakeAnalysisResult` | `POST /mistakes`、`POST /mistakes/:id/review` | 写 |
+| `MistakeAnalysisResult` | **不整体上送** —— 原始条目（错词本 8 列 + 顶层 `lessonNo`）→ `POST /mistakes`；复习回写 → `POST /mistakes/:id/review` | 写 |
 | `ReviewSession` | `POST /mistakes/:id/review` | 写 |
 | `ProgressReport` | `study_records(record_type='grade')` 聚合 | 读 |
 | `ReadingSet` | `POST /readings` | 写 |
 | `SkillRun` | `POST /skill-runs` | 写 |
 
-> **注**：本表路由沿用**简写风格**（不写 `/api` 前缀），与 §6 一致。`POST /lessons` / `PUT /lessons/:id` 为 **Step 2a 待实现**接口（`05-api-reference.md` 只记**已实现**接口，故暂未收录）；其余均为已实现。原写的 `courses` / `course_sections` / `exercises` 系废弃命名，2026-10-01 订正为 `lessons` / `lesson_sections` / `lesson_exercises`。**同日一并订正的同类残留**：§3 各「依赖数据」表及全文件的 `course_vocabulary` → `lesson_vocabulary`、`course_knowledge_points` → `lesson_knowledge_points`（后两表为**规划中、尚未建**）。
+> **注**：本表路由沿用**简写风格**（不写 `/api` 前缀），与 §6 一致。`POST /lessons` / `PUT /lessons/:id`（Step 2a）与 `POST /mistakes`（Step 2b）**均已实现并实测**（`05-api-reference.md` **#28 / #29 / #30**，接口总数 **30**）。**`POST /mistakes` 的载荷口径 = R3「只喂原始条目」**（2026-10-01 负责人照准）：只传**错词本一行 8 列** + 顶层 `lessonNo`（`items` 1—200 条），**不传**本契约的 `before/after`、`patternHits`、`recurrenceWarnings` —— 三者是**分析产物，不上送、不落库**（只用于教学呈现与下一课 `selfChecks`）。原写的 `courses` / `course_sections` / `exercises` 系废弃命名，2026-10-01 订正为 `lessons` / `lesson_sections` / `lesson_exercises`。**同日一并订正的同类残留**：§3 各「依赖数据」表及全文件的 `course_vocabulary` → `lesson_vocabulary`、`course_knowledge_points` → `lesson_knowledge_points`（后两表为**规划中、尚未建**）。
 
 ### 2.4 降级表示法
 
@@ -242,7 +242,7 @@ ALTER TABLE lesson_sections
 
 **机器真相源是 `records/`，不是 md 散文**：补漏块的逐题判定落在 `records/lesson-NN.backfill.json`（`kind: "backfill"`、`exerciseNo` 块内编号、`summary.backfillErrorCount` 单列），作业判定落在 `records/lesson-NN.grading.json`。后端**只读该目录的 JSON**，禁止从 `### 批改` 文字里做文本匹配提取 `isCorrect` / `errorNote`——文字匹不出一处错误对应哪一题，也判不出「用词 vs 语法」（见 `records/README.md`）。md 侧的「补漏块 N：」分组仅供人读，与 JSON 同源；两者不一致时以 JSON 为准。
 
-**与 `mistakes` 的边界**：补漏块本身不是错词来源条目，但补漏题答错会经 `mistakeCandidates[]` 进入错词本——判重键为规范化后的 `wrongText` + `errorType`，命中则 `wrong_count + 1`、`streak = 0`，不新建。`error_type` 按 `docs/ai-teacher.md` §11.5 的三步判定，判不出一律 `other`。补漏块的错误数**不计入本课作业 `errorCount`**（口径见 `docs/ai-teacher.md` §11.4）。
+**与 `mistakes` 的边界**：补漏块本身不是错词来源条目，但补漏题答错会经 `mistakeCandidates[]` 进入错词本——判重键 = 规范化后的 `wrongText`（服务端 `normKey`：剥全角括号批注 → 折叠空白 → 小写；**不含 `errorType`**），命中 → 更新 7 个内容列（`wrong_count` 以**人工判定值**覆盖、与库内自动累计值的差异逐条告警），未命中 → 新建。`error_type` 按 `docs/ai-teacher.md` §11.5 的三步判定，判不出一律 `other`。补漏块的错误数**不计入本课作业 `errorCount`**（口径见 `docs/ai-teacher.md` §11.4）。
 
 **导出链影响（已落地）**：`backend/db/migration/export_md_to_json.py` 已按上表把题号拆成**两块命名空间**——作业题 `block_kind='homework'`、`block_no=0`，补漏块 `block_kind='backfill'`、`block_no=块序号`；`parse_my_answer()` 按 `补漏块 N：` 标签把答案分流到对应块。该脚本已改为**自包含**（内联 `LESSON_RE` / `SECTION_RE` / `DETAIL_RE` / `BACKFILL_HEAD_RE` 等全部正则与解析函数），**不再 import `build_board`**，因此与 `skills/english-daily/scripts/` 已无依赖关系（见 7.3 / 7.4）。逐题判定一律取自 `records/*.json`，warnings 中「补漏块无对应 SectionType」的历史项已由 `section_type` 末尾新增 `backfill` 消解。
 
@@ -864,6 +864,8 @@ R3 判定演示：最近三课错误数为 6 → 2 → 5，**不满足「持续�
 #### 输出
 `MistakeAnalysisResult`。落表实体为错词本 8 列（`课号 | 错误点 | 正确形式 | 错因 | 连续答对 | 状态 | 类型 | 累计犯错`），列口径见 `docs/ai-teacher.md` §11.7 与 `skills/english-daily/SKILL.md` 第七章。
 
+> **上送口径（R3「只喂原始条目」，2026-10-01 负责人照准；Step 2b 已实现 = `05` #30）**：落库走 `POST /api/mistakes`，**只送原始条目** —— 错词本一行 8 列（`wrongText` / `correctText` / `errorType` / `wrongCount` / `errorReason` / `streak` / `status` / `courseNo`）+ 顶层 `lessonNo`，`items` 1—200 条。本契约的 `before/after`、`patternHits`、`recurrenceWarnings` 属**分析产物：不上送、不落库**，只用于教学呈现与下一课 `selfChecks`。判重与累加由**服务端**按规范化 `wrongText` 判定（命中 → 更新 7 个内容列，`wrong_count` 以人工判定值覆盖 + 差异逐条告警；`POST /:id/review` 只 `+1` 增量）；**Skill 侧不得自行累加落库**。另：`wrongText` 含全角括号批注 → 服务端 **400**（DQ1 守卫）、批内同键 → **400**。
+
 #### 依赖数据
 
 | 契约字段 | 后端表 | 用途 |
@@ -874,7 +876,7 @@ R3 判定演示：最近三课错误数为 6 → 2 → 5，**不满足「持续�
 
 #### 执行流程
 
-1. 逐条候选做判重：判重键 = 规范化后的 `wrongText` + `errorType`（去标点、去空格、统一小写）。
+1. 逐条候选做判重：判重键 = 规范化后的 `wrongText`（**`normKey`**：剥全角括号批注 → 折叠空白 → 小写；**不含 `errorType`** —— 服务端唯一键 `uk_mistakes_text` 建在 `wrong_text` 原始列上）。
 2. 命中既有条目 → 进 `updatedMistakes`，`wrongCount+1` 且 `streak=0`。
 3. 未命中 → 新建条目进 `newMistakes`。
 4. 全部写入 `events` 流水（只增不改）。
@@ -885,7 +887,7 @@ R3 判定演示：最近三课错误数为 6 → 2 → 5，**不满足「持续�
 
 | 规则 | 内容 |
 |---|---|
-| 判重键 | 规范化 `wrongText`（去标点、去空格、统一小写）+ `errorType`。**仅部分相似不得合并** |
+| 判重键 | 规范化 `wrongText`（`normKey`：剥全角括号批注 → 折叠空白 → 小写；**不含 `errorType`**）。**仅部分相似不得合并** |
 | `错误点` 写法（硬规范） | 错词本 `错误点` 列**只写错误形式本身**，不得夹带括号批注；批注写 `错因` 列。批注混入会让 `wrong_text` 在错词本、`records/*.json`、DB 三处不一致，迁移时按 `uk_mistakes_text` **把一条错拆成两行**（DQ1 的根源） |
 | `类型` / `累计犯错` 不可推导 | 对应 `error_type` / `wrong_count`，**只能由人工（批改时）判定**，解析器不得从文本推断 |
 | 复发不新建 | 同一错误重复出现只累加 `wrongCount`，不新建条目 |
@@ -1198,9 +1200,9 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 | 接口 | 谁用 | 时机 |
 |---|---|---|
-| `POST /lessons` | `daily-lesson` | 归档（**Step 2a 待实现**） |
-| `PUT /lessons/:id` | `daily-lesson` | 回填批改与反馈（**Step 2a 待实现**） |
-| `POST /mistakes` | `mistake-analysis` | 发现新错词 |
+| `POST /lessons` | `daily-lesson` | 归档（Step 2a **已实现**，`05` #28；课号已存在 → 409） |
+| `PUT /lessons/:id` | `daily-lesson` | 回填批改与反馈（Step 2a **已实现**，`05` #29；部分更新，`:id` 是主键不是课号） |
+| `POST /mistakes` | `mistake-analysis` | 发现新错词（Step 2b **已实现**，`05` #30；载荷 = **R3「只喂原始条目」**：错词本 8 列 + 顶层 `lessonNo`，**不传** `before/after` / `patternHits` / `recurrenceWarnings`） |
 | `POST /mistakes/:id/review` | `lesson-review`、`daily-lesson` | 每次判对错 |
 | `POST /progress/feedback` | `daily-lesson` | 收难度反馈 |
 | `POST /study-records` | `daily-lesson` | 下课时（`grade` / `feedback`） |
@@ -1403,6 +1405,22 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 ---
 
 ## 附录 A：契约与文件清单
+
+### 第十轮（2026-10-01：`POST /mistakes` 载荷口径同步 R3 + 判重键订正，**纯文档、无版本变更**）
+
+> **背景**：Step 2b `POST /api/mistakes` 已实现并实测（be-dev §6.12，`test:write` 123/123；`05` 接口 **#30**，总数 **30**）。载荷口径按负责人裁定 = **R3「只喂原始错词条目」**。本轮回执对应该节「仍待」第 1 项（本文件 §2.3/:190 与 §4.4/:1203 的映射同步）与第 2 项（A15 判重键 4 处漏改 —— 与 2026-10-01 已修的 `common.schema.json` `MistakeItem`「判重键 = `wrongText`」构成活矛盾，故一并清）。
+
+| 位置 | 动作 | 说明 |
+|---|---|---|
+| §2.3 映射表 | 改 | `MistakeAnalysisResult` 不再整体映射到 `POST /mistakes`：**不整体上送**，原始条目（8 列 + 顶层 `lessonNo`）→ `POST /mistakes`；复习回写 → `POST /mistakes/:id/review` |
+| §2.3 注 | 改 | 「`POST/PUT /lessons` 为 Step 2a 待实现」**已过时** → 改为 2a（`05` #28/#29）与 2b（`05` #30）**均已实现**，接口总数 **30**；并写明 R3 三不传（`before/after` / `patternHits` / `recurrenceWarnings`） |
+| §2.5 与 `mistakes` 的边界 | 改（A15-1） | 判重键去 `+ errorType`，改 `normKey` 三步（剥全角括号批注 → 折叠空白 → 小写）；「命中则 `wrong_count + 1`、`streak = 0`」改为「命中 → 更新 7 内容列（`wrong_count` 人工值覆盖 + 差异逐条告警）」 |
+| §3.7 执行流程 #1 / 判断规则「判重键」行 | 改（A15-2/3） | 同上：判重键 = `normKey(wrongText)`，不含 `errorType`（服务端唯一键 `uk_mistakes_text` 建在原始列上） |
+| §3.7 输出后新增块 | 加 | **「上送口径（R3）」**：只送 8 列 + 顶层 `lessonNo`（`items` 1—200）；三不传；判重与累加由**服务端**判定、**Skill 侧不得自行累加落库**；DQ1 括号批注 → 400、批内同键 → 400 |
+| §4.4 写表 | 改 | `POST/PUT /lessons` 去「Step 2a 待实现」（已实现，#28/#29）；`POST /mistakes` 行补 R3 载荷口径（#30） |
+| `docs/schemas/mistake.schema.json` | 改（A15-4） | 根 `description` 补 R3 上送口径；`newMistakes.description` 判重键修正（去 `errorType`、改 `normKey` 三步） |
+
+**不改**：`MistakeAnalysisResult` 作为 **Skill 内部分析产物**的契约本身（`patternHits` / `recurrenceWarnings` 仍是 §3.7 的合法输出，驱动下一课 `selfChecks`）——变的只是「**不整体上送**」这一个环节；`be-dev §6.12 仍待 #3`（命中时 `first/last_lesson_id` 不刷新）为独立决策，本轮不动。
 
 ### 第九轮（2026-10-01：契约描述订正 —— 废弃/未建表名 + G1 过时描述，**纯描述、结构零变更**）
 

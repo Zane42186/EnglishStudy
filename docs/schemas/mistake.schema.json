@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://english-study.local/schemas/v1/mistake.schema.json",
   "title": "MistakeAnalysisResult 错词分析结果",
-  "description": "mistake-analysis 的输出。把一次批改产生的候选错误去重、归并进错词本，命中错误模式，并对高频复发项发出警告。本对象的根校验对象是 MistakeAnalysisResult；错词条目本身见 common.schema.json 的 MistakeItem。",
+  "description": "mistake-analysis 的输出。把一次批改产生的候选错误去重、归并进错词本，命中错误模式，并对高频复发项发出警告。本对象的根校验对象是 MistakeAnalysisResult；错词条目本身见 common.schema.json 的 MistakeItem。**上送口径（R3「只喂原始条目」，2026-10-01 负责人照准，Step 2b 已实现 = backend 05 #30）**：落库走 POST /api/mistakes 时只送原始条目（错词本一行 8 列 + 顶层 lessonNo）；本对象的 updatedMistakes 的 before/after、patternHits、recurrenceWarnings 属分析产物，不上送、不落库。",
   "type": "object",
   "required": ["lessonNo", "newMistakes", "updatedMistakes", "patternHits"],
   "$defs": {
@@ -55,7 +55,7 @@
   "properties": {
     "lessonNo": { "type": "integer", "minimum": 1 },
     "newMistakes": {
-      "description": "本次新建的错词条目。判重键为规范化后（去标点、去空格、统一小写）的 wrongText 加 errorType；已存在则进 updatedMistakes 而不是这里。",
+      "description": "本次新建的错词条目。判重键为规范化后的 wrongText（服务端 normKey：剥全角括号批注 → 折叠空白 → 小写；**不含 errorType**，库唯一键 uk_mistakes_text 建在 wrong_text 原始列上）；已存在则进 updatedMistakes 而不是这里。",
       "type": "array",
       "items": { "$ref": "common.schema.json#/$defs/MistakeItem" }
     },
