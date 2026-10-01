@@ -677,6 +677,29 @@ async function cleanup(studentId) {
     };
     const batch = (items, lessonNo = TEST_LESSON_NO) => ({ lessonNo, items });
     const MW_TEXT = 'MW go to school yesterday';
+    // MW4/MW6 之后该行的落库原文已被「本次原文」覆盖（判重命中一律写本次原文）
+    const MW_TEXT_STORED = 'MW  Go To School   Yesterday';
+
+    // §11.11 夹具：`last_lesson_id` 刷新需要 ≥2 个**更大**的课号，而主夹具只有一课（90）。
+    // ⚠️ 课号必须**动态取**：LW 段的 `POST /api/lessons` 会按 max+1 自动分配课号，
+    //    硬编码 91/92 会撞 `uk_lessons_no`（本脚本首跑即栽在此处）。故取现最大值 +10 起。
+    const [{ maxNo }] = await db.query(
+      'SELECT COALESCE(MAX(lesson_no), 0) AS maxNo FROM lessons WHERE student_id = ?',
+      [testStudentId]
+    );
+    const probeLessons = [];
+    for (const offset of [10, 11]) {
+      const no = Number(maxNo) + offset;
+      const ins = await db.execute(
+        `INSERT INTO lessons (student_id, lesson_no, lesson_date, level_code, summary, status)
+         VALUES (?, ?, '2026-09-30', 'Level 2', '§11.11 课号刷新夹具（临时）', 'taught')`,
+        [testStudentId, no]
+      );
+      probeLessons.push({ no, id: ins.insertId });
+    }
+    const probeNoA = probeLessons[0].no;   // 首次课（新建 MW_TOP 用）
+    const probeNoB = probeLessons[1].no;   // 复发课（更大 → 应推进 last）
+    const lessonIdOfNo = (no) => (probeLessons.find((l) => l.no === no) || {}).id;
 
     const mwBase = await cntMistakes(); // 前置 2 条（probe m1 / m2）
 
@@ -795,6 +818,54 @@ async function cleanup(studentId) {
       r.json.data.created === 1 && !!row && row.first_lesson_id === null
         && r.json.data.warnings.some((w) => w.includes('999')),
       `created=${r.json.data.created} first=${row && row.first_lesson_id} warn=${JSON.stringify(r.json.data.warnings)}`);
+
+    // ---------- MW17—MW20 §11.11：`last_lesson_id` 随复发刷新、`first_lesson_id` 冻结 ----------
+    // 定则：`last = max(现有课号, 本次课号)`（单调守卫）；`first` 永不改写；
+    // 值为「不变」时该行仍计 `unchanged` ⇒ 重放幂等（本次课号不前进＝无变化）。
+    const mwHit = (courseNo) => batch([
+      { wrongText: MW_TEXT_STORED, correctText: 'MW went to school yesterday',
+        errorType: 'grammar', errorReason: '过去式误用', wrongCount: 5, courseNo },
+    ]);
+
+    // MW17 命中且本次课号更大（90 → probeNoB）→ `last` 前进
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, mwHit(probeNoB));
+    row = await dbMistake(MW_TEXT_STORED);
+    check(`MW17 命中时 last_lesson_id 前进到本次课号（第 ${probeNoB} 课）`,
+      r.json.data.updated === 1 && !!row && row.last_lesson_id === lessonIdOfNo(probeNoB),
+      `updated=${r.json.data.updated} last=${row && row.last_lesson_id} want=${lessonIdOfNo(probeNoB)}`);
+    eq('MW17b first_lesson_id **冻结**（仍为首次课，未被复发改写）',
+      row && row.first_lesson_id, testLessonId);
+    eq('MW17c 响应 changed 注明本次只动了课号（内容列未变）',
+      r.json.data.items[0].changed, ['last_lesson_id']);
+
+    // MW18 本次课号更小（probeNoB ← probeNoA）→ 单调守卫：`last` **不回退**
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, mwHit(probeNoA));
+    row = await dbMistake(MW_TEXT_STORED);
+    check(`MW18 本次课号更小 → last 不回退（仍 ${probeNoB}），该行计 unchanged`,
+      r.json.data.updated === 0 && r.json.data.unchanged === 1
+        && !!row && row.last_lesson_id === lessonIdOfNo(probeNoB),
+      `u=${r.json.data.updated} un=${r.json.data.unchanged} last=${row && row.last_lesson_id}`);
+
+    // MW19 同 payload 重放（本次课号相等）→ 幂等，`last` 稳定
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, mwHit(probeNoB));
+    row = await dbMistake(MW_TEXT_STORED);
+    check(`MW19 同 payload 重放 → 幂等（unchanged=1），last 稳定在 ${probeNoB}`,
+      r.json.data.updated === 0 && r.json.data.unchanged === 1
+        && !!row && row.last_lesson_id === lessonIdOfNo(probeNoB),
+      `u=${r.json.data.updated} un=${r.json.data.unchanged} last=${row && row.last_lesson_id}`);
+
+    // MW20 取值优先级：条目未给 courseNo → 取**顶层** `lessonNo` 作本次课号
+    const MW_TOP = 'MW top-level lesson fallback';
+    await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: MW_TOP, correctText: 'MW top-level fixed', errorType: 'grammar', wrongCount: 1 },
+    ], probeNoA));
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: MW_TOP, correctText: 'MW top-level fixed', errorType: 'grammar', wrongCount: 1 },
+    ], probeNoB));
+    row = await dbMistake(MW_TOP);
+    eq(`MW20 顶层 lessonNo 作默认本次课号：first 停在第 ${probeNoA} 课、last 前进到第 ${probeNoB} 课`,
+      row && [row.first_lesson_id, row.last_lesson_id],
+      [lessonIdOfNo(probeNoA), lessonIdOfNo(probeNoB)]);
 
     // MW15 学生隔离：默认学生列表不含临时学生错词
     r = await get('/api/mistakes?size=500');
