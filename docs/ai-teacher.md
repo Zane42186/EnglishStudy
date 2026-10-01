@@ -17,11 +17,11 @@
 |---|---|---|
 | **Amy（本文件）** | 教学决策：学什么、讲多少、怎么批、是否升降级 | 由 Skill `english-daily` 承载执行 |
 | **Skill** | 把 Amy 的流程固化为可重复执行的步骤与脚本 | `.workbuddy/skills/english-daily`（**不在版本库内**，见 `docs/skills.md` 风险登记） |
-| **Backend** | 学习记忆：只搬运、不重设计教学规则 | `backend/` 仅有设计稿，**无可运行代码** |
+| **Backend** | 学习记忆：只搬运、不重设计教学规则 | `backend/` 已是**可运行服务**：`localhost:4000/api`，**29 个接口已登记**（含 6 条写链路与聚合快照，见 `backend/docs/05-api-reference.md` §28—29 为最新批次） |
 | **Frontend** | 学习界面 | `review/*.html`，纯 API 驱动的静态页（不再由脚本生成） |
 | **Git** | 版本安全 | `main` 单分支，origin → `Zane42186/EnglishStudy` |
 
-### 1.2 数据真相源（Markdown 优先，数据库尚未启用）
+### 1.2 数据真相源（双轨：md 手工源 + MySQL 运行库）
 
 | 内容 | 文件 | 性质 |
 |---|---|---|
@@ -29,15 +29,20 @@
 | 错词与掌握度 | `wrong-words.md` | 手工维护（Amy 维护） |
 | 课程正文与批改 | `notes/day-01-07.md`（每 7 课一份） | 追加式，不重写 |
 | 当日阅读 | `read/YYYY-MM-DD-read.md` | 一天一个文件，当天不覆盖 |
+| 批改 / 补漏 / 学习记录（机器契约） | `records/*.json` | **Amy 产出、后端只读消费**（2026-09-30 新增） |
 | 上课速读摘要 | `digest.md` | 后端 `db:summary` 生成，Amy 上课只读这一份 |
 | 索引 / 看板 | `INDEX.md`（后端 `db:summary`）、`review/*.html`（前端维护） | 生成物，禁止手改 |
+
+> **2026-10-01 更新 —— 库已启用**：MySQL `english_platform` 已建成并完成回填（**13 表 2 视图**，`db:compare` **15/0/0**）。
+> 真相源分两层：**教学内容**仍以 md 为手工真相源（`records/*.json` 是 md → 库的机器契约中间层）；
+> **运行态数据**（课表 / 错词 / 学习记录 / 进度）**以库内为准**。写路径口径与切换点见 `docs/skills.md` §7.2。
 
 ### 1.3 上课流程（11 步，当前实际执行）
 
 ```
 读 digest + progress → 定课号 N → 出复习题（等待作答）→ 批改复习
 → 讲新课（等待作答）→ 收作业（等待作答）→ 批改作业 → 收难度反馈（等待作答）
-→ 归档到 notes → 生成当日阅读 → 重建看板 → 汇报
+→ 归档到 notes + `records/*.json` → 生成当日阅读 → 跑 `db:summary` 重建 `digest.md`/`INDEX.md` → 汇报
 ```
 
 四条硬规则：
@@ -410,7 +415,7 @@
 6. 补漏块：从补漏队列取 1 块（3 题，5—8 分钟），不计新语法点
 7. 作业：3 小题 + 1 道开放题 + 强制自查项（第 7 课起：句尾标点 + 可数名词）
 8. 当日阅读：1—3 篇，Level 1—2 为自编 60—90 词（过渡期加长）
-9. 收反馈 → 按第七章规则调整级别 → 归档 → 重建看板
+9. 收反馈 → 按第七章规则调整级别 → 归档（`notes/` + `records/*.json`）→ 跑 `db:summary` 刷新 `digest.md`/`INDEX.md`
 ```
 
 ### 8.2 补漏队列（当前）
@@ -451,7 +456,7 @@
 
 | 接口 | Amy 用它做什么 | 对应现有 md |
 |---|---|---|
-| `GET /agent/snapshot?recent=3` | **上课第一步**：级别、课号、最近三课、未过关错词（含 priority）、阅读目录 | `digest.md` |
+| `GET /agent/snapshot?recent=3` | **上课第一步**：级别、课号、最近三课、未过关错词（含 priority）、阅读目录 | `digest.md`（**实测 200，已可替代**） |
 | `GET /lessons` | 「上次学到哪了」的快速回答（最新一课 = 课号最大项） | `notes/` 末课摘要 |
 | `GET /mistakes?status=pending` | 出复习题、批改后回写 | `wrong-words.md` |
 | `GET /vocabulary/stats` | 词汇量汇报 | `review/words.html` 顶部 |
@@ -463,60 +468,66 @@
 | 当前级别 / 已上课数 | `progress.currentLevel` / `currentCourseNo` | ✅ 契约已覆盖 |
 | 最近三课（含语法要点、词汇、反馈、批改条数） | `recentLessons[]` | ✅ 契约已覆盖 |
 | 全部课号一览 | `courseCatalog[]` | ✅ 契约已覆盖 |
-| 错词本待复习项（含「第 3 次犯」等文字） | `pendingMistakes[]`（含 `wrongCount` / `priority`） | ⚠️ `priority` 规则未定义，见 9.3 |
-| 阅读文件清单 | `readingCatalog[]` | ✅ 契约已覆盖 |
-| 错误趋势表、待补清单、补漏队列 | **无对应字段** | ❌ **契约缺口**（见 9.3） |
+| 错词本待复习项（含「第 3 次犯」等文字） | `pendingMistakes[]`（含 `wrongCount` / `priority`） | ✅ `priority` 规则已落地（G2 已关闭） |
+| 阅读文件清单 | `readingCatalog[]` | ✅ 契约已覆盖（实测 5 天） |
+| 错误趋势表 | `errorTrend`（`windowSize` + `byLesson[]`） | ✅ 已覆盖（G1 已关闭） |
+| 待补清单 / 补漏队列 | `backlog` | 🟡 键已占位、值 `null` + `degradation` 标注（G3，待 `knowledge_points`） |
 
 ### 9.2 Amy 写入（写接口）
 
-| 接口 | 触发时机 | 备注 |
+| 接口 | 触发时机 | 状态（以 `backend/docs/05-api-reference.md` 为唯一权威） |
 |---|---|---|
-| `POST /lessons` | 新课归档（讲完 + 批改完） | 含 sections 与 vocabulary；**按 `LessonRecord` 契约，尚未实现**（`docs/schemas/README.md:35` 早已约定该映射） |
-| `PUT /lessons/:id` | 回填作业批改与难度反馈 | **尚未实现** |
-| `POST /mistakes` | 批改时发现新错词 | 需带 `error_type` + `error_reason` |
-| `POST /mistakes/:id/review` ★ | 每次复习判对错 | 连击与过关在服务端判定 |
-| `POST /progress/feedback` ★ | 收难度反馈时 | 升降级与冻结在服务端判定 |
-| `POST /study-records` | 下课时 | `grade` / `feedback` 两类 payload |
-| `POST /skill-runs` | 每次执行 `english-daily` | 便于回溯 Skill 侧决策 |
+| `POST /lessons` | 新课归档（讲完 + 批改完） | 🟡 **Step 2a：已交付、待重启实测**。契约＝`LessonRecord`；**05 已同步为 §28—29（第五批）**；**唯一缺口 = 运行中的 `:4000` 仍是重启前进程**（`GET /api` 索引里**尚无**这两条，故不可判「已生效」）。**切换点＝第 8 课**（拍板），`db:import` 同步加**零 DDL 守卫**（跳过 `lesson_no ≥ 8`） |
+| `PUT /lessons/:id` | 回填作业批改与难度反馈 | 🟡 同上（Step 2a 一并交付）。**口径未变**：Amy 侧仍产出 `records/*.json`，**不直接调写接口**（切换点是第 8 课） |
+| `POST /mistakes` | 批改时发现新错词 | ❌ **未实现**（改由 Step 2b 的批量接口覆盖） |
+| `POST /mistakes/batch` | 批量补录历史错词 | ❌ **未实现 / Step 2b 未开工**：只喂原始错词条目；`wrong_count` 以人工值为准**覆盖写**；`review` 只做增量并对「自动值 ≠ 人工值」逐条告警 |
+| `POST /mistakes/:id/review` ★ | 每次复习判对错 | ✅ **已实现并实测**（05 §15；`clientEventId` 幂等） |
+| `POST /progress/feedback` ★ | 收难度反馈时 | ✅ **已实现并实测**（05 §20；升降级与冻结在服务端判定） |
+| `POST /study-records` | 下课时 | ✅ **已实现并实测**（05 §18；`grade` / `feedback` 两类 payload） |
+| `POST /readings` | 生成当日阅读后 | ✅ **已实现**（05 §27；`ReadingSet` 契约，同日已存在 → 409，`force=true` 重出） |
+| `POST /skill-runs` | 每次执行 `english-daily` | ❌ **未实现**（无对应路由，S2 待办） |
 
 > 本节路由均以 `/api` 为前缀（此处沿用无前缀写法）。
+> ⚠️ **口径纠正（2026-10-01 实测）**：本节旧版写「全部写接口未实现」**已失效**。
+> 现状：**复习判定 / 难度反馈 / 学习记录 / 阅读写入 / 课程归档 共 6 条写链路均已交付**（`npm run test:write`，
+> 见 05 头部）；**归档两条虽已交付，但运行中的实例尚未重启**，故按「待实测」记。仍缺：`mistakes` 单条/批量（Step 2b）与 `skill-runs`。
 
 ### 9.3 契约缺口清单（请后端评估，不在本次实施范围）
 
-> **2026-09-29 实测后的状态更新**：G1 **已关闭**（`GET /api/lessons/error-trend` 已实现）；
-> G2 **已关闭**（`mistakes.priority` 已由服务端推导）；
-> G4、G5 与新增需求合并为正式需求单，见 `backend/docs/06-api-requirements-amy.md`（R1—R7）。
+> **2026-10-01 实测后的状态更新**：G1、G2、**G4、G6 已关闭**；G3 降级占位；G5 维持降级（不加列）；**G7 大部分已关闭**（详见下表）。
+> 原始需求单见 `backend/docs/06-api-requirements-amy.md`（R1—R7）。
 
 | # | 缺口 | 状态 | 说明 |
 |---|---|---|---|
 | G1 | `snapshot` 无「错误趋势」字段 | ✅ 已关闭 | `/api/lessons/error-trend` 已实现并实测 |
 | G2 | `pendingMistakes[].priority` 未定义 | ✅ 已关闭 | 服务端规则：`wrongCount ≥2` → high；`streak ==1` → medium；其余 low |
-| G3 | 无「待补知识点 / 补漏队列」字段 | ⏳ 需求 R6 | `/api/knowledge-points` 待实现 |
-| G4 | 无「上次未完成的教学动作」 | ⏳ 需求 R5 + R1 | 需 `study_records(feedback).payload.nextRecommendation` 并在快照回传 |
-| G5 | `studyMinutes` **无落库位置**（`lessons` 无 `study_minutes` 列；契约注释里的 `courses.study_minutes` 是废弃命名、该表不存在） | ⏳ 维持降级 | **本轮不加列**；接口须返 `null` 并标注，**不得用 0 冒充「没数据」** |
-| G6 | 无聚合快照接口 | ⏳ 需求 R1（P0） | `/api/agent/snapshot` 实测 404，Amy 现需并发 9 个接口 |
-| G7 | 无写接口（复习判定 / 反馈 / 归档） | ⏳ 需求 R2—R5（P0/P1） | 闭环断裂：`streak` / `status` / `lastReviewedAt` 永不变化 |
+| G3 | 无「待补知识点 / 补漏队列」字段 | 🟡 已占位、值降级 | `snapshot.backlog` **键已存在**（实测），值 `null` 并在 `degradation.affected` 里列出 → 待 `knowledge_points` 建表（教学侧暂不建） |
+| G4 | 无「上次未完成的教学动作」 | ✅ **已关闭（实测通过）** | `GET /api/agent/snapshot` 实测返回 `lastIncomplete = {lessonNo:7, nextRecommendation:"第 8 课：常用不规则过去式…"}`；`lastRecommendation` 同值。注：第 1—6 课 `feedback` payload 历史仅 `{feedback, lessonNo}`、无此键（G4 读最新一条，不阻塞） |
+| G5 | `studyMinutes` **无落库位置**（`lessons` 无 `study_minutes` 列；契约注释里的 `courses.study_minutes` 是废弃命名、该表不存在） | ⏳ 维持降级 | **本轮不加列**；实测 `/api/lessons/:id` 为**省略键**式降级（响应里**没有该键**），按快照服务约定「`null` / `[]` / 省略键」均可，**不得用 0 冒充「没数据」** |
+| G6 | 无聚合快照接口 | ✅ **已关闭（实测）** | `GET /api/agent/snapshot` 实测 **200**（旧记录「404」已失效）：一次返回 `progress / courseCatalog / recentLessons / pendingMistakes / pendingMistakeStats / errorTrend / readingCatalog / backlog / lastIncomplete / lastRecommendation / degradation`，**9 次请求 → 1 次** |
+| G7 | 无写接口（复习判定 / 反馈 / 归档） | 🟡 基本关闭 | ✅ 已有 6 条：`POST /api/mistakes/:id/review`、`/progress/feedback`、`/study-records`、`/readings`（05 §15/§18/§20/§27）+ **归档两条 `POST/PUT /api/lessons`（05 §28—29，Step 2a 已交付、运行实例待重启）**。❌ 仍缺：`POST /api/mistakes`（单条/批量，Step 2b 未开工）、`POST /api/skill-runs`（S2） |
 
-### 9.4 后端未就绪期间的降级方案（当前生效）
+### 9.4 降级方案（2026-10-01 实测后的状态）
 
-**更新（2026-09-29 实测）**：后端第一版只读 API 已上线可用（16 个 GET 接口，见 `backend/docs/05-api-reference.md`）。
-Amy 已实测用 9 个 GET 接口拼出第 7 课计划（`docs/amy-session-07-plan.md`），
-但 **聚合快照 `/api/agent/snapshot` 与全部写接口仍未实现**。因此当前为**双轨**状态：
+**2026-10-01 实测更新**：`backend/docs/05-api-reference.md` 现列 **29 个接口**（含 6 条写链路 + 聚合快照；§28—29 为 Step 2a 批次）；
+`GET /api/agent/snapshot` 实测 **200**，且返回 `deploymentMode = "backend"` —— **真相源已按约定切到后端**。
+因此降级面**大幅收窄**：仅「**归档写路径**」与「**待补知识点**」两项仍以 md 为准。
 
-| 数据 | 当前来源 | 切换到 API 的条件 |
+| 数据 | 当前来源 | 说明 |
 |---|---|---|
-| 级别 / 课号 / 反馈 / 连击 | `GET /api/progress` ✅ 已切换 | — |
+| 级别 / 课号 / 反馈 / 连击 | `GET /api/progress` ✅ 已切换 | 实测 `lastClassDate = 2026-10-01`、`nextLessonNo = 8` |
 | 已完成课程 / 错误趋势 | `GET /api/lessons`、`/api/lessons/error-trend` ✅ 已切换 | — |
-| 错词与优先级 | `GET /api/mistakes/pending` ✅ 已切换 | — |
+| 错词与优先级 | `GET /api/mistakes/pending`、`/api/mistakes/stats` ✅ 已切换 | 实测 `total 26 / pending 20 / passed 6`，与 md 逐字一致（DQ1 已消） |
 | 词汇量 | `GET /api/vocabulary/stats` ✅ 已切换 | — |
-| 学习记录 | `GET /api/study-records` ✅ 已切换 | — |
-| 一次取全上下文 | `digest.md`（md） | 等 `GET /api/agent/snapshot`（需求 R1） |
-| 待补知识点 / 补漏队列 | `progress.md`（md） | 等 `GET /api/knowledge-points`（R6） |
-| 阅读目录 | `read/*.md`（md） | 等 `GET /api/readings`（R7） |
-| 复习结果 / 反馈 / 课件回写 | 手工改 md | 等写接口 R2—R5 |
+| 学习记录 | `GET /api/study-records` ✅ 已切换 | 库内 21 行 |
+| **一次取全上下文** | `GET /api/agent/snapshot` ✅ **已切换** | 9 次请求 → 1 次；含 `lastIncomplete` / `lastRecommendation` / `errorTrend` |
+| 阅读目录与全文 | `GET /api/readings`、`/api/readings/:date` ✅ 已切换 | 5 天 / 14 篇 / 28 题 |
+| 待补知识点 / 补漏队列 | `progress.md`（md） | ⏳ `snapshot.backlog` 键已占位但值为 `null`，待 `knowledge_points` 建表（教学侧暂不建） |
+| 复习结果 / 反馈 / 学习记录写入 | 接口 ✅ 已可用 | `POST /mistakes/:id/review`、`/progress/feedback`、`/study-records`。Amy 侧**当前仍走** `records/*.json`（Skill 归档产物），改调接口待 Skill 侧改造 |
+| 课件归档回写 | `records/*.json`（md 派生） | 🟡 **Step 2a 已交付**（05 §28—29，`POST/PUT /api/lessons`），**切换点＝第 8 课**；运行中的实例尚未重启，故本轮不判「已生效」 |
 
 > 完整需求与验收标准见 `backend/docs/06-api-requirements-amy.md`。
-> **可关闭降级方案的条件**：R1 + R2 + R3 实现且 DQ1 数据同步修复后，`digest.md` 降级为人读副本。
+> **降级面收窄后的剩余条件**：Step 2a（`POST/PUT /api/lessons`）**重启实测通过**、且**第 8 课归档改走 API** → `digest.md` 即可降级为**纯人读副本**。
 
 ### 9.5 已实测的数据质量问题（2026-09-29）
 
@@ -730,7 +741,7 @@ wrong_count ≥ 3 → 下一课强制自查项（让学生自己找这类错）
 
 | 项 | 依赖 | 未落地时的降级口径 |
 |---|---|---|
-| §11.2 第 5 条「断更补课时题量上浮」 | 后端 `lastIncomplete`（G4，接口未实现） | **按常规 5 题**；G4 落地后再启用上浮档 |
+| ~~§11.2 第 5 条「断更补课时题量上浮」~~ | 后端 `lastIncomplete`（G4 ✅ **已实测通过**，2026-10-01） | **本项已退出未落地清单** —— 降级口径「按常规 5 题」随之失效；**第 8 课起按 §11.2 原规则**执行（该课若属断更补课则题量上浮） |
 
 > 镜像时请照抄上表的降级口径，避免写成空文。
 
@@ -800,12 +811,16 @@ wrong_count ≥ 3 → 下一课强制自查项（让学生自己找这类错）
 > **已闭环（原「待后端执行」项）**：① 8 条 `wrong_text` UPDATE + 4 条 INSERT ✅；② `lesson_exercises.error_type` 回填（第 1—6 课）✅；③ 第 7 课入库 + `db:summary` 重算 ✅；④ 第 7 课 `error_type` 落库（`db:apply-error-types`，非空 **10 → 12**）✅；⑤ `records/lesson-07.study-record.json` 落库（`teach:sync`，`study_records` **18 → 21**）✅。
 > **仍待执行**：写路径两项 —— `POST/PUT /api/lessons`（Step 2a）与 `POST /api/mistakes/batch`（Step 2b），归属与口径见 `Work Alignment/status-amy.md` §1.9。
 > **口径提示**：本表以**库内实测**为准；`:4000` 未运行时用只读 SQL 核对 —— 仍属实测，但非 API 响应。本轮核对手段：`db:compare`（只读）**15/0/0** + 直连 MySQL 只读 SQL。
-> ⚠️ **`self_check` 数据缺口仍在（实测）**：库内 `lesson_exercises.self_check` **41/41 全空**。接口照常返 `selfCheck` 键、值全 `null` —— **缺口在上游落库未带字段，不是 API 丢字段**。影响：前端「作业强制自查」兜底块取不到规则（已登记为 **F-L7**，第 7 课）。修复归属**在写路径侧**，不在前端。
+> ⚠️ **`self_check` 数据缺口仍在（实测，前端记为 G-2）**：库内 `lesson_exercises.self_check` **41/41 全空**；`GET /api/lessons/47/exercises` 实测 **`selfCheck` 键在、7 题全 `null`**。
+> 三层（表 `self_check` 列 → 契约 `ExerciseRecord.selfCheck` → 接口 SELECT）**已于 2026-09-30 闭合**（`docs/database.md` §六 / `c735bbd`），
+> 缺的是**数据**：归档源（md → `records/*`）从未带过 `selfCheck` 值 → 历史 7 课全空。
+> **修复归属 = 教学侧（Amy 每课写死 1—2 条自查项）+ 后端回填**，**不是**前端、**也不是**接口丢字段。
+> ⚠️ **勿与 `F-L7` 混记**：`F-L7` 是 `lesson.html` 对第 7 课渲染 `lesson-7.html` 的**死链**（`frontend-plan.md` §10.2），二者同源（都因兜底链被渲染）但**是两个缺陷**。
 
 ### 12.3 待办（按角色）
 
 - **Amy**：~~第 7 课（规则动词过去式 -ed）+ 补漏块 4~~ **已完成**；下一课 **第 8 课 = 常用不规则过去式**，开 `notes/day-08-14.md`；此后每课产出 `records/lesson-NN.grading.json` + `lesson-NN.study-record.json`。
-- **后端工程师**：① ~~12 处变更~~ ✅；② ~~`error_type` 回填~~ ✅；③ ~~读 `records/*.json` 回填 `is_correct` / `error_note` / `revised_answer`~~ ✅；④ ~~历史 `error_count`~~ ✅ **已决保留历史值**；⑤ ~~评估 §5.4 的 2 项枚举扩展~~ ✅ **已落地**；⑥ G4 `lastIncomplete` —— **代码已完备**（`cc73588`），只差数据；⑦ ~~`teach:sync`（补 study-record 消费方）~~ ✅ **已落地**（`study_records` 21 行）；⑧ **剩余**：`POST /api/lessons`（Step 2a）、`POST /api/mistakes/batch`（Step 2b）、`self_check` 落库缺口（F-L7）。
+- **后端工程师**：① ~~12 处变更~~ ✅；② ~~`error_type` 回填~~ ✅；③ ~~读 `records/*.json` 回填 `is_correct` / `error_note` / `revised_answer`~~ ✅；④ ~~历史 `error_count`~~ ✅ **已决保留历史值**；⑤ ~~评估 §5.4 的 2 项枚举扩展~~ ✅ **已落地**；⑥ ~~G4 `lastIncomplete`~~ ✅ **已实测通过**（快照实返 `{lessonNo:7, nextRecommendation}`）；⑦ ~~`teach:sync`~~ ✅ **已落地**（`study_records` 21 行，`progress.lastClassDate` 已刷 2026-10-01）；⑧ **剩余**：Step 2a（`POST/PUT /api/lessons`）**已交付、待重启实测**（05 已同步 §28—29）、Step 2b（`POST /api/mistakes/batch`）未开工、`self_check` **数据**缺口（前端代号 **G-2**，归属**教学侧**，见 §12.2）。
 - **Skill 设计师**：① `SKILL.md` 错词本表结构补两列并写入「`错误点` 只写错误形式」规范；② `daily-lesson` 批改步骤增加「产出 `records/*.json`」；③ 按 `docs/plans/amy-review-rules-handover.md` 的 drop-in 清单镜像 §11.2—§11.5（含修掉 3.2 的「展示排序 ≠ 出题排序」漂移）；④ **新增**：导出器改产 `LessonRecord`（`POST /api/lessons` 的真实调用方）。
 - **前端工程师**：错词页类型分布口径见 §4.1（数量已生效为 **26**，无需改代码）；阅读理解题「答案为空」行为见 §11.10。
 - **Git 工程师**：`records/`（**14 个文件**）、`wrong-words.md`、`notes/day-01-07.md`、`read/2026-10-01-read.md`、`progress.md`、`docs/ai-teacher.md` 等变更，建议记入 `docs/changelog.md` 并打里程碑 tag。
