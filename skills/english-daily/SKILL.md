@@ -1,7 +1,7 @@
 ---
 name: english-daily
 description: "面向零基础学习者的每日英语课：讲一课英语、按课次归档笔记（每 7 课一份 md）、阅读材料单独按天存到 read 目录（每篇一个整篇看中文按钮）、词汇卡按首字母分组索引、读取总目录与学习摘要（digest.md 供上课读取，不必读 notes 全文）、看板首页只放统计与入口（课程正文、阅读、词汇卡、错词各一页）、按用户当课反馈升级或降级难度、按级别生成分级阅读文章（Level 4 起改为改写后的当日英文新闻）。当用户说「上课」「开始今天的英语课」「今天学英语」「下一课」「继续」「上次学到哪了」「生成复习看板」「复习错词」「重新出今天的阅读」「英语每日课」时使用。"
-version: 2.5.0
+version: 2.7.0
 agent_created: true
 ---
 
@@ -26,9 +26,10 @@ E:\English\
 ├─ read\               阅读材料，一天一个文件
 │   ├─ 2026-09-26-read.md
 │   └─ ...
-├─ records\            批改归档（机器契约，本人产出、后端只读）
+├─ records\            归档产出（机器契约，本人产出、后端只读）
 │   ├─ lesson-06.grading.json
 │   ├─ lesson-06.backfill.json
+│   ├─ lesson-06.record.json        LessonRecord（第 8 步归档产出）
 │   └─ ...
 └─ review\             前端静态页，纯 API 驱动，数据实时来自后端
     ├─ index.html      看板首页（统计、入口、课程总结）
@@ -70,7 +71,13 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
    - 字段与写法以 `records/README.md` 为准（`verdict` → `is_correct` 的映射、`mistakeCandidates[]` 的形态见该文件第二节）。
    - **不得只写 `### 批改` 散文而不产出 JSON**：后端禁止解析散文，而「两处错误。用词：…；语法：…」这类写法无法可靠映射到题号与错误类型，文本匹配必然产出假数据。
 7. 收反馈（等待作答）：问「这课太简单 / 刚好 / 太难？」，等用户回答后更新 `progress.md` 的级别与反馈记录。
-8. 归档：把第 5—7 步的内容**追加**到目标 md 文件末尾，只追加，不重写、不删除已有内容；同时按第七章口径更新 `wrong-words.md`（新错词追加整行，含人工判定的 `类型` / `累计犯错`）。
+8. 归档（**三件产出，缺一不可**）：
+   - **追加写 md**：把第 5—7 步的内容**追加**到目标 `notes/` 文件末尾，只追加，不重写、不删除已有内容。
+   - **更新 `wrong-words.md`**：按第七章口径（新错词追加整行，含人工判定的 `类型` / `累计犯错`）。
+   - **产出 `LessonRecord`（机器契约）**：按 `docs/schemas/lesson-record.schema.json` 组装本课归档对象（`lessonNo` / `levelCode` / `summary` / `sections` / `vocabulary` / `exercises` / `feedback` / `gradeSummary` / `nextRecommendation`）。**对象由本步已在手的教学内容直接组装 —— 不解析 md、不拼 HTML**。
+     - `deploymentMode = backend`（写接口就绪）→ 经 `POST /lessons` 提交；批改与反馈回填走 `PUT /lessons/:id`。
+     - `deploymentMode = markdown`（当前）→ 落盘 `records/lesson-NN.record.json`，供后端就绪后提交。
+   - **md 与 `LessonRecord` 的关系**：md 是 `LessonRecord` 的**人类可读落地形式**（两者内容须一致）；**真相源是 `LessonRecord`**（口径见 `docs/skills.md` §7.2）。**md 不再作为任何导入管线的输入**。
 9. 生成当日阅读：看 `read\YYYY-MM-DD-read.md`（当天日期）是否存在——
    - 不存在：按当前级别生成 1—3 篇，写进这个文件。
    - 已存在：不改动它。同一天上第二次课不会再生成，也不会覆盖。
@@ -135,6 +142,7 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 - Level 4—5：先用联网搜索找一条当日英文新闻，再**按当前级别改写**成 80—180 词的可读版本，保留原文标题、来源与链接。不得把未改写的原版新闻直接丢给用户，除非用户明确说「给我原文」。
 - 网络不可用或搜不到当日新闻 → 降级为自编同级短文，并在「来源」一行写明「自编（当日新闻获取失败）」。不编造新闻内容，不用旧新闻冒充当日新闻。
 - 每篇必须附：标题、级别、来源、3—6 个生词注释、2 道理解题（答案用 `<details>` 折叠）。
+- **每道理解题的答案必填**：`answer` 必须是非空字符串。归档前自检「题数 ≥ 2 且每题答案非空」，**不达标则该篇整体重写，不留空答案、不产 `null` / 空串**；拟不出可判定答案的问题**不写成理解题**（需要练开放表达就放作业的开放题）。依据 `docs/ai-teacher.md` §11.10。
 
 ## 七、错词本（`wrong-words.md`）
 
@@ -217,6 +225,7 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 - [ ] 复习题取自 N-1 / N-3 / N-7 或错词本，不是临时编的新内容
 - [ ] 作业已批改，错误类型、正确句、解释三项齐全
 - [ ] 已产出 `records/lesson-NN.grading.json`（本课有补漏块时另有 `lesson-NN.backfill.json`）
+- [ ] 已产出 `LessonRecord`（按 `docs/schemas/lesson-record.schema.json`）：写接口就绪（`deploymentMode = backend`）时已成功提交，否则已落盘 `records/lesson-NN.record.json`
 - [ ] `wrong-words.md` 的 `错误点` 只写错误形式、无括号批注，`类型` / `累计犯错` 已填且为人工判定值
 - [ ] 笔记小节齐全、课号连续、只在文件末尾追加
 - [ ] 笔记里没有「今日阅读」小节，阅读只写在 read 目录的当天文件里
@@ -245,3 +254,4 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 - `docs/ai-teacher.md`：教学规则唯一权威；错词与归档口径见 §11
 - `records/README.md`：批改归档的机器契约（`records/*.json` 的字段与写法）
 - `docs/schemas/grading-result.schema.json`：`GradingResult` 的结构定义
+- `docs/schemas/lesson-record.schema.json`：`LessonRecord` 的结构定义（第 8 步归档产出）

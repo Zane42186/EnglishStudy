@@ -104,7 +104,7 @@ Skill 只与后端 API 交互；前端（静态页 / 未来 Vue）从同一批�
 
 | # | Skill | 层 | 触发 | 当前落地物 | 状态 |
 |---|---|---|---|---|---|
-| 1 | `daily-lesson` | 独立 | 上课 / 开始今天的英语课 / 今天学英语 / 下一课 / 继续 / 英语每日课 / 上次学到哪了 | `skills/english-daily/` v2.5.0（受控源；运行副本 `.workbuddy/skills/english-daily/`） | ✅ 运行中（6 课实证） |
+| 1 | `daily-lesson` | 独立 | 上课 / 开始今天的英语课 / 今天学英语 / 下一课 / 继续 / 英语每日课 / 上次学到哪了 | `skills/english-daily/` v2.6.0（受控源；运行副本 `.workbuddy/skills/english-daily/`） | ✅ 运行中（6 课实证） |
 | 2 | `lesson-review` | 独立 | 复习 / 复习错词 / 今天先复习 / 考考我 | 内嵌于 daily-lesson 第 3—4 步 | ⚠️ 内嵌可用，未独立可触发 |
 | 3 | `grammar-teaching` | 内嵌 | —（daily-lesson 第 5 步） | 内嵌于 daily-lesson | ✅ 内嵌运行中 |
 | 4 | `vocabulary-teaching` | 内嵌 | —（daily-lesson 第 5 步） | 内嵌于 daily-lesson | ✅ 内嵌运行中 |
@@ -183,15 +183,17 @@ TeachingBlock  ExerciseSet ──▶ 学生作答             │
 | 契约对象 | 后端接口 | 方向 |
 |---|---|---|
 | `AgentSnapshot` | `GET /agent/snapshot?recent=3` | 读 |
-| `LessonRecord` | `POST /courses`、`PUT /courses/:id` | 写 |
-| `TeachingBlock` | `course_sections`、`vocabulary`（随 `POST /courses` 提交） | 写 |
-| `ExerciseSet` | `exercises`（随 `POST /courses` 提交） | 写 |
-| `GradingResult` | `exercises.is_correct / error_note`（随 `PUT /courses/:id` 回填） | 写 |
+| `LessonRecord` | `POST /lessons`、`PUT /lessons/:id` | 写 |
+| `TeachingBlock` | `lesson_sections`、`vocabulary`（随 `POST /lessons` 提交） | 写 |
+| `ExerciseSet` | `lesson_exercises`（随 `POST /lessons` 提交） | 写 |
+| `GradingResult` | `lesson_exercises.is_correct / error_note`（随 `PUT /lessons/:id` 回填） | 写 |
 | `MistakeAnalysisResult` | `POST /mistakes`、`POST /mistakes/:id/review` | 写 |
 | `ReviewSession` | `POST /mistakes/:id/review` | 写 |
 | `ProgressReport` | `study_records(record_type='grade')` 聚合 | 读 |
 | `ReadingSet` | `POST /readings` | 写 |
 | `SkillRun` | `POST /skill-runs` | 写 |
+
+> **注**：本表路由沿用**简写风格**（不写 `/api` 前缀），与 §6 一致。`POST /lessons` / `PUT /lessons/:id` 为 **Step 2a 待实现**接口（`05-api-reference.md` 只记**已实现**接口，故暂未收录）；其余均为已实现。原写的 `courses` / `course_sections` / `exercises` 系废弃命名，2026-10-01 订正为 `lessons` / `lesson_sections` / `lesson_exercises`。**同日一并订正的同类残留**：§3 各「依赖数据」表及全文件的 `course_vocabulary` → `lesson_vocabulary`、`course_knowledge_points` → `lesson_knowledge_points`（后两表为**规划中、尚未建**）。
 
 ### 2.4 降级表示法
 
@@ -255,7 +257,7 @@ ALTER TABLE lesson_sections
 ### 3.1 daily-lesson
 
 #### Skill 名称
-`daily-lesson`（英语每日课）· 独立 Skill · 当前受控源为 `skills/english-daily/` v2.5.0（运行副本 `.workbuddy/skills/english-daily/`，单向同步）。
+`daily-lesson`（英语每日课）· 独立 Skill · 当前受控源为 `skills/english-daily/` v2.6.0（运行副本 `.workbuddy/skills/english-daily/`，单向同步）。
 
 #### 功能
 编排一次完整上课。把 `AgentSnapshot` 与 `LessonPlan` 变成 11 步可执行的教学动作，结束时产出可归档的 `LessonRecord` 与当日 `ReadingSet`。它是唯一在课内调用其他六个能力的编排层。
@@ -338,6 +340,7 @@ ALTER TABLE lesson_sections
 | 学生未作答 | 停在等待点。不推进、不代答、不降低题目难度 |
 | 学生中途离开 | 未到归档点：不写笔记，只写 `SkillRun(status="partial")` 与 `lastIncomplete`；已过归档点：照常归档 |
 | 当天 `ReadingSet` 已存在 | 跳过生成。唯一例外：学生明确说「重新出今天的阅读」 |
+| 某篇理解题答案缺失 / 题数不足 2 | **重写该篇**，不留空答案、不产 `null`；拟不出可判定答案的问题不写成理解题（依据 `docs/ai-teacher.md` §11.10） |
 | Level 4—5 取新闻失败 | 降级为自编同级短文，`source` 写「自编（当日新闻获取失败）」。**不得用旧新闻冒充当日新闻** |
 | 笔记标题格式不符 `references/course-template.md` | 归档 | 先按模板修标题再归档，**不手工改生成物** |
 | 笔记标题格式不符 `references/course-template.md` | 先按模板修标题再归档；后端**按标题解析**落地，标题写错会导致该小节不入库 |
@@ -485,13 +488,13 @@ R3 判定演示：最近三课错误数为 6 → 2 → 5，**不满足「持续�
 | 契约字段 | 后端表 | 用途 |
 |---|---|---|
 | `plan.grammarPoint` | `knowledge_points` | 本课讲哪一个 |
-| `snapshot.courseCatalog` + `recentLessons` | `course_knowledge_points` | 判断是否已讲过 |
+| `snapshot.courseCatalog` + `recentLessons` | `lesson_knowledge_points` | 判断是否已讲过 |
 | `snapshot.pendingMistakes` | `mistakes` | 生成针对性的 `expectedMistakes` |
 | `snapshot.backlog` | `knowledge_points.is_backlog` | 避免与补漏块内容撞车 |
 
 #### 执行流程
 
-1. 确认 `grammarPoint` 未在 `course_knowledge_points` 中以 `role=new` 出现过。已出现过则转 `role=review` 并在回复中说明。
+1. 确认 `grammarPoint` 未在 `lesson_knowledge_points` 中以 `role=new` 出现过。已出现过则转 `role=review` 并在回复中说明。
 2. 按「规则 → 形式变化 → 例句 → 否定与疑问」组织正文。
 3. 生成 3—5 个例句，**只用学生已学过的词汇**；必须用到本课词表时取 `vocabularyHints`。
 4. 填 `familyCoverage`：肯定、否定、疑问三项必须都讲到（不适用于该语法点的项填 `true` 并在正文说明为何不适用）。
@@ -569,7 +572,7 @@ R3 判定演示：最近三课错误数为 6 → 2 → 5，**不满足「持续�
 
 | 契约字段 | 后端表 | 用途 |
 |---|---|---|
-| `recentLessons[].vocabulary` | `vocabulary` + `course_vocabulary` | 去重 |
+| `recentLessons[].vocabulary` | `vocabulary` + `lesson_vocabulary` | 去重 |
 | `plan.vocabularySize` | — | 词量上限 |
 | `plan.grammarPoint` | `knowledge_points` | 让例句体现本课语法点 |
 
@@ -642,7 +645,7 @@ R3 判定演示：最近三课错误数为 6 → 2 → 5，**不满足「持续�
 | 契约字段 | 后端表 | 用途 |
 |---|---|---|
 | `snapshot.pendingMistakes` | `v_pending_mistakes` | 错词类题目来源 |
-| `snapshot.recentLessons[].grammarPoint` | `course_knowledge_points` | 复习题来源 |
+| `snapshot.recentLessons[].grammarPoint` | `lesson_knowledge_points` | 复习题来源 |
 | `plan.selfChecks` | — | 题干中的强制自查项 |
 | `plan.backfill` | `knowledge_points.is_backlog` | 补漏块题目 |
 
@@ -727,7 +730,7 @@ R3 判定演示：最近三课错误数为 6 → 2 → 5，**不满足「持续�
 | 契约字段 | 后端表 | 用途 |
 |---|---|---|
 | `exerciseSet.items[].referenceAnswer` | `exercises.reference_answer` | 比对基准 |
-| `exerciseSet.items[].targetPoint` | `course_knowledge_points` | 归因到知识点 |
+| `exerciseSet.items[].targetPoint` | `lesson_knowledge_points` | 归因到知识点 |
 | `snapshot.pendingMistakes` | `mistakes` | 判断是否为老错复发 |
 
 #### 执行流程
@@ -1156,14 +1159,14 @@ R3 判定演示：最近三课错误数为 6 → 2 → 5，**不满足「持续�
 | G2 | `pendingMistakes[].priority` 未定义 | `priority`（`wrongCount≥2` → high，`streak==1` → medium，其余 low；同级按 `updated_at ASC`） | `lesson-review`、`exercise-generation` | 自行按 `wrongCount` 降序、`lastReviewedAt` 升序排序 |
 | G3 | 无待补知识点 / 补漏队列 | `backlog.pendingKnowledgePoints`、`backlog.backfillQueue` | `next-lesson-planning`、`grammar-teaching` | 本课不排补漏块 |
 | G4 | 无「上次未完成的教学动作」 | `lastIncomplete` | `daily-lesson`、`next-lesson-planning` | 中断后从头开始，需学生确认 |
-| G5 | `courses.study_minutes` 由谁填未定 | `LessonRecord.studyMinutes` | `daily-lesson` | 留空，不做时长统计 |
+| G5 | 学习时长 `study_minutes` 由谁填未定（**当前无落库列**：`courses` 表已废弃、`lessons` 表亦无此列） | `LessonRecord.studyMinutes` | `daily-lesson` | 留空，不做时长统计 |
 
 **本设计新增的两项请求（不在 G1—G5 内）**：
 
 | # | 需求 | 影响 |
 |---|---|---|
-| S1 | `course_sections.section_type` 增 `objectives`、`expected_mistakes` | 仅加枚举值，不改类型、不动存量数据。若不实现，`LessonPlan.objectives` 与 `TeachingBlock.expectedMistakes` 只写进 `grammar` 小节正文，**平台化后无法按目标与预判错误做统计** |
-| S2 | 新增 `POST /skill-runs` 的 `parentSkillRunId` 语义 | 现有 `skill_runs` 无父子关系字段，内嵌能力的调用树无法还原。若不实现，退化为按 `course_id` + `created_at` 时序推断 |
+| S1 | `lesson_sections.section_type` 增 `objectives`、`expected_mistakes` | 仅加枚举值，不改类型、不动存量数据。若不实现，`LessonPlan.objectives` 与 `TeachingBlock.expectedMistakes` 只写进 `grammar` 小节正文，**平台化后无法按目标与预判错误做统计** |
+| S2 | 新增 `POST /skill-runs` 的 `parentSkillRunId` 语义 | 现有 `skill_runs` 无父子关系字段，内嵌能力的调用树无法还原。若不实现，退化为按 `lesson_id` + `created_at` 时序推断 |
 
 ### 4.3 后端未就绪期间的降级方案（当前生效）
 
@@ -1187,7 +1190,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 | 接口 | 谁用 |
 |---|---|
 | `GET /agent/snapshot?recent=3` | 全部 9 个 Skill |
-| `GET /courses/latest` | `daily-lesson`（回答「上次学到哪了」） |
+| `GET /lessons/latest` | `daily-lesson`（回答「上次学到哪了」） |
 | `GET /mistakes?status=pending` | `lesson-review`、`exercise-generation` |
 | `GET /vocabulary/stats` | `learning-progress-analysis` |
 
@@ -1195,8 +1198,8 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 | 接口 | 谁用 | 时机 |
 |---|---|---|
-| `POST /courses` | `daily-lesson` | 归档 |
-| `PUT /courses/:id` | `daily-lesson` | 回填批改与反馈 |
+| `POST /lessons` | `daily-lesson` | 归档（**Step 2a 待实现**） |
+| `PUT /lessons/:id` | `daily-lesson` | 回填批改与反馈（**Step 2a 待实现**） |
 | `POST /mistakes` | `mistake-analysis` | 发现新错词 |
 | `POST /mistakes/:id/review` | `lesson-review`、`daily-lesson` | 每次判对错 |
 | `POST /progress/feedback` | `daily-lesson` | 收难度反馈 |
@@ -1263,7 +1266,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 |---|---|---|
 | 12 个契约文件的 JSON 合法性 | ✅ **已实测** | `.workbuddy/build/check_schemas.py` 输出 `SCHEMA_CHECK files=12 refs=85 objects=535` → `SCHEMA_OK` |
 | 契约间 `$ref` 引用完整性 | ✅ **已实测** | 85 个引用全部可解析；`required` 字段定义完整 |
-| `daily-lesson` 全流程跑通 | ✅ **有实证** | 受控源 `english-daily` v2.5.0 已实跑 6 课（笔记 6 课、阅读 11 篇、词卡 52 条、错词 23 条）；原 `BOARD_OK` 校验随 `build_board.py` 退役，统计改由后端 `/api/*` 提供 |
+| `daily-lesson` 全流程跑通 | ✅ **有实证** | 受控源 `english-daily` v2.6.0 已实跑 6 课（笔记 6 课、阅读 11 篇、词卡 52 条、错词 23 条）；原 `BOARD_OK` 校验随 `build_board.py` 退役，统计改由后端 `/api/*` 提供 |
 | 其余 8 个 Skill 的独立触发识别 | ❌ **未执行** | 本环境无模型调用能力，无法做真实触发测试 |
 | Skill 间契约传递与调用树 | ❌ **未执行** | 后端无代码，无法联调 |
 | 与后端接口的读写联调 | ❌ **未执行** | `backend/` 仅有设计稿，无 `package.json` 与 `src/` |
@@ -1299,9 +1302,22 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 切换点验证方式：同一课在 A、B 两阶段产出的 `LessonRecord` 应逐字段一致；不一致即为设计缺陷。
 
+**写路径切换口径（2026-10-01 项目负责人拍板）**
+
+`POST /lessons` 上线后，同一课会存在**两个写手**写同三表（`lessons` / `lesson_sections` / `lesson_exercises`）：
+
+| 写手 | 链路 | 定位 |
+|---|---|---|
+| API 路径 | Skill 归档步 → `POST /lessons`（`PUT /lessons/:id` 回填批改与反馈） | **阶段 B 唯一写路径** |
+| 迁移管线 | md → `db:export` → `_snapshot.json` → `db:import` | **仅历史回填** |
+
+- **切换点 = 第 8 课**（以**课号为界**；`lessons.status` 两边都是 `archived`，**不足以区分**，故不用 status 判定）。
+- **阶段 B 的 md 口径（已拍板）=「仍产出、不入写路径」**：归档步**继续追加写 `notes/`**（md 是 `LessonRecord` 的**人类可读落地形式**，git 可 diff），但 **`db:import` 不再以新课 md 为输入**。
+- 由此：`db:import` 退化为「**历史回填 + 只读校验**」，`db:compare` 保留为只读验收器。
+
 ### 7.3 现有 `english-daily` 的处置
 
-现有实现 `english-daily`（受控源 v2.5.0）即 `daily-lesson` 的当前形态。**本轮不改动其能力边界**，后续演进建议：
+现有实现 `english-daily`（受控源 v2.7.0）即 `daily-lesson` 的当前形态。**本轮不改动其能力边界**，后续演进建议：
 
 | 项 | 现状 | 目标 |
 |---|---|---|
@@ -1330,7 +1346,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 版本 **2.2.2 → 2.2.3 → 2.3.0**（本次为 MINOR：能力移除 + 依赖清单结构变更，即上文原先预留的那次）。清理后 Skill 内已无 `build_board` / `BOARD_OK` / `BOARD_FAIL` 任何引用，受控源与运行副本 `diff -r` 完全一致。
 
-> **后续版本**：**2.3.0 → 2.4.0**（错词本 8 列规范 + `records/` 产物 + 初始化模板 6→8 列，见附录 A 第四轮）、**2.4.0 → 2.5.0**（§11.2—§11.5 镜像 + 运行时最小条文，MINOR，见附录 A 第五轮）。
+> **后续版本**：**2.3.0 → 2.4.0**（错词本 8 列规范 + `records/` 产物 + 初始化模板 6→8 列，见附录 A 第四轮）、**2.4.0 → 2.5.0**（§11.2—§11.5 镜像 + 运行时最小条文，见第五轮）、**2.5.0 → 2.6.0**（阅读理解题答案必填，缺则重写该篇，见第六轮）。
 
 ### 7.4 Skill 源码入库（已完成）
 
@@ -1387,6 +1403,45 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 ---
 
 ## 附录 A：契约与文件清单
+
+### 第八轮（v2.7.0：归档步产出 `LessonRecord`）
+
+> **背景**：项目负责人 2026-10-01 拍板 **Step 2a 归属 = ①** ——`LessonRecord` 的产出者是 **`daily-lesson` 归档步**，不是后端导出器。依据：`docs/schemas/lesson-record.schema.json:5`「daily-lesson 归档一步的产物」+ 本文件 §3.1 第 8 步；be-dev 独立复核后明确 **反对 ②**（会让 `export_md_to_json.py` 变成第二产出者，且其「md 派生 → snapshot」语义与「md 是本对象的落地形式」方向相反）。
+
+| 文件 | 动作 | 说明 |
+|---|---|---|
+| `skills/english-daily/SKILL.md` | 改 | 第 8 步「归档」由「写 md + 更新错词本」扩为 **三件产出**：① 追加写 md；② 更新 `wrong-words.md`；③ **产出 `LessonRecord`**（按 schema 组装，**不解析 md**）—— `deploymentMode=backend` 走 `POST /lessons`（回填 `PUT /lessons/:id`），`markdown` 阶段落盘 `records/lesson-NN.record.json`。第九章自查 +1 条；第十一章依赖 +`lesson-record.schema.json`；目录树补 `record.json`。版本 **2.6.0 → 2.7.0** |
+| `.workbuddy/skills/english-daily/` | 同步 | 受控源单向复制所得，`diff -r` 无差异（两侧均 `2.7.0`） |
+| 备份 | — | `.workbuddy/skill-backups/english-daily-v2.6.0-20261001/`（`controlled` + `runtime` + `docs-skills.md` + `lesson-record.schema.json`） |
+
+> ⚠️ **待确认**：`records/lesson-NN.record.json` 的命名属 `records/` 目录约定（`records/README.md` 明写「**Amy 产出**」）→ 需 **Amy** 在 `records/README.md` 补一行登记。本节先按该名落地。
+
+### 第七轮（2026-10-01：契约文档订正 + 写路径口径澄清，**纯文档、无版本变更**）
+
+| 文件 | 动作 | 说明 |
+|---|---|---|
+| `docs/skills.md` | 改 | **§2.3** 契约↔接口映射表：`POST /courses`→`POST /lessons`、`PUT /courses/:id`→`PUT /lessons/:id`、`course_sections`→`lesson_sections`、`exercises`→`lesson_exercises`，并注明 `POST/PUT /lessons` 为 **Step 2a 待实现**；**§6** 接口清单：`GET /courses/latest`→`GET /lessons/latest`、两条写接口同步订正；**§4.2** 的 `course_sections` / `course_id` → `lesson_sections` / `lesson_id`，**G5 行**去掉不存在的 `courses.study_minutes` 引用；**§3 各「依赖数据」表**及全文件的 `course_vocabulary` → `lesson_vocabulary`、`course_knowledge_points` → `lesson_knowledge_points`（后表规划中未建） |
+| `docs/schemas/lesson-record.schema.json` | 改 | `studyMinutes.description` 去掉不存在的 `courses.study_minutes` 引用，改为「**当前无落库列**（`courses` 表已废弃、`lessons` 亦无该列）→ G5 维持降级，是否加列属 R2 议题」 |
+| `docs/schemas/common.schema.json` | 改 | `KnowledgeRole` 描述里的 `course_knowledge_points.role` → `lesson_knowledge_points.role`（并注明该关联表规划中未建） |
+| `docs/skills.md` **§7.2 / §7.3** | 改 | §7.2 新增「**写路径切换口径**」（2026-10-01 负责人拍板：切换点=第 8 课；**阶段 B 的 md「仍产出、不入写路径」**；`db:import` 退化为历史回填 + 只读校验）；§7.3 版本号 v2.5.0 → **v2.6.0** |
+
+> **背景**：be-dev 的 **Step 2a**（`POST /lessons` 按 `LessonRecord`）点名「产出 `LessonRecord`」为 Skill 侧职责；核对时暴露本文件仍用**废弃路由与表名**（`courses` / `course_sections`），与 `backend/docs/05-api-reference.md`（`/api/lessons*`）及 `schema.sql`（`lesson_sections` / `lesson_exercises`）不一致 → 随本次一并订正。**无 Skill 版本变更**（`skills/english-daily/` 未动），故不属 v2.x 轮次。
+
+### 第六轮（v2.6.0：阅读理解题答案必填）
+
+依据 `docs/ai-teacher.md` **§11.10 阅读理解题「答案为空」口径**（Amy 裁定，回应前端提问）。**结论：`answer` 为空不是合法状态，属数据缺陷。**
+
+| 文件 | 动作 | 说明 |
+|---|---|---|
+| `skills/english-daily/SKILL.md` 第六章 | 改 | 新增「每道理解题的答案必填」：归档前自检「题数 ≥2 且每题答案非空」，**不达标则该篇整体重写，不留空答案、不产 `null` / 空串**；拟不出可判定答案的问题不写成理解题（开放表达放作业开放题）。版本 **2.5.0 → 2.6.0** |
+| `skills/english-daily/references/course-template.md` 阅读模板 | 改 | 规则列表补同一条（`<details>` 里不能留空；不达标该篇重写） |
+| `docs/schemas/reading-set.schema.json` | 改 | `answer` 补 `description`（必填非空；`null`/空串属缺陷，缺则该篇重写）。`type/minLength` 原本已禁止 null，**无需改契约结构** |
+| `docs/skills.md` 3.1 异常情况 | 改 | 新增行：某篇理解题答案缺失 / 题数不足 2 → 重写该篇 |
+| `.workbuddy/skills/english-daily/` | 同步 | 受控源单向复制所得，`diff -r` 无差异 |
+
+**只读核查（未改后端）**：
+- **好消息**：`POST /api/readings` **已实现** `answer` 非空校验 —— `backend/src/services/reading.service.js:143-144`（`提交 5932365`）拒绝非字符串与空串，并回 `必填非空（理解题不允许无答案）`【静态证据】。即契约 / API / 运行时三层均已堵住。
+- **残余落差**：`reading_questions.answer` 库列仍是 `TEXT NULL`（`backend/db/schema.sql:288`），`export_md_to_json.py` 缺 `<details>` 时回落空串 `""`。属**纵深防御层面的可选加固**，是否补 DDL 的 `NOT NULL` 由后端定夺；本层只登记，不代改。
 
 ### 第五轮（v2.5.0：§11.2—§11.5 镜像 + 运行时最小条文）
 

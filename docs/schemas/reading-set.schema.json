@@ -21,7 +21,11 @@
       "properties": {
         "questionNo": { "type": "integer", "minimum": 1 },
         "question": { "type": "string", "minLength": 1 },
-        "answer": { "type": "string", "minLength": 1 }
+        "answer": {
+          "description": "参考答案，必填且非空。判为 null / 空串属数据缺陷：生成时若拟不出可判定答案，就不写成理解题；归档前自检「题数 ≥2 且每题答案非空」，不达标则重写该篇（见 docs/ai-teacher.md §11.10）。",
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "ReadingPiece": {
