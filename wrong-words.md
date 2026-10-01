@@ -13,13 +13,13 @@
 | 1 | work.So | work, so（或改用句号断开） | 句号后必须空一格再写下一个词（同类第 2 次：第 2 课 zane.I） | 0 | 未过关 | punctuation | 1 |
 | 诊断 | An book on the table. | There is a book on the table. | 「某处有某物」要用 there is / there are；an 只用于元音音素开头的词，book 用 a | 2 | 已过关 | grammar | 2 |
 | 2 | Tom play soccer | Tom plays soccer | 主语是第三人称单数时一般现在时动词要加 -s | 1 | 未过关 | grammar | 1 |
-| 2 | now,liked my teacher | …now, and I like my teacher. ／ 用句号断开 | 逗号不能连接两个完整句子；「现在喜欢」用原形 like | 1 | 未过关 | punctuation | 3 |
-| 2 | she always is busy | she is always busy | 频度副词要放在 be 动词之后（第 2 次错时把 busy 拼成 bush） | 1 | 未过关 | grammar | 2 |
+| 2 | now,liked my teacher | …now, and I like my teacher. ／ 用句号断开 | 逗号不能连接两个完整句子；「现在喜欢」用原形 like | 2 | 已过关 | punctuation | 3 |
+| 2 | she always is busy | she is always busy | 频度副词要放在 be 动词之后（第 3 次错：第 7 课复习写成 She is always is busy，多了一个 is） | 0 | 未过关 | grammar | 3 |
 | 2 | zane | Zane | 人名、地名首字母一律大写 | 0 | 未过关 | capitalization | 1 |
 | 诊断 | Do you like coffee. | Do you like coffee? | 疑问句结尾必须用问号 | 0 | 未过关 | punctuation | 3 |
 | 3 | intrusting | interesting | 拼写：interesting（有趣的），重音在首，拼作 inter-est-ing | 0 | 未过关 | spelling | 1 |
 | 3 | Our teacher is Amy together. | Tom and I are students. Our teacher is Amy. | together 表示「一起做某事」，不能用来描述身份归属 | 0 | 未过关 | word_choice | 1 |
-| 4 | I reading a book. | I am reading a book. | 现在进行时必须有 be 动词 am / is / are | 1 | 未过关 | grammar | 1 |
+| 4 | I reading a book. | I am reading a book. | 现在进行时必须有 be 动词 am / is / are | 2 | 已过关 | grammar | 1 |
 | 4 | my grandpa and me | my grandpa and I | 作主语用主格 I，me 是宾格；别人在前，I 在后 | 0 | 未过关 | grammar | 1 |
 | 4 | play game | play games | 可数名词单数不能裸用，用复数或 a + 单数 | 0 | 未过关 | grammar | 3 |
 | 4 | what do you do? | What are you doing? | 疑问词没选错，错在用一般现在时结构去问此刻正在做的事（与 I reading a book. 同属结构缺失） | 0 | 未过关 | grammar | 1 |
@@ -28,19 +28,22 @@
 | 5 | I am very busy. | We are busy. | 错在主格代词选择：中文「我们」写成 I；am → are 是连带修正 | 1 | 未过关 | word_choice | 1 |
 | 6 | Theri school is very big | Their school is very big | 拼写：their 的字母顺序写反成 theri | 0 | 未过关 | spelling | 1 |
 | 6 | at yesterday | yesterday（不加 at） | yesterday / today / tomorrow 前面不加介词 | 0 | 未过关 | grammar | 2 |
+| 7 | getted | got（想说「学到」则用 learned） | get 是不规则动词，过去式是 got，不能加 -ed；「学知识」英语常说 learned | 0 | 未过关 | grammar | 1 |
+| 7 | in office | in the office ／ in my office | 单数可数名词前必须有 a / the / my 之类的限定词（第 7 课补漏块第 3 题） | 0 | 未过关 | grammar | 1 |
+| 7 | on last Sundays | last Sunday | last / next / this 前不加介词；「上周日」是单数，不是 Sundays | 0 | 未过关 | grammar | 1 |
 | 6 | What were you yesterday. | How were you yesterday? | 问「状态怎么样」用 how 不用 what；句尾必须用问号（标点部分并入本条） | 0 | 未过关 | word_choice | 1 |
-| 6 | I teached my friend to use AI | I taught my friend to use AI | teach 是不规则动词，过去式是 taught 不是加 -ed | 0 | 未过关 | grammar | 1 |
+| 6 | I teached my friend to use AI | I taught my friend to use AI | teach 是不规则动词，过去式是 taught 不是加 -ed（第 7 课开放题第 2 次犯） | 0 | 未过关 | grammar | 2 |
 
 ---
 
-## 类型分布（23 条 · 未过关 19）
+## 类型分布（26 条 · 未过关 20 / 已过关 6）
 
 | 类型 | 条数 | 未过关 |
 |---|---|---|
-| grammar | 9 | 8 |
+| grammar | 12 | 10 |
 | word_choice | 5 | 3 |
 | capitalization | 4 | 3 |
-| punctuation | 3 | 3 |
+| punctuation | 3 | 2 |
 | spelling | 2 | 2 |
 | other | 0 | 0 |
 

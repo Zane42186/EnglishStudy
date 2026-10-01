@@ -1,7 +1,7 @@
 # AI 英语老师文档（Amy）
 
 > **状态：第一版（正式正文）· 2026-09-29**
-> 数据基准：第 6 课（2026-09-29）下课后的仓库状态。
+> 数据基准：第 7 课（2026-10-01）下课后的仓库状态。
 > 本文所有结论均可在下列文件中定位，**没有推测、没有虚构学生未学过的内容**：
 > `progress.md`、`wrong-words.md`、`notes/day-01-07.md`、`read/*.md`、`digest.md`、`INDEX.md`、`review/*.html`。
 > 规则权威来源：`PROJECT.md`（理念）、`AGENTS.md`（角色分工）、`backend/docs/03-api-contract.md`（数据契约）。
@@ -18,7 +18,7 @@
 | **Amy（本文件）** | 教学决策：学什么、讲多少、怎么批、是否升降级 | 由 Skill `english-daily` 承载执行 |
 | **Skill** | 把 Amy 的流程固化为可重复执行的步骤与脚本 | `.workbuddy/skills/english-daily`（**不在版本库内**，见 `docs/skills.md` 风险登记） |
 | **Backend** | 学习记忆：只搬运、不重设计教学规则 | `backend/` 仅有设计稿，**无可运行代码** |
-| **Frontend** | 学习界面 | `review/*.html`，由 `build_board.py` 静态生成 |
+| **Frontend** | 学习界面 | `review/*.html`，纯 API 驱动的静态页（不再由脚本生成） |
 | **Git** | 版本安全 | `main` 单分支，origin → `Zane42186/EnglishStudy` |
 
 ### 1.2 数据真相源（Markdown 优先，数据库尚未启用）
@@ -29,8 +29,8 @@
 | 错词与掌握度 | `wrong-words.md` | 手工维护（Amy 维护） |
 | 课程正文与批改 | `notes/day-01-07.md`（每 7 课一份） | 追加式，不重写 |
 | 当日阅读 | `read/YYYY-MM-DD-read.md` | 一天一个文件，当天不覆盖 |
-| 上课速读摘要 | `digest.md` | 脚本生成，Amy 上课只读这一份 |
-| 索引 / 看板 | `INDEX.md`、`review/*.html` | 脚本生成，禁止手改 |
+| 上课速读摘要 | `digest.md` | 后端 `db:summary` 生成，Amy 上课只读这一份 |
+| 索引 / 看板 | `INDEX.md`（后端 `db:summary`）、`review/*.html`（前端维护） | 生成物，禁止手改 |
 
 ### 1.3 上课流程（11 步，当前实际执行）
 
@@ -56,12 +56,12 @@
 
 ---
 
-## 二、当前学生学习状态（截至第 6 课 · 2026-09-29）
+## 二、当前学生学习状态（截至第 7 课 · 2026-10-01）
 
 > 学生：Zane，软件工程学生，零基础起步，目标为「能读懂并写出日常句子」。
 > 学习方式：每天 20—30 分钟，课后作业必做，以中文交流、英文术语保留原文。
 
-### 2.1 已经学过的内容（6 课）
+### 2.1 已经学过的内容（7 课）
 
 | 课号 | 日期 | 级别 | 新知识点 |
 |---|---|---|---|
@@ -71,8 +71,9 @@
 | 4 | 2026-09-27 | Level 2 | 现在进行时 am / is / are + -ing（含 -ing 三条拼写规则） |
 | 5 | 2026-09-28 | Level 2 | 一般现在时与现在进行时的区别（标志词 + 状态动词不用进行时） |
 | 6 | 2026-09-29 | Level 2 | 一般过去时 was / were（含否定、疑问、时间标志词） |
+| 7 | 2026-10-01 | Level 2 | 规则动词过去式 -ed（含 -y 变 i、双写规则）+ 补漏块 ④ 介词 on / at |
 
-累计产出：**6 课 · 52 个词条 · 11 篇阅读 · 19 条错词记录**（来源：`build_board.py` 输出 `课程数=6 阅读数=11 词汇数=52`）。
+累计产出：**7 课 · 61 个词条 · 14 篇阅读 · 26 条错词记录**（来源：库内实测 —— `mistakes` 26 条、`lesson_exercises` 41 条；词汇/阅读数以 md 与 API 一致口径计）。
 
 ### 2.2 已经掌握（判断依据：作业正确、错词已过关或诊断通过）
 
@@ -101,19 +102,19 @@
 
 ### 2.4 出现过错误的完整清单
 
-见 `wrong-words.md`（19 条：**已过关 4 条、未过关 15 条**），类型分布见本文第四章。
+见 `wrong-words.md`（26 条：**已过关 6 条、未过关 20 条**），类型分布见本文第四章。
 
 ### 2.5 当前学习阶段判断
 
 - **理解层面：已达到 Level 2 中段** —— 三个时态（一般现在 / 现在进行 / 一般过去）的辨认与结构选择正确率稳定。
 - **产出层面：仍是 Level 1 末段** —— 简单句能写，但「限定词 / 标点 / 不规则形态」三类细节错误反复出现。
 - **瓶颈定位：不是「没学过」，而是「没形成自检习惯」**。证据：同一批题目口头判断正确、书面产出出错；第 3 课书写规范达标时错误数立刻降到 2。
-- 综合评语（非官方测评）：**理解 ≈ Level 2，产出 ≈ Level 1 末段**；这正是第 4—6 课维持 Level 2 而不加速的原因。
+- 综合评语（非官方测评）：**理解 ≈ Level 2，产出 ≈ Level 1 末段**；这正是第 4—7 课维持 Level 2 而不加速的原因。
 
 ### 2.6 下一阶段适合学什么（学员级结论）
 
-1. **主线（Level 2 顺序）**：规则动词过去式 -ed → 不规则过去式 → 过去时否定与疑问 did → will / be going to。
-2. **补漏（并行）**：介词 on / at（补漏块 4，待做）；祈使句与 Let's（未测）。
+1. **主线（Level 2 顺序）**：~~规则动词过去式 -ed~~（第 7 课已完成）→ **不规则过去式**（第 8 课）→ 过去时否定与疑问 did → will / be going to。
+2. **补漏（并行）**：~~介词 on / at（补漏块 4）~~（第 7 课已完成）；**祈使句与 Let's（未测，待补漏块 5）**。
 3. **习惯（贯穿）**：书写与形态自检 —— 句尾标点、可数名词复数、不规则动词形态。
 4. **不学（暂缓）**：比较级、最高级、从句类内容（Level 2 后半段及 Level 3）。
 
@@ -131,12 +132,14 @@
 | 4 | 2026-09-27 | Level 2 | 现在进行时 | 10 | My Room、My Work Day | 刚好 | 6 |
 | 5 | 2026-09-28 | Level 2 | 两种时态辨析 | 10 | My Day My Way、Amy Is Busy、Weekend and Now | 刚好 | 2 |
 | 6 | 2026-09-29 | Level 2 | 过去时 was / were | 10 | Yesterday、Tom's Bad Day、Where Were You? | 刚好 | 5 |
+| 7 | 2026-10-01 | Level 2 | 规则动词过去式 -ed | 10 | My Last Weekend、Amy Worked Late、Tom's Busy Day | 刚好 | 2（补漏块另 3 处） |
 
 补充事实：
 
 - 第 3、4 课同一天（2026-09-27），第 1、2 课同一天（2026-09-26）；第 3 课当天追加生成 2 篇阅读（学生要求）。
 - 第 6 课为中断一天后补课，按「断更不断号」处理。
-- 词汇总数 52 = 六课词汇表去重累计；阅读 11 篇 = 2+3+3+3（按日归档在 `read/`）。
+- 词汇总数 61 = 七课词汇表去重累计；阅读 14 篇 = 2+3+3+3+3（按日归档在 `read/`）。
+- 第 7 课为 `records/` 归档口径切换点：作业 4 题（2 处错）+ 补漏块 3 题（3 处错），补漏块错误**单列不计入作业错误数**（见 §6.5）。
 - 第 5 课前做过一次 **Level 1 待补点诊断（10 题）**，结果为 6 项免修、3 项转补漏块、1 项待测（见 `progress.md`）。
 
 ### 3.2 课程数据位置
@@ -152,20 +155,20 @@
 
 ## 四、错题类型
 
-### 4.1 类型分布（23 条错词记录 · 2026-09-30，按 `mistakes.error_type` 枚举归口）
+### 4.1 类型分布（26 条错词记录 · 2026-10-01，按 `mistakes.error_type` 枚举归口）
 
 | 类型（DB 枚举） | 条数 | 占比 | 典型条目 |
 |---|---|---|---|
-| `grammar` 语法 | 9 | 39% | `play game`、`I reading a book.`、`my grandpa and me`、`at yesterday`、`Tom play soccer`、`I teached` |
-| `word_choice` 用词 | 5 | 22% | `We see movie`（watch/see）、`ask for my teacher`、`what do you do?`、`What were you yesterday`（how）、`Our teacher is Amy together.` |
-| `capitalization` 大小写 | 4 | 17% | `zane`、`Tv`、`those are their bags.`、`Now, My` |
-| `punctuation` 标点 | 3 | 13% | `Do you like coffee.`（缺问号）、`now,liked my teacher`（逗号连句）、`work.So`（句号后缺空格） |
-| `spelling` 拼写 | 2 | 9% | `Theri`（their）、`intrusting`（interesting） |
+| `grammar` 语法 | 12 | 46% | `play game`、`I reading a book.`、`my grandpa and me`、`at yesterday`、`Tom play soccer`、`I teached`、`getted`、`in office`、`on last Sundays` |
+| `word_choice` 用词 | 5 | 19% | `We see movie`（watch/see）、`ask for my teacher`、`what do you do?`、`What were you yesterday`（how）、`Our teacher is Amy together.` |
+| `capitalization` 大小写 | 4 | 15% | `zane`、`Tv`、`those are their bags.`、`Now, My` |
+| `punctuation` 标点 | 3 | 12% | `Do you like coffee.`（缺问号）、`now,liked my teacher`（逗号连句）、`work.So`（句号后缺空格） |
+| `spelling` 拼写 | 2 | 8% | `Theri`（their）、`intrusting`（interesting） |
 | `other` | 0 | — | — |
 
-> 未过关 19 条的分布：语法 8、大小写 3、标点 3、用词 3、拼写 2。
+> 未过关 20 条的分布：语法 10、大小写 3、标点 2、用词 3、拼写 2。
 > 说明：`error_type` 由 Amy 人工判定（规则见 §11.5），枚举值与 `schema.sql` 完全一致，**无需改表**。
-> 库内 `/api/mistakes/stats` 目前仍是 19 条时的快照（`grammar 9 / word_choice 4 / capitalization 3 / punctuation 2 / spelling 1`）；按 `records/README.md` §5.2 执行 12 处变更（8 条 UPDATE + 4 条 INSERT）后会变为本表数值。
+> 库内 `/api/mistakes/stats` 已同步为 **26 条**（2026-10-01）：`grammar 12 / word_choice 5 / capitalization 4 / punctuation 3 / spelling 2`，与错词本表**逐类一致**。
 
 ### 4.2 三种可控的错误模式（Amy 的处置策略）
 
@@ -177,7 +180,7 @@
 
 ### 4.3 高频错误的量化观察
 
-- **产出型错误 > 理解型错误**：23 条中，理解层面误判仅 4 条（用词类），其余 19 条都是「知道规则但写错」。
+- **产出型错误 > 理解型错误**：26 条中，理解层面误判仅 5 条（用词类），其余 21 条都是「知道规则但写错」。
 - **同一错误重复率**：`play game` 出现 3 次、问号类 ≥3 次、句首/非句首大写 3 次、句号后缺空格 2 次、`their` 与 `interesting` 拼写各 1 次 —— 说明「讲解已足够，缺的是产出环节的强制检查」。
 - **新知识点首课错误率显著更高**：第 4 课（新语法点进行时）6 处 vs 第 3 课 2 处，这是拒绝「每课 2 个知识点」的实证依据。
 
@@ -195,27 +198,27 @@
 
 | 需求字段 | 现有落点 | 说明 |
 |---|---|---|
-| `lesson_id` | `courses.id`（自增） | 数据库内部主键；md 侧用 `notes/day-01-07.md` + 课号定位 |
-| `title` | `courses.lesson_no` + `courses.summary` | 标题由课号生成；一句话摘要即标题的语义内容 |
-| `level` | `courses.level_code` | 上课时级别，如 `Level 2` |
-| `objectives` | **`course_sections` 新增 `section_type='objectives'`（待确认）** | 本课目标，1—3 条；md 侧写进 `> 一句话：` 之外的目标行 |
-| `review` | `course_sections.section_type='review'` | 已有枚举，直接复用 |
-| `new_knowledge` | `course_sections.section_type='grammar'` + `course_knowledge_points(role='new')` | 语法正文入 section，知识点入关联表 |
-| `vocabulary` | `vocabulary` + `course_vocabulary` | 已有表，词表 + 例句（`vocab_table` section 保留原文） |
-| `grammar` | 同 `new_knowledge` | 与知识点表一一对应 |
-| `examples` | `course_sections.section_type='examples'` | 已有枚举 |
-| `exercises` | `exercises` 表（`exercise_no` / `exercise_type` / `prompt` / `reference_answer` / `user_answer` / `is_correct` / `error_note`） | 已有表，**每题一行**，批改回填 |
-| `expected_mistakes` | **`course_sections` 新增 `section_type='expected_mistakes'`（2026-09-29 已批准，见团队总纲 D-10）** | 备课时预判的易错点，用于批改时的「为什么不是 Y」；**不对学生展示**（它是答案清单，学生端的提交前自检只给 `selfChecks` 规则，规则可给、答案不可给） |
-| `homework` | `course_sections.section_type='homework'` + `exercises` | 题干入 section，题目入 exercises |
+| `lesson_id` | `lessons.id`（自增） | 数据库内部主键；md 侧用 `notes/day-01-07.md` + 课号定位 |
+| `title` | `lessons.lesson_no` + `lessons.summary` | 标题由课号生成；一句话摘要即标题的语义内容 |
+| `level` | `lessons.level_code` | 上课时级别，如 `Level 2` |
+| `objectives` | `lesson_sections.section_type='objectives'`（**2026-09-29 已落地**） | 本课目标，1—3 条；md 侧写进 `> 一句话：` 之外的目标行 |
+| `review` | `lesson_sections.section_type='review'` | 已有枚举，直接复用 |
+| `new_knowledge` | `lesson_sections.section_type='grammar'` + `knowledge_points`（**该表暂不建**，见 §5.4） | 语法正文入 section；知识点暂无结构化落点 |
+| `vocabulary` | `vocabulary` + `lesson_vocabulary` | 已有表，词表 + 例句（`vocab_table` section 保留原文） |
+| `grammar` | 同 `new_knowledge` | 与知识点一一对应（知识点表未建时只落 section） |
+| `examples` | `lesson_sections.section_type='examples'` | 已有枚举 |
+| `exercises` | `lesson_exercises` 表（`block_kind` / `block_no` / `exercise_no` / `exercise_type` / `prompt` / `reference_answer` / `user_answer` / `is_correct` / `error_note` / `error_type` / `revised_answer` / `self_check`） | 已有表，**每题一行**，批改回填 |
+| `expected_mistakes` | `lesson_sections.section_type='expected_mistakes'`（**2026-09-29 已落地**，批准见团队总纲 D-10） | 备课时预判的易错点，用于批改时的「为什么不是 Y」；**不对学生展示**（它是答案清单，学生端的提交前自检只给 `selfChecks` 规则，规则可给、答案不可给） |
+| `homework` | `lesson_sections.section_type='homework'` + `lesson_exercises` | 题干入 section，题目入 `lesson_exercises` |
 
-补漏块（backfill）不入 `course_sections`，走 `course_knowledge_points(role='backfill')` —— **该枚举值已在 schema 中存在，无需扩展**。
+补漏块（backfill）：**正文入** `lesson_sections.section_type='backfill'`（该枚举值已于 2026-09-30 追加到末尾），**题目入** `lesson_exercises.block_kind='backfill'` + `block_no` —— 与作业（`block_kind='homework'`）**分开计数**，见 §6.5。
 
-### 5.3 一课数据的 JSON 视图（对齐 `POST /courses` 契约）
+### 5.3 一课数据的 JSON 视图（对齐 `POST /api/lessons` 契约）
 
 ```json
 {
   "lessonNo": 7,
-  "lessonDate": "2026-09-30",
+  "lessonDate": "2026-10-01",
   "levelCode": "Level 2",
   "summary": "学会规则动词过去式 -ed，能说清「上周做了什么」",
   "objectives": [
@@ -239,14 +242,15 @@
 }
 ```
 
-### 5.4 需要后端确认的 2 项（不擅自改表）
+### 5.4 原「需后端确认的 2 项」—— 均已落地（2026-10-01 复核）
 
-| 项 | 现状 | 建议 | 影响 |
-|---|---|---|---|
-| `course_sections.section_type` 增 `objectives`、`expected_mistakes` | 现枚举为 8 值，无这两项 | 建议 `ALTER TABLE` 扩枚举（仅加值，不改类型、不动存量数据） | 影响迁移脚本；**需后端工程师评估后实施** |
-| `courses` 缺 `objectives` 结构化字段 | 只有 `summary` | 若后端不愿扩枚举，可退化为：objectives / expected_mistakes 只写进 `course_sections.content_md`（用 `grammar` 段落前缀标记），**不改表** | 零风险，但结构化查询能力下降 |
+| 项 | 结果 |
+|---|---|
+| `lesson_sections.section_type` 增 `objectives`、`expected_mistakes` | ✅ **已落地**。`schema.sql` 现枚举共 **11 值**（末尾追加 `objectives` / `expected_mistakes` / `backfill`），未改类型、未动存量数据 |
+| `lessons` 增 `objectives` 结构化字段 | ⏸ **决定不做**。objectives 走 `lesson_sections`（`section_type='objectives'`），不新增列；`summary` 仍只承载一句话摘要 |
 
-> 若两者都不做，Amy 侧仍可照常上课（md 为真相源），只是平台化后无法按「目标 / 预判错误」做统计。
+> 另：`knowledge_points` / `lesson_knowledge_points` **不建**（Amy 明确教学侧暂不需要；若为产品展示需求另议）—— 故「知识点掌握度」暂只落 `lesson_sections` 正文，不做聚合统计。
+> 将来若要按「目标 / 预判错误」做统计，直接查 `lesson_sections.section_type` 即可，**无需改表**。
 
 ---
 
@@ -256,14 +260,14 @@
 
 | 需求字段 | 落点 | 落点说明 |
 |---|---|---|
-| `lesson` | `courses`（+ `exercises`） | 课基本信息 |
+| `lesson` | `lessons`（+ `lesson_exercises`） | 课基本信息 |
 | `score` | `study_records.record_type='grade'` 的 `payload` | **口径：作业错误处数**（现有唯一可复算口径），不折算百分制 |
 | `mistakes` | `mistakes` + `mistake_events` | 错词本条目 + 每次犯错的流水 |
-| `knowledge mastery` | `course_knowledge_points` + `mistakes` 关联 | 用「该知识点相关错词是否过关」近似掌握度 |
+| `knowledge mastery` | `knowledge_points`（**暂不建**）+ `mistakes` 关联 | 用「该知识点相关错词是否过关」近似掌握度；知识点表未建前只能靠错词本人工判断 |
 | `vocabulary mastery` | `vocabulary` + `mistakes` | 词是否有错记录 / 是否出现在错词本 |
 | `grammar mastery` | `knowledge_points` + `mistakes.error_type='grammar'` | 语法错误的次数与过关状态 |
-| `study time` | `courses.study_minutes`（已有字段） | 单课时长，手工填或按上下课时间差估算 |
-| `feedback` | `progress_feedback` + `user_progress` | 难度反馈与升降级结果 |
+| `study time` | ⚠️ **无落库位置** —— `lessons` 表**没有** `study_minutes` 列（`lesson-record.schema.json:81` 注释指向的 `courses.study_minutes` 是废弃命名，该表不存在） | G5 因此**维持降级**：接口返 `null` 并标注，**不得用 0 冒充「没数据」** |
+| `feedback` | `progress`（**`progress_feedback` 表尚未建**） | 难度反馈与升降级结果；现落在 `progress` 的 7 个教学列上（`current_level` / `current_lesson_no` / `last_feedback` / `easy_streak` / `upgrade_frozen_until` / `last_class_date` / `note`） |
 | `next recommendation` | `study_records.record_type='feedback'` 的 `payload.next_recommendation` | 下一课计划文本（否则每天的教学决策无法回溯） |
 
 > `record_type` 枚举为 `('attend','homework_submit','grade','review','feedback','reading')`，**现有 6 值已够用**，无需扩展。
@@ -274,11 +278,11 @@
 课开始   → study_records(attend)                      {lessonNo, level}
 复习批改 → mistake_events(wrong|correct, mistake_id)  逐条
          → mistakes.streak / status 更新
-新课归档 → courses + course_sections + exercises + vocabulary
-作业批改 → exercises.is_correct / error_note
+新课归档 → lessons + lesson_sections + lesson_exercises + vocabulary
+作业批改 → lesson_exercises.is_correct / error_note
          → 新错词 → mistakes（error_type + reason）
          → study_records(grade)   {errorCount, exerciseCount, byType{}}
-收反馈   → progress_feedback + user_progress（含 easy_streak / frozen）
+收反馈   → progress（含 easy_streak / upgrade_frozen_until）
 下课前   → study_records(feedback) {next_recommendation}
 ```
 
@@ -300,7 +304,7 @@
 |---|---|---|
 | 词汇掌握 | 未出现在错词本 → 初识；出现且未过关 → 不稳定；已过关 → 会用 | ✅ 可算 |
 | 语法掌握 | 关联错词全部过关且连续 2 课无同类新错 → 稳定 | ✅ 可算 |
-| 综合阶段 | 由 `user_progress.current_level` + 错误趋势共同判断（理解与产出分开评估，见 2.5） | ⚠️ 错误趋势需按课统计，后端契约暂缺 |
+| 综合阶段 | 由 `progress.current_level` + 错误趋势共同判断（理解与产出分开评估，见 2.5） | ✅ 错误趋势已由 `GET /api/lessons/error-trend` 提供 |
 
 ### 6.5 「错误处数」的不计入项与两个单列计数（2026-09-29 定形，关闭缺口 G10）
 
@@ -448,7 +452,7 @@
 | 接口 | Amy 用它做什么 | 对应现有 md |
 |---|---|---|
 | `GET /agent/snapshot?recent=3` | **上课第一步**：级别、课号、最近三课、未过关错词（含 priority）、阅读目录 | `digest.md` |
-| `GET /courses/latest` | 「上次学到哪了」的快速回答 | `notes/` 末课摘要 |
+| `GET /lessons` | 「上次学到哪了」的快速回答（最新一课 = 课号最大项） | `notes/` 末课摘要 |
 | `GET /mistakes?status=pending` | 出复习题、批改后回写 | `wrong-words.md` |
 | `GET /vocabulary/stats` | 词汇量汇报 | `review/words.html` 顶部 |
 
@@ -467,13 +471,15 @@
 
 | 接口 | 触发时机 | 备注 |
 |---|---|---|
-| `POST /courses` | 新课归档（讲完 + 批改完） | 含 sections 与 vocabulary |
-| `PUT /courses/:id` | 回填作业批改与难度反馈 | |
+| `POST /lessons` | 新课归档（讲完 + 批改完） | 含 sections 与 vocabulary；**按 `LessonRecord` 契约，尚未实现**（`docs/schemas/README.md:35` 早已约定该映射） |
+| `PUT /lessons/:id` | 回填作业批改与难度反馈 | **尚未实现** |
 | `POST /mistakes` | 批改时发现新错词 | 需带 `error_type` + `error_reason` |
 | `POST /mistakes/:id/review` ★ | 每次复习判对错 | 连击与过关在服务端判定 |
 | `POST /progress/feedback` ★ | 收难度反馈时 | 升降级与冻结在服务端判定 |
 | `POST /study-records` | 下课时 | `grade` / `feedback` 两类 payload |
 | `POST /skill-runs` | 每次执行 `english-daily` | 便于回溯 Skill 侧决策 |
+
+> 本节路由均以 `/api` 为前缀（此处沿用无前缀写法）。
 
 ### 9.3 契约缺口清单（请后端评估，不在本次实施范围）
 
@@ -487,7 +493,7 @@
 | G2 | `pendingMistakes[].priority` 未定义 | ✅ 已关闭 | 服务端规则：`wrongCount ≥2` → high；`streak ==1` → medium；其余 low |
 | G3 | 无「待补知识点 / 补漏队列」字段 | ⏳ 需求 R6 | `/api/knowledge-points` 待实现 |
 | G4 | 无「上次未完成的教学动作」 | ⏳ 需求 R5 + R1 | 需 `study_records(feedback).payload.nextRecommendation` 并在快照回传 |
-| G5 | `courses.study_minutes` 由谁填未定 | ⏳ 需求 R4 | 建议 Amy 归档时传入 |
+| G5 | `studyMinutes` **无落库位置**（`lessons` 无 `study_minutes` 列；契约注释里的 `courses.study_minutes` 是废弃命名、该表不存在） | ⏳ 维持降级 | **本轮不加列**；接口须返 `null` 并标注，**不得用 0 冒充「没数据」** |
 | G6 | 无聚合快照接口 | ⏳ 需求 R1（P0） | `/api/agent/snapshot` 实测 404，Amy 现需并发 9 个接口 |
 | G7 | 无写接口（复习判定 / 反馈 / 归档） | ⏳ 需求 R2—R5（P0/P1） | 闭环断裂：`streak` / `status` / `lastReviewedAt` 永不变化 |
 
@@ -523,6 +529,8 @@ Amy 已实测用 9 个 GET 接口拼出第 7 课计划（`docs/amy-session-07-pl
 | DQ5 | `lastReviewedAt` 全为 null（写接口缺失所致） | `GET /api/mistakes/pending` |
 
 > 其中 **DQ1 影响教学准确性**（错词计数与教师记录不一致），其余为字段语义与口径问题。
+>
+> **2026-10-01 复核**：**DQ1—DQ5 全部已关闭**。DQ1/DQ2 经 `db:sync-mistakes` 与错词本对齐（现 26 条，库内与 md 逐字一致）；DQ3 的「API 按词去重 / 看板按课累计」**保留为两套并行口径、非缺陷**；DQ4 对「诊断」来源返回 `firstLessonNo = null` 属预期；DQ5 `lastReviewedAt` 待写接口落地后自动有值。
 
 ---
 
@@ -546,7 +554,7 @@ Amy 已实测用 9 个 GET 接口拼出第 7 课计划（`docs/amy-session-07-pl
 教学规则变更（改级别策略 / 加补漏块 / 改复习取题法）
   1. Amy 先在 progress.md 落地并记录原因（真相源）
   2. 同步更新 docs/ai-teacher.md（本文）
-  3. 若涉及流程步骤 → 交 Skill 设计师更新 SKILL.md 与脚本；改脚本需重跑 build_board 验证
+  3. 若涉及流程步骤 → 交 Skill 设计师更新 SKILL.md 与脚本；改脚本需按 `skills/english-daily/references/setup-guide.md` 的方式自检
   4. 若涉及数据结构 → 交后端工程师评估契约影响（见 5.4 / 9.3）
   5. Git 工程师记录 changelog
 禁止：绕过真相源直接改 Skill；或改了 Skill 不更新本文档。
@@ -562,7 +570,7 @@ Amy 已实测用 9 个 GET 接口拼出第 7 课计划（`docs/amy-session-07-pl
 | `exercise-generation` | ✅ 内嵌（3 小题 + 1 开放题 + 补漏块） | 同上 |
 | `answer-grading` | ✅ 内嵌（错误类型 + 正确句 + 解释） | 同上 |
 | `mistake-analysis` | ⚠️ 半自动：分类与归口由 Amy 人工判定 | 待拆分独立 Skill（含 `error_type` 判定规则） |
-| `learning-progress-analysis` | ⚠️ 由 `build_board.py` 出统计，趋势判断靠 Amy 阅读 | 待拆分（依赖 G1） |
+| `learning-progress-analysis` | ⚠️ 统计改由后端接口（`/api/lessons/error-trend`、`/api/mistakes/stats`、`/api/dashboard/summary`）提供，趋势判断仍靠 Amy 阅读 | 待拆分（依赖 G6 快照） |
 | `next-lesson-planning` | ✅ 有明确规则（本文第八章），未独立成 Skill | 可保持内嵌 |
 
 ### 10.4 需要 Skill 设计师处理的事项
@@ -683,7 +691,7 @@ wrong_count ≥ 3 → 下一课强制自查项（让学生自己找这类错）
 
 **`wrong_text` 规范（2026-09-30 起）**：只写错误形式本身。批注混入会让同一错误在错词本与 `records/` 两个来源里长得不一样，迁移时按判重键 `uk_mistakes_text(student_id, wrong_text)` **会把一条错拆成两行**（DQ1 的根源）。本轮已统一 8 条带批注文本，并对账确认 records 18 条候选与错词本逐字一致；变更清单见 `records/README.md` §5.2。
 
-**错词池规模（2026-09-30）**：23 条（已过关 4 / 未过关 19）＝原 19 条 + 补入 4 条原漏登记错词（`work.So`、`intrusting`、`Our teacher is Amy together.`、`Now, My`）。
+**错词池规模（2026-10-01）**：**26 条（已过关 6 / 未过关 20）** —— 2026-09-30 由 19 → 23（补入 4 条原漏登记错词 `work.So`、`intrusting`、`Our teacher is Amy together.`、`Now, My`）；2026-10-01 第 7 课新增 3 条（`getted`、`in office`、`on last Sundays`），另出队 2 条。
 
 ### 11.8 结构化归档（机器契约）
 
@@ -726,6 +734,40 @@ wrong_count ≥ 3 → 下一课强制自查项（让学生自己找这类错）
 
 > 镜像时请照抄上表的降级口径，避免写成空文。
 
+### 11.10 阅读理解题「答案为空」口径（2026-09-30 裁定，回应前端提问）
+
+**结论：`answer` 为空不是合法状态，属数据缺陷，前端不得把它渲染成一种正常功能。**
+
+依据（均已在仓库内核实）：
+
+1. `docs/schemas/reading-set.schema.json` 中，题目的 `answer` 为 **`type: string` 且 `required`** —— 契约层面**不允许 null / 缺省**。
+2. 生成规则（`skills/english-daily/SKILL.md` 与 `references/course-template.md`）要求每篇阅读**必须**附 2 道理解题，**答案用 `<details>` 折叠**。
+3. 实测第 1—7 课共 14 篇、28 道理解题的 `answer` 全部有值，`null` 分支**只存在于 mock**。
+
+#### 前端行为（三条，可直接实现）
+
+| 场景 | 应该怎么做 |
+|---|---|
+| `answer` 为非空字符串 | 正常渲染「看答案」折叠 |
+| `answer` 为 `null` / 空串 | **不显示「看答案」按钮**（该题仍显示题干，学生可自己想）；同时 `console.warn` 记录 `{date, pieceNo, questionNo}` 并向上报缺陷 |
+| 若产品上必须有提示 | 文案用**中性缺陷提示**，如「参考答案缺失（数据异常，已记录）」，**不要**写成像功能名的「暂无答案」——那会把缺陷正常化，掩盖真实问题 |
+
+- 现有实现 `review/reading.html` 的 `qnoans` 分支**保留兜底**（避免白屏），但按上表第 2、3 行调整：**去掉按钮 + 改文案 + 加告警**。
+- 该题**不计入**任何「看答案」交互统计（避免缺陷数据污染指标）。
+
+#### Amy 侧的配套承诺（从源头堵住）
+
+- 生成阅读时，**每道理解题必须有可判定答案**；无法判定对错的问题**不写成理解题**。
+- 需要练开放表达 → 放**作业的开放题**（`kind=homework` 的开放题），不进阅读模块。
+- 阅读归档前自检：题数 ≥2 且每题 `answer` 非空；不达标则重写该篇，不产 null。
+
+#### 为什么不用 `answer: null` 表达「开放型理解题」
+
+`null` 会同时代表两件事 ——「数据缺失」与「设计如此」，**语义二义**，前端无法区分该报警还是该静默。
+将来若真要引入开放型理解题，必须**新增判别字段**（如 `answerMode: 'reference' | 'open'`）并**升契约版本**，不得复用 `answer: null`。
+
+> 本条不改变现有契约（`answer` 本来就是必填），**前端无需改 schema**，只需按上表调整渲染与告警。
+
 ---
 
 ## 十二、附录
@@ -740,22 +782,30 @@ wrong_count ≥ 3 → 下一课强制自查项（让学生自己找这类错）
 | `read/*.md` | 手工真相源（一天一档） | Amy |
 | `records/*.json` | **手工真相源（机器契约，2026-09-30 新增）** | Amy 产出、后端消费 |
 | `docs/schemas/*.json` | 契约定义 | Skill 设计师 + 后端 |
-| `digest.md` / `INDEX.md` / `review/*` | 生成物 | `build_board.py` |
+| `digest.md` / `INDEX.md` | 生成物 | **后端 `db:summary`**（`build_board.py` 已于 2026-09-30 退役删除） |
+| `review/*.html` | 生成物 | **前端工程师**（纯 API 驱动静态页，不再由脚本生成） |
 | `skills/english-daily/` | Skill 源码（已入库） | Skill 设计师 |
 
-### 12.2 本文件引用的真实数据快照（2026-09-30）
+### 12.2 本文件引用的真实数据快照（2026-10-01 · 已实测）
 
-- `build_board.py` 输出：`BOARD_OK 课程数=6 阅读数=11 词汇数=52 摘要字节=2807`（错词本改动后摘要体积略有变化）
-- 错词本：**23 条**（已过关 4 / 未过关 19）—— 19 条基础上补入 4 条原漏登记错词，并统一 8 条带批注的 `wrong_text`
-- `records/`：第 1—6 课作业 + 第 4—6 课补漏块 = 9 个文件，另加 `exercise-error-types.json`（34 题逐题 `error_type`，10 题非 NULL）；内部一致性校验 `ALL_OK`
-- 库内差异（待后端执行，共 12 处）：8 条 `wrong_text` UPDATE + 4 条 INSERT；`lesson_exercises.error_type` 34/34 NULL 属预期状态，可依 `exercise-error-types.json` 回填
-- 学生状态：`Level 2`、当前课号 6、`easy_streak = 0/2`、最近反馈 `just_right`、上次上课 `2026-09-29`
-- API 基线与缺口：见 §9.5 与 `backend/docs/06-api-requirements-amy.md`
+- **库内实测（2026-10-01；`db:compare` 15/0/0）**：
+  - `lessons` **7** · `lesson_sections` **60** · `lesson_exercises` **41**（`error_type` 非空 **12**，值域 `grammar / punctuation / word_choice / capitalization`）
+  - `mistakes` **26 行（pending 20 / passed 6）** · `study_records` **21**（attend/grade/feedback 各 7） · `progress` 1
+  - `readings` **5** / `reading_pieces` **14** / `reading_questions` **28** · `vocabulary` **61** / `lesson_vocabulary` **62**
+  - `wrong_text` 含中文括号批注的行数 = **0**（第 7 课 `in office` 的批注已由 `db:sync-mistakes` 清理）
+- 错词本 md 与库内一致：**26 条（已过关 6 / 未过关 20）**，类型分布 `grammar 12 / word_choice 5 / capitalization 4 / punctuation 3 / spelling 2`
+- `records/`：**14 个文件** —— 第 1—7 课作业 7 + 第 4—7 课补漏块 4 + `exercise-error-types.json` + `lesson-07.study-record.json`；内部一致性校验 `ALL_OK`
+- 学生状态：`Level 2`、当前课号 **7**、`easy_streak = 0/2`、最近反馈 `just_right`、上次上课 **`2026-10-01`**
+
+> **已闭环（原「待后端执行」项）**：① 8 条 `wrong_text` UPDATE + 4 条 INSERT ✅；② `lesson_exercises.error_type` 回填（第 1—6 课）✅；③ 第 7 课入库 + `db:summary` 重算 ✅；④ 第 7 课 `error_type` 落库（`db:apply-error-types`，非空 **10 → 12**）✅；⑤ `records/lesson-07.study-record.json` 落库（`teach:sync`，`study_records` **18 → 21**）✅。
+> **仍待执行**：写路径两项 —— `POST/PUT /api/lessons`（Step 2a）与 `POST /api/mistakes/batch`（Step 2b），归属与口径见 `Work Alignment/status-amy.md` §1.9。
+> **口径提示**：本表以**库内实测**为准；`:4000` 未运行时用只读 SQL 核对 —— 仍属实测，但非 API 响应。本轮核对手段：`db:compare`（只读）**15/0/0** + 直连 MySQL 只读 SQL。
+> ⚠️ **`self_check` 数据缺口仍在（实测）**：库内 `lesson_exercises.self_check` **41/41 全空**。接口照常返 `selfCheck` 键、值全 `null` —— **缺口在上游落库未带字段，不是 API 丢字段**。影响：前端「作业强制自查」兜底块取不到规则（已登记为 **F-L7**，第 7 课）。修复归属**在写路径侧**，不在前端。
 
 ### 12.3 待办（按角色）
 
-- **Amy**：第 7 课（规则动词过去式 -ed）+ 补漏块 4；第 8 课开 `notes/day-08-14.md`；此后每课产出 `records/lesson-NN.grading.json`。
-- **后端工程师**：① 执行 `records/README.md` §5.2 的 12 处变更（8 UPDATE + 4 INSERT），修掉「批注混入 → 同错拆两行」的根源；② 用 `records/exercise-error-types.json` 回填 `lesson_exercises.error_type`；③ 读 `records/*.json` 回填 `is_correct` / `error_note` / `revised_answer`（勿解析散文）；④ 决定历史 `error_count` 是否按重算值回改（Amy 建议保留历史值）；⑤ 评估 §5.4 的 2 项枚举扩展。
-- **Skill 设计师**：① `SKILL.md` 的错词本表结构补两列并写入「`错误点` 只写错误形式」规范；② `daily-lesson` 批改步骤增加「产出 `records/*.json`」；③ 把 §11.2—§11.5 固化为 `lesson-review` / `answer-grading` / `mistake-analysis` 的可执行规则。
-- **前端工程师**：错词页类型分布口径见 §4.1；数量 19 → 23 会随迁移生效，无需改代码。
-- **Git 工程师**：本次新增 `records/`（11 个文件）、修订 `wrong-words.md` 与 `docs/ai-teacher.md`，建议记入 `docs/changelog.md` 并打里程碑 tag。
+- **Amy**：~~第 7 课（规则动词过去式 -ed）+ 补漏块 4~~ **已完成**；下一课 **第 8 课 = 常用不规则过去式**，开 `notes/day-08-14.md`；此后每课产出 `records/lesson-NN.grading.json` + `lesson-NN.study-record.json`。
+- **后端工程师**：① ~~12 处变更~~ ✅；② ~~`error_type` 回填~~ ✅；③ ~~读 `records/*.json` 回填 `is_correct` / `error_note` / `revised_answer`~~ ✅；④ ~~历史 `error_count`~~ ✅ **已决保留历史值**；⑤ ~~评估 §5.4 的 2 项枚举扩展~~ ✅ **已落地**；⑥ G4 `lastIncomplete` —— **代码已完备**（`cc73588`），只差数据；⑦ ~~`teach:sync`（补 study-record 消费方）~~ ✅ **已落地**（`study_records` 21 行）；⑧ **剩余**：`POST /api/lessons`（Step 2a）、`POST /api/mistakes/batch`（Step 2b）、`self_check` 落库缺口（F-L7）。
+- **Skill 设计师**：① `SKILL.md` 错词本表结构补两列并写入「`错误点` 只写错误形式」规范；② `daily-lesson` 批改步骤增加「产出 `records/*.json`」；③ 按 `docs/plans/amy-review-rules-handover.md` 的 drop-in 清单镜像 §11.2—§11.5（含修掉 3.2 的「展示排序 ≠ 出题排序」漂移）；④ **新增**：导出器改产 `LessonRecord`（`POST /api/lessons` 的真实调用方）。
+- **前端工程师**：错词页类型分布口径见 §4.1（数量已生效为 **26**，无需改代码）；阅读理解题「答案为空」行为见 §11.10。
+- **Git 工程师**：`records/`（**14 个文件**）、`wrong-words.md`、`notes/day-01-07.md`、`read/2026-10-01-read.md`、`progress.md`、`docs/ai-teacher.md` 等变更，建议记入 `docs/changelog.md` 并打里程碑 tag。

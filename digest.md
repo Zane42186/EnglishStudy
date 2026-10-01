@@ -63,7 +63,7 @@
 - 第 6 课 ｜ What were you yesterday. → How were you yesterday? ｜ 错因：问「状态怎么样」用 how 不用 what；句尾必须用问号（标点部分并入本条） ｜ 连续答对 0
 - 第 6 课 ｜ I teached my friend to use AI → I taught my friend to use AI ｜ 错因：teach 是不规则动词，过去式是 taught 不是加 -ed（第 7 课开放题第 2 次犯） ｜ 连续答对 0
 - 第 7 课 ｜ getted → got（想说「学到」则用 learned） ｜ 错因：get 是不规则动词，过去式是 got，不能加 -ed；「学知识」英语常说 learned ｜ 连续答对 0
-- 第 7 课 ｜ in office（缺限定词） → in the office ／ in my office ｜ 错因：单数可数名词前必须有 a / the / my 之类的限定词 ｜ 连续答对 0
+- 第 7 课 ｜ in office → in the office ／ in my office ｜ 错因：单数可数名词前必须有 a / the / my 之类的限定词（第 7 课补漏块第 3 题） ｜ 连续答对 0
 - 第 7 课 ｜ on last Sundays → last Sunday ｜ 错因：last / next / this 前不加介词；「上周日」是单数，不是 Sundays ｜ 连续答对 0
 - 诊断 ｜ Do you like coffee. → Do you like coffee? ｜ 错因：疑问句结尾必须用问号 ｜ 连续答对 0
 
