@@ -282,6 +282,7 @@ def parse_records(root: Path) -> tuple[dict[tuple[int, str], dict], list[str]]:
 def parse_read_dir(root: Path) -> tuple[list[dict], list[str]]:
     warnings: list[str] = []
     days: list[dict] = []
+    empty_answers: list[str] = []   # §11.10：answer 为空的数据缺陷（逐题记录）
     read_dir = root / "read"
     if not read_dir.is_dir():
         warnings.append("read/ 目录不存在")
@@ -357,7 +358,21 @@ def parse_read_dir(root: Path) -> tuple[list[dict], list[str]]:
                 "vocabularyNotes": notes,
                 "questions": questions,
             })
+            # §11.10：阅读题 answer 为空 = **数据缺陷**（schema 里 answer 是 required string）。
+            # 这里改前是**静默填空串** —— 空串进库后看起来就是一条正常数据，与 §11.10
+            # 「让缺陷可见」的裁定方向正好相反，故改为显式告警 + 计数。
+            # ⚠️ 只加告警，**不改输出行为**（仍按原值导出）；「跳过该篇」与库约束留待后续一起上。
+            for q in questions:
+                if not (q.get("answer") or "").strip():
+                    empty_answers.append(
+                        f"{match.group(1)} 第 {piece.get('pieceNo')} 篇 第 {q.get('questionNo')} 题"
+                    )
         days.append({"date": match.group(1), "sourceFile": path.name, "pieces": pieces})
+    if empty_answers:
+        warnings.append(
+            f"阅读题 answer 为空 {len(empty_answers)} 题（§11.10 数据缺陷，已按缺陷导出，"
+            f"前端不得渲染成功能）：{'；'.join(empty_answers)}"
+        )
     days.sort(key=lambda x: x["date"])
     return days, warnings
 
