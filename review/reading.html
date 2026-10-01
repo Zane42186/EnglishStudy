@@ -6,7 +6,7 @@
 </head><body><div class="wrap">
 <h1>阅读</h1>
 <p><a class="back" href="index.html">← 返回看板</a></p>
-<p class="sub">左侧选择日期，中间**一次只显示一篇**；点右侧箭头或下方「下一篇」看下一篇，点左侧箭头或「上一篇」回到上一篇（键盘 ←/→ 同效）。</p>
+<p class="sub">左侧选择日期，中间「一次只显示一篇」；点右侧箭头或下方「下一篇」看下一篇，点左侧箭头或「上一篇」回到上一篇（键盘 ←/→ 同效）。</p>
 
 <div id="apiError" class="api-error hide"><span id="apiErrorMsg"></span><button id="apiRetry" type="button">重试</button></div>
 
@@ -49,6 +49,8 @@
  *           URL hash 同步（可刷新、可分享直达）。
  * 教学裁定（amy-teaching-plan §B.3.4）：① 同页目录，不嵌 iframe；
  *   ② 无中文对照时「整篇看中文」置灰而非消失；③ 理解题作答仅前端本地留存，暂不落库。
+ * 答案缺失口径（ai-teacher.md §11.10）：`answer` 为空属**数据缺陷**，不得渲染成功能——
+ *   不出「看答案」按钮、文案用中性缺陷提示、并 console.warn + 登记 `window.__readingDefects`。
  * 四态：Loading / Error（横幅 + 重试）/ Empty（还没有阅读）/ 正常。
  */
 (function () {
@@ -117,6 +119,29 @@
   function ansKey(date, pieceNo, questionNo) {
     return date + '#' + (pieceNo == null ? '' : pieceNo) + '#' + (questionNo == null ? '' : questionNo);
   }
+  /* answer 为空 = **数据缺陷**，不是一种可选的题目形态（docs/ai-teacher.md §11.10：
+     schema 里 answer 是 type:string 且 required，null/空串只能来自缺陷）。
+     故不出「看答案」按钮，只留中性缺陷提示，并告警 + 登记待上报。 */
+  function hasAnswer(q) {
+    return typeof q.answer === 'string' && q.answer.trim() !== '';
+  }
+  var seenMissing = {};
+  var missingAnswers = [];        // 缺陷登记：console.warn 之外的上报出口（window.__readingDefects）
+  function noteMissingAnswer(date, pieceNo, questionNo) {
+    var k = ansKey(date, pieceNo, questionNo);
+    if (seenMissing[k]) { return; }             // 同一次页面会话内同一缺陷只报一次
+    seenMissing[k] = true;
+    var info = {
+      date: date,
+      pieceNo: pieceNo == null ? null : pieceNo,
+      questionNo: questionNo == null ? null : questionNo
+    };
+    missingAnswers.push(info);
+    try { window.__readingDefects = missingAnswers; } catch (e) { /* 忽略 */ }
+    if (window.console && window.console.warn) {
+      window.console.warn('[reading] 理解题参考答案缺失（数据缺陷，非功能）', info);
+    }
+  }
   function pieceHTML(p, date, idx) {
     var paras = p.paragraphs || [];
     var hasZh = paras.some(function (x) { return !!x.zh; });
@@ -150,10 +175,12 @@
           + '<textarea class="qans" rows="2" data-key="' + UI.esc(ansKey(date, p.pieceNo, q.questionNo)) + '"'
           + ' placeholder="先写你的答案，再展开对照"></textarea>'
           + '<div class="qfoot">';
-        if (q.answer) {
+        if (hasAnswer(q)) {
           out += '<details class="qbox"><summary>看答案</summary><div class="qansbox">' + UI.esc(q.answer) + '</div></details>';
         } else {
-          out += '<span class="qnoans">暂无答案</span>';
+          /* §11.10：不出「看答案」按钮；文案用中性缺陷提示，不写成「暂无答案」（那会把缺陷正常化） */
+          noteMissingAnswer(date, p.pieceNo, q.questionNo);
+          out += '<span class="qnoans">参考答案缺失（数据异常，已记录）</span>';
         }
         out += '<span class="qhint">作答只存本机</span></div></div>';
       });
