@@ -1,11 +1,11 @@
 # GIT-MANAGER-STATUS.md — 版本管理工作状态
 
 > 角色：Git / 版本管理工程师（`AGENTS.md` §3.5）
-> 更新时间：**2026-10-01 18:06**（第二轮变更集已按角色分批提交，共 **7** 个提交；累计本地领先 **57**）
-> 数据来源：`git status / log / rev-list` 实测（2026-10-01 12:28 / 13:14 / 17:40 / 18:06）＋ 共享日志
+> 更新时间：**2026-10-01 18:44**（第三轮：补提 be-dev A12 批次 + **已推送 GitHub**；`main` 与 `origin/main` 同步于 `57386ef`）
+> 数据来源：`git status / log / rev-list / ls-remote` 实测（2026-10-01 12:28 / 13:14 / 17:40 / 18:06 / 18:44）＋ 共享日志
 > 可信度标注：**【实测】**= git 命令当场得出；**【记录】**= 他人文档/日志记载，未经本人复验；**【推断】**= 依据现状推测
 >
-> 边界声明：本角色**不做业务开发、不改他人内容、不擅自推远端**。所有提交只做版本归档，
+> 边界声明：本角色**不做业务开发、不改他人内容、不擅自推远端**（推远端须负责人授权）。所有提交只做版本归档，
 > 提交信息内如实标注验证来源；他人草稿与 in-flight 改动不代提交。
 
 ---
@@ -16,10 +16,10 @@
 |---|---|
 | 分支 | `main`（唯一工作分支）+ `backup/2026-09-29-before-push` |
 | 远端 | `origin` = `https://github.com/Zane42186/EnglishStudy.git` |
-| 同步状态 | **本地领先 57 个提交，落后 0**（未推送）。其中 2026-10-01 两轮共 **20** 个：`4e2fc46` … `69c5de1` + 本状态文档提交 |
-| 远端已含 | `main` = `87ee73e`；`backup/2026-09-29-before-push` = `54f8330` |
-| 本地标签 | `pre-push-20260929`→`c792b03`、`stage-02-backend-api`→`87ee73e`、<br>`skill-english-daily-v2.2.0/2.2.1/2.2.2`（均已推远端）；**尚无里程碑 tag** |
-| 工作区 | ⚠️ **2 个新 in-flight**（`backend/docs/05-api-reference.md`、`backend/src/services/snapshot.service.js`，18:05 起由 be-dev 在改 A12 修复）→ **已按纪律搁置、未提交**；其余干净 |
+| 同步状态 | ✅ **与 `origin/main` 完全同步**（`57386ef`，`0/0`）。当日三轮共 **21** 个提交 `4e2fc46` … `57386ef` |
+| 远端已含 | `main` = **`57386ef`**（2026-10-01 18:42 推送 `87ee73e..57386ef`）；`backup/2026-09-29-before-push` = `54f8330` |
+| 本地标签 | 回滚锚点 `pre-push-20260929`→`c792b03`、**`pre-push-20261001`→`57386ef`**；里程碑 `stage-02-backend-api`→`87ee73e`、**`stage-03-write-api`→`57386ef`**；`skill-english-daily-v2.2.0/2.2.1/2.2.2`（**全部已推远端**） |
+| 工作区 | ✅ **干净**（be-dev 的 A12 批次已于 `57386ef` 补提） |
 | 未跟踪/被忽略 | `backend/.env`、`node_modules/`、`backend/db/backup-*.sql`、`backend/db/migration/_snapshot.json`、`.workbuddy/`、`*.zip` 均已被 `.gitignore` 覆盖，无遗漏入库风险 |
 
 ---
@@ -136,13 +136,29 @@
 
 **提交前静态校验（本人执行）**：`node --check` 7 个 JS 全过（含 `import_json.js`）；`JSON.parse` 3 个 schema 全过。
 
-**⚠️ 搁置（未提交，非本人职责）**：`backend/docs/05-api-reference.md`、`backend/src/services/snapshot.service.js`
-于 **18:04—18:05 又被 be-dev 改动**（正在修 Amy 登记的 **A12**：快照降级 `reason` 由「写死全局结论」改为
-按 `affected` 逐项生成 + 两处陈旧注释）。改动时点距提交点仅 **31 秒** → 判定**在飞**，按纪律搁置，待其定稿后另批。
+**⚠️ 曾搁置（现已补提，见第 11 条）**：`backend/docs/05-api-reference.md`、`backend/src/services/snapshot.service.js`
+于 **18:04—18:05 被 be-dev 改动**（修 Amy 登记的 **A12**）。改动时点距提交点仅 **31 秒** → 当时判定**在飞**、按纪律搁置。
 
-**待办（本角色）**：① 打里程碑 tag 并推送（领先 57，待授权）；② `docs/changelog.md` 补记
+**待办（本角色）**：① ~~打里程碑 tag 并推送~~ ✅ **已完成（见第 11 条）**；② `docs/changelog.md` 补记
 **09-30 + 10-01 两日**（含 v2.3.0—v2.7.0，**注意 `14718d6` 内已含 v2.7.0 但题名只写 v2.6.0**）；
 ③ 交接单模板。
+
+### 11. 第三轮：补提 be-dev A12 批次 + **推送 GitHub**（2026-10-01 18:42~18:44）
+
+**补提**（`57386ef`）：be-dev 的 A12 批次 3 文件（`snapshot.service.js` / `05-api-reference.md` / `be-dev-status.md`）
+已静止 **30+ 分钟**，且其状态文档**明写「等 git-manager 授权」** → 属**已交办**，遂提交（内容归 be-dev，提交由本人执行）。
+
+**推送（授权：「推送本次更新」）**：
+
+| 步骤 | 结果 |
+|---|---|
+| `fetch --prune` | 远端 `main` = `87ee73e`（无新增） |
+| 快进安全 | `merge-base --is-ancestor origin/main main` = **真** |
+| 敏感文件扫描 | `ls-files` **156** 个，**无** `.env`/`node_modules/`/`*.zip`/`backup-*.sql`/`_snapshot.json`；三者 `check-ignore` **全部 IGNORED** |
+| 回滚锚点 | `pre-push-20261001` → `57386ef` |
+| 推送 | `87ee73e..57386ef  main -> main` ✅ |
+| 里程碑 | `stage-03-write-api` → `57386ef` |
+| 复核 | 本地=远端=`57386ef`、`rev-list --left-right = 0 0`、工作区干净、远端已含两标签 |
 
 ---
 
