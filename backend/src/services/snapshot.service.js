@@ -75,9 +75,19 @@ async function getSnapshot(studentId, { recent = 3 } = {}) {
   const hasByType = errorTrend.byLesson.some((item) => item.byType);
   if (!hasByType) affected.push('errorTrend.byType');
   // readingCatalog 自 2026-09-30 起有真实数据源（readings 三表），空数组代表「确实没阅读」，
-  // 因此不再计入 degradation；只有 backlog 仍缺数据源。
+  // 因此不再计入 degradation；backlog 是当前唯一「表都还没建」的缺口。
   affected.push('backlog');
   if (!lastRecommendation) affected.push('lastRecommendation', 'lastIncomplete');
+
+  // 降级说明按「实际 affected 字段」逐项生成，**不写死全局结论** ——
+  // 旧实现把「待知识库建表」与「待教学侧写 nextRecommendation」写死在同一句里，
+  // 2026-10-01 teach:sync 回填 lastRecommendation 后该句即失真（A12 根因）。
+  const DEGRADE_HINT = {
+    backlog: '待 knowledge_points 建表',
+    'errorTrend.byType': '待对应课的 grade 记录带 byType',
+    lastRecommendation: '待教学侧写入 feedback 记录',
+    lastIncomplete: '待教学侧写入 feedback 记录',
+  };
 
   const snapshot = {
     deploymentMode: 'backend',
@@ -101,7 +111,8 @@ async function getSnapshot(studentId, { recent = 3 } = {}) {
     // lastIncomplete 与 lastRecommendation **同源但不同形状/语义**：
     //   lastIncomplete  —— 给 Skill 断更接续用，含「未完成的教学动作」incompleteStep（有才带）
     //   lastRecommendation —— 「当时的建议」原样，严格 {lessonNo, text}（契约 agent-snapshot §lastRecommendation）
-    // 二者都随 degradation 降级；库内暂无 payload 带 nextRecommendation，故当前恒为 null。
+    // 二者仅在「库内无 feedback 记录」时才降级为 null。2026-10-01 `teach:sync` 回填后已有值
+    // （实测 = {lessonNo:7, nextRecommendation:'第 8 课：…'}）→ **G4 已关闭**，不再是常态降级项。
     lastIncomplete: lastRecommendation
       ? {
           lessonNo: lastRecommendation.lessonNo,
@@ -117,7 +128,9 @@ async function getSnapshot(studentId, { recent = 3 } = {}) {
     degradation: affected.length
       ? {
           degraded: true,
-          reason: `以下字段暂无数据来源，已降级返回（${affected.join(' / ')}）：待 knowledge_points 建表与教学侧写入 nextRecommendation 后自动补齐`,
+          reason: `以下字段暂无数据来源，已降级返回：${affected
+            .map((f) => `${f}（${DEGRADE_HINT[f] || '待补齐'}）`)
+            .join('、')}`,
           affected,
         }
       : { degraded: false, affected: [] },

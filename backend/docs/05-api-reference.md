@@ -25,6 +25,10 @@
 >   写路径切换点 = **第 8 课**（负责人拍板）：第 8 课起课程由本接口归档，
 >   `db:import` 加**零 DDL 守卫**跳过 `lesson_no >= 8`，退化为「历史回填 + 只读校验」，
 >   两条路径不再写同一批表。`test:write` 66 → **99 项**（新增 LW1—LW33）。
+> - 2026-10-01 · 第六批（**A12 修正，随 Amy 复核**）：`snapshot.service.js` 的 `degradation.reason`
+>   改为按实际 `affected` **逐项生成**（`DEGRADE_HINT` 表）；旧文案「待 `knowledge_points` 建表**与教学侧写入
+>   nextRecommendation**」在 `teach:sync` 回填后即失真。§21 的实测样例同步刷新为 **2026-10-01 实况**
+>   （课号 7 / `affected:["backlog"]` / `lastRecommendation`·`lastIncomplete` 已非 null）。
 
 ---
 
@@ -383,26 +387,33 @@
 ```json
 { "code": 200, "message": "success", "data": {
   "deploymentMode": "backend",
-  "progress": { "currentLevel": "Level 2", "currentCourseNo": 6, "currentLessonNo": 6,
-                "nextLessonNo": 7, "lastFeedback": "just_right", "easyStreak": 0,
-                "upgradeFrozenUntil": 0, "lastClassDate": "2026-09-29" },
-  "courseCatalog": [ { "lessonNo": 6, "lessonDate": "2026-09-29", "levelCode": "Level 2", "summary": "…" } ],
-  "recentLessons": [ { "lessonNo": 6, "lessonDate": "2026-09-29", "levelCode": "Level 2",
-                       "summary": "…", "grammarPoint": "一般过去时 was / were",
-                       "vocabulary": ["yesterday", "last night"],
-                       "feedback": "just_right", "mistakeCount": 6, "errorCount": 5 } ],
-  "pendingMistakes": [ { "id": 5, "wrongText": "…", "correctText": "…", "errorType": "punctuation",
-                         "streak": 1, "wrongCount": 3, "status": "pending", "priority": "high",
-                         "firstCourseNo": 2, "lastCourseNo": 2, "lastReviewedAt": null } ],
-  "pendingMistakeStats": { "total": 15, "byType": { "grammar": 8, "punctuation": 2 } },
-  "errorTrend": { "windowSize": 6, "byLesson": [ { "lessonNo": 6, "errorCount": 5,
-                  "byType": { "grammar": 4, "punctuation": 1, "word_choice": 1 } } ] },
-  "readingCatalog": [ { "date": "2026-09-29", "pieceCount": 3,
-                        "titles": ["Yesterday", "Tom's Bad Day", "Where Were You?"] } ],
+  "progress": { "currentLevel": "Level 2", "currentCourseNo": 7, "currentLessonNo": 7,
+                "nextLessonNo": 8, "lastFeedback": "just_right", "easyStreak": 0,
+                "upgradeFrozenUntil": 0, "lastClassDate": "2026-10-01" },
+  "courseCatalog": [ { "lessonNo": 7, "lessonDate": "2026-10-01", "levelCode": "Level 2",
+                       "summary": "学会规则动词过去式 -ed，能写出 5 句「上周做了什么」" } ],
+  "recentLessons": [ { "lessonNo": 7, "lessonDate": "2026-10-01", "levelCode": "Level 2",
+                       "summary": "…", "grammarPoint": "规则动词过去式 -ed",
+                       "vocabulary": ["played", "worked", "watched", "studied", "cooked",
+                                      "cleaned", "visited", "stopped", "last week", "last month"],
+                       "feedback": "just_right", "mistakeCount": 3, "errorCount": 2 } ],
+  "pendingMistakes": [ { "id": 8, "wrongText": "Do you like coffee.", "correctText": "Do you like coffee?",
+                         "errorType": "punctuation", "streak": 0, "wrongCount": 3, "status": "pending",
+                         "priority": "high", "lastReviewedAt": null } ],
+  "pendingMistakeStats": { "total": 20, "byType": { "grammar": 10, "capitalization": 3,
+                                                    "word_choice": 3, "punctuation": 2, "spelling": 2 } },
+  "errorTrend": { "windowSize": 6, "byLesson": [ { "lessonNo": 7, "lessonDate": "2026-10-01",
+                  "errorCount": 2, "byType": { "grammar": 2 } } ] },
+  "readingCatalog": [ { "date": "2026-10-01", "pieceCount": 3,
+                        "titles": ["My Last Weekend", "Amy Worked Late", "Tom's Busy Day"] } ],
   "backlog": null,
-  "lastRecommendation": null, "lastIncomplete": null,
-  "degradation": { "degraded": true, "reason": "…", "affected": ["backlog", "lastRecommendation", "lastIncomplete"] } } }
+  "lastRecommendation": { "lessonNo": 7, "text": "第 8 课：常用不规则过去式 go-went / eat-ate / see-saw / have-had…" },
+  "lastIncomplete": { "lessonNo": 7, "nextRecommendation": "第 8 课：常用不规则过去式 go-went / eat-ate / see-saw / have-had…" },
+  "degradation": { "degraded": true, "reason": "以下字段暂无数据来源，已降级返回：backlog（待 knowledge_points 建表）",
+                   "affected": ["backlog"] } } }
 ```
+> 上例为 **2026-10-01 实测原样节选**（含真实课号 7 / 日期 2026-10-01）。
+> `pendingMistakes[0]` 的来源课号为脏值（DQ4）时，`firstCourseNo` / `lastCourseNo` **整键省略**（上例即如此）。
 **硬约束**
 - `pendingMistakes` / `errorTrend` 与 `/api/mistakes/pending`、`/api/lessons/error-trend` **同源复用**（同一 service，不另写排序）
 - `pendingMistakeStats` **只统计 `status='pending'`**；`byType` 为 `errorType → count`
@@ -417,10 +428,12 @@
 - `errorTrend.byLesson[].byType` 取自对应课 `study_records(record_type='grade').payload.byType`
   （2026-09-30 已回填第 1—6 课）；该课无数据时**省略 `byType` 键**，不编造 `{}`
 - `pendingMistakes[].firstCourseNo/lastCourseNo` 用课号；来源课号为脏值（DQ4）时**省略该键**而不是塞 `null`
-- 当前仍计入 `degradation.affected` 的只剩：`backlog`（待 `knowledge_points` 建表）、
-  `lastRecommendation` / `lastIncomplete`（**契约与代码路径均已实现，唯一缺口是数据** ——
-  库内 6 条 `feedback` 记录尚无一条带 `nextRecommendation`；Amy 下次写记录带上即自动生效，
-  **上线速度取决于教学侧写记录，不取决于后端排期**）
+- 当前仍计入 `degradation.affected` 的**只剩 `backlog`**（待 `knowledge_points` 建表）。
+  `errorTrend.byType`（2026-09-30 回填第 1—6 课）与 `lastRecommendation` / `lastIncomplete`
+  （2026-10-01 `teach:sync` 回填 `feedback` 记录后已有值）**均已退出降级**。
+- **`degradation.reason` 按实际 `affected` 逐项生成**（`snapshot.service.js` 的 `DEGRADE_HINT` 表），
+  **不再写死全局结论** —— 旧实现把「待知识库建表」与「待教学侧写 nextRecommendation」写死在同一句里，
+  回填后该句即失真（A12）。新增降级字段时**同步补 `DEGRADE_HINT` 条目**即可，勿改回硬编码文案。
 
 ### 22. GET `/api/mistakes/:id/events`
 某错词的复习流水，**按时间升序**（便于看复发曲线）。`mistake_events` 表 2026-09-29 建。

@@ -506,7 +506,115 @@
 
 **文档**：`backend/docs/05-api-reference.md` 已补 变更记录第五批 / 接口清单 28—29 / **§28·§29 详情** / **§5.1 写路径切换口径**。
 
-**未提交**：本轮改动（`backend/**` 5 文件 + 2 脚本 + `05-api-reference.md` + 记忆/状态文档）仍 uncommitted，等 git-manager 授权。
+**未提交**：本轮改动（`backend/` **8 文件** = 7 代码 + `05-api-reference.md`，另加记忆/状态文档）仍 uncommitted，等 git-manager 授权。
+
+---
+
+### 6.10 回执 Amy 的 A12 / A13 / A14（2026-10-01 18:10）
+
+**背景**：Amy 完成 `docs/ai-teacher.md` 一次性刷新，并就 Step 2a 提出 **A12 / A13 / A14**（`status-amy.md` §4.1）。逐条回执：
+
+#### A14 · 请重启自测后回执 → ✅ **已重启自测，回执如下**
+
+Amy 观察「`GET /api` 索引里**没有** `POST /api/lessons` / `PUT /api/lessons/:id`」→ 她据此判「已交付待重启」，**判断正确、且正是重启前实例所致**：
+
+| 证据 | 值 |
+|---|---|
+| 索引来源 | `backend/src/routes/index.js` **`:67-68`** 早已含 `'POST /api/lessons'` / `'PUT /api/lessons/:id'` |
+| 重启后 `GET /api` 实测 | **含这两条**（索引 `endpoints[]` 28 条 **+ `GET /api` 自身 = 29 接口**） |
+| 滞留实例成因 | `PID 25088` = `node src/server.js`，`CreationDate 08:55:40` → 早于我最后一次改动 `17:39` ⇒ **跑的是改动前代码** |
+
+→ **Step 2a 状态由「已交付待重启实证」升为「已生效」**。重启后**全部实测**：`test:api` 49/49 · `test:write` 99/99 · `integration-check` 17/17 · `verify-frontend-pages` 47/47 · `verify-frontend-shared` 36/36 · `db:compare` 15/0/0 · 13 表零漂移 · 快照 `lastIncomplete` 非 null。
+（端口纪律：只用**我方**起的 4000/5500 实例，跑完即停；未动他人进程。Amy 不代重启的判断**正确**。）
+
+#### A12 · `snapshot.service.js` 注释与降级文案过时 → ✅ **已修正并实测**
+
+**她报的两处均属实**，且**根因同一类**：把「全局结论」写死在代码里，数据一变就失真。
+
+| 位置 | 原（过时） | 现（实测） |
+|---|---|---|
+| `:104` 注释 | 「库内暂无 payload 带 `nextRecommendation`，故当前**恒为 null**」 | 「仅在无 `feedback` 记录时才为 null；2026-10-01 `teach:sync` 回填后已有值 → **G4 已关闭**」 |
+| `:120` 降级文案 | 「…待 `knowledge_points` 建表**与教学侧写入 nextRecommendation** 后自动补齐」 | **改为按实际 `affected` 逐项生成**（新增 `DEGRADE_HINT` 映射表） |
+
+**实测前后对照**（`GET /api/agent/snapshot`）：
+- 前：`affected=["backlog"]` 但 `reason` 仍提 `nextRecommendation`（**自相矛盾**）
+- 后：`reason = "以下字段暂无数据来源，已降级返回：backlog（待 knowledge_points 建表）"`、`affected=["backlog"]`、`lastRecommendation`/`lastIncomplete` **均非 null**
+
+**为什么不只改字符串**：硬编码文案是**可复发的缺陷类**（下次回填 `knowledge_points` 又会失真）。改为逐项生成后，新增降级字段只需补 `DEGRADE_HINT` 一条。回归验证：`test:api` **49/49**、`test:write` **99/99**（无测试断言依赖该文案，故安全）。
+
+**同步刷新 `05-api-reference.md`**：§21 实测样例刷新为 **2026-10-01 实况**（课号 7 / `2026-10-01` / `affected:["backlog"]` / 两字段非 null / 去掉 DQ4 脏值键的正确写法），「降级项」段从「三字段仍缺」改为「**只剩 `backlog`**」+ 写明「`reason` 逐项生成、勿改回硬编码」。新增**第六批**变更记录。
+
+#### A13 · `self_check` 空心 / G-2 正名 → ✅ **确认她的结论，无异议**
+
+- 三层链路（表列 → 契约 → 接口）**已闭合**（`c735bbd`）；`lesson_exercises.self_check` 实测 **0/41 非空** ⇒ 缺口在**上游落库未带**，非 API 丢字段。
+- **前端代号 `G-2`**，与 `F-L7`（`lesson.html` 渲染 `lesson-7.html` 的**死链**）**同源但两个缺陷** —— 她订正「原稿误记 F-L7」正确。
+- **归属教学侧**（Amy 每课写自查项）：同意。**`self_check` 历史 41 行是否回填** —— **同意她的建议：不回填**（历史 md 本无该数据，硬补＝编造；第 8 课起新数据必带）。此条属**教学侧口径**，后端不干预。
+
+#### ✅ A15 撤回为「复核」· 判重键口径漂移 = **已登记的 NEW-6**（非新发现），但**影响面比 NEW-6 记的多**
+
+**自查纠正**：我起初将其当作新发现（A15），核对后确认**本文档 §5.1 `NEW-6` 早已登记**该漂移（`B9` 亦注明「发现一处口径漂移，见 NEW-6」）。**撤回「新报」，改为精确化复核** —— 我手上有 NEW-6 当时缺的两样东西：**库内硬证据**与**逐处行号**。
+
+**硬证据（NEW-6 当时未附）**：
+```
+SHOW INDEX FROM mistakes  →  UNIQUE KEY `uk_mistakes_text` (`student_id`,`wrong_text`)   ← 不含 error_type
+```
+
+**影响面精确清点：WRONG 的「`wrongText` + `errorType`」实为 4 处（NEW-6 记「三处」，漏 1 处）**
+
+| # | 位置 | 现文 | 判定 |
+|---|---|---|---|
+| 1 | `docs/skills.md:245` | 「判重键为规范化后的 `wrongText` **+ `errorType`**」 | ❌ 与库不符 |
+| 2 | `docs/skills.md:877`（§3.7 执行流程第 1 步） | 「判重键 = 规范化后的 `wrongText` **+ `errorType`**」 | ❌ |
+| 3 | `docs/skills.md:888`（§3.7 规则表首行） | 「规范化 `wrongText` …**+ `errorType`**」 | ❌ |
+| 4 | `docs/schemas/mistake.schema.json:58` | 「的 wrongText **加 errorType**」 | ❌ |
+
+**正确的三方**（含权威源，✅ 无需改）：`docs/ai-teacher.md:638`（**权威**，只写 `wrongText`）、`docs/ai-teacher.md:703`（引 `uk_mistakes_text(student_id, wrong_text)`）、`docs/schemas/common.schema.json:104`（已订正）。
+→ **即 `skills.md` / `mistake.schema.json` 是镜像侧漏改**；权威侧 `ai-teacher.md` 本就正确。**建议**：四处删去 `+ errorType`，向 `wrongText` 对齐。**归属 Skill 设计师/Amy 域，我只报不改。**
+
+> ⚠️ **附带（Step 2b 直接相关，非缺陷）**：库唯一键建在**原始列** `wrong_text` 上，而契约要求「规范化后」判重 ⇒ **规范化必须在应用层写入前完成**。「in office（缺限定词）」vs「in office」在库内是两行 —— 即 DQ1 实例。**Step 2b 实现时必须先规范化再 upsert**，且要在 `05` 写明该顺序。
+> 另注：`docs/plans/backend-plan.md:620` 写「判重键 = 规范化 **`correct_text`** + `error_type`」—— 字段名与库均不符，属**历史计划稿**（未执行注释），优先级低。
+
+---
+
+### 6.11 Step 2b 开工前的口径分叉（2026-10-01 18:15，**待拍板，未写码**）
+
+**背景**：负责人转达「Step 2b（`POST /api/mistakes/batch`）未开工，**无大问题后可开工**」。我做开工前核对，**发现「大问题」——同一接口在两份文档里名与形都不同**，按 §二.8 铁律「同一指标出现两个口径 → 先问口径，别改数」，**暂停待裁**。
+
+#### 分叉一：接口名
+
+| 出处 | 写法 |
+|---|---|
+| `docs/skills.md:190`（§2.3 契约↔接口映射） | **`POST /mistakes`** — `MistakeAnalysisResult` → `POST /mistakes`、`POST /mistakes/:id/review` |
+| `docs/skills.md:1203`（§6 接口清单） | **`POST /mistakes`** — 消费方 `mistake-analysis`，用途「发现新错词」 |
+| 我的记忆（`Step 2b` 条） | **`POST /api/mistakes/batch`** |
+
+→ **镜像侧两处均为 `POST /mistakes`、无 `batch` 字样**；`/batch` 只见于我方笔记，**无文档出处**。我倾向 **`POST /api/mistakes`**（去 `batch` 冗余限定词、与镜像一致），但**这是公共契约名 + Skill 侧依赖，不自作主张**。
+
+#### 分叉二：载荷形状
+
+| 出处 | 写法 |
+|---|---|
+| `docs/skills.md:190` / `mistake.schema.json` | 喂 **`MistakeAnalysisResult`**（含 `newMistakes` + `updatedMistakes[{after}]` + `events` + `patternHits` + `recurrenceWarnings`） |
+| **R3 已达成口径**（`2026-10-01.md` 十四节；Amy 同意） | **「只喂原始错词条目」** —— 只传原始条目，`before/after` 全状态与 `patternHits` 等**由服务端派生或忽略** |
+
+→ 二者**不兼容**（前者要求客户端算好 `after` 全状态，与「人工判定、禁推导」的 R4/R3 精神相悖）。R3 是**后出的明确决定**，且更符合 `error_type`/`wrong_count` 只由人工判定的铁律 → **我按 R3「只喂原始条目」实现**，并把 §2.3 映射表同步订正（属 Skill 设计师域，我只提）。
+
+#### 分叉三：`wrong_count` 双源（R3 已裁决，实现需照做）
+
+R3 原文（Amy 侧）：「`wrong_count` 在我错词本是**人工判定**（含「无留档的复发」，如 `play game` 第 3 次），而 `review` 接口会自动 +1 → 需定**人工值为准、`review` 只增量并对差异告警**」。
+→ **接口说明必须写明**（`05` §30）：批量写入时 `wrong_count` **以人工值为准覆盖写**；`POST /mistakes/:id/review` **只做 `+1` 增量**，且当「自动累计值 ≠ 人工值」时**逐条告警**（不静默改写人工判定）。
+
+#### 我拟定的设计（**待你放行即开工**）
+
+- **`POST /api/mistakes`**（若裁定用 `/batch` 则改一处路径常量）——单事务、**幂等**。
+- 载荷：`{ lessonNo, items: [{ wrongText, correctText, errorType, errorReason?, wrongCount, streak?, status?, courseNo? }] }`。
+- 落库：**先规范化 `wrongText`**（去标点/去空格/统一小写）→ 按 `uk_mistakes_text(student_id, wrong_text)` upsert；命中则更新、未命中则新建。
+- **`error_type` / `wrong_count` 一律取自入参、绝不推导**（`skills.md` §3.6）。
+- `wrongCount` **覆盖写**；响应带 `{created, updated, unchanged, warnings[]}`。
+- 同步写入 `05` **§30**（含分叉三的告警口径）+ `routes/index.js` 索引 + `write-api-check.js` 用例。
+- **先决检查已做**：`uk_mistakes_text` 唯一键**确实存在**（§6.10 硬证据）→ upsert 不会退化为普通 INSERT，**满足幂等铁律**。
+
+→ **请你裁两件**：① 接口名（`/api/mistakes` 还是 `/api/mistakes/batch`）；② 载荷按 R3「只喂原始条目」是否照准。**裁完我即开工**，不等其它。
 
 ---
 
