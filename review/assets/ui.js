@@ -202,16 +202,30 @@
       + '</div></div>';
   }
 
-  /* 极简 Markdown：只支持表格 / 引用 / 列表 / 段落，够渲染课程小节 */
+  /* 极简 Markdown：只支持表格 / 引用 / 列表 / 段落，够渲染课程小节
+   *
+   * ⚠️ 三个分支判定与段落终止条件必须同源（isTable/isQuote/isList），否则会出现
+   *    「某行命中段落分支、却又立刻被段落终止条件挡下」→ i 不前进 → 死循环。
+   *    实测触发：库内小节正文里的 `---` 分隔线、`**加粗**` 开头的行（以 - 或 * 开头
+   *    但后面不是空格，不匹配列表、却被段落的 `^\s*(\||>|-|\*)` 挡下）。
+   *    表现为 RangeError: Invalid array length（out 无限增长）。2026-10-01 修。 */
+  var RE_TABLE = /^\s*\|/;
+  var RE_QUOTE = /^\s*>\s?/;
+  var RE_LIST = /^\s*[-*]\s+/;
+
+  function isTable(l) { return RE_TABLE.test(l); }
+  function isQuote(l) { return RE_QUOTE.test(l); }
+  function isList(l) { return RE_LIST.test(l); }
+
   function renderMarkdown(text) {
     var lines = String(text || '').split(/\r?\n/);
     var out = [];
     var i = 0;
     while (i < lines.length) {
       var line = lines[i];
-      if (/^\s*\|/.test(line)) {                       // 表格
+      if (isTable(line)) {                              // 表格
         var rows = [];
-        while (i < lines.length && /^\s*\|/.test(lines[i])) {
+        while (i < lines.length && isTable(lines[i])) {
           rows.push(lines[i].trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(function (c) { return c.trim(); }));
           i += 1;
         }
@@ -227,18 +241,18 @@
         out.push(html + '</tbody></table>');
         continue;
       }
-      if (/^\s*>\s?/.test(line)) {                     // 引用（中文对照等）
+      if (isQuote(line)) {                             // 引用（中文对照等）
         var quote = [];
-        while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
+        while (i < lines.length && isQuote(lines[i])) {
           quote.push(lines[i].replace(/^\s*>\s?/, ''));
           i += 1;
         }
         out.push('<blockquote><p class="md">' + esc(quote.join('\n')) + '</p></blockquote>');
         continue;
       }
-      if (/^\s*[-*]\s+/.test(line)) {                  // 列表
+      if (isList(line)) {                              // 列表
         var items = [];
-        while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+        while (i < lines.length && isList(lines[i])) {
           items.push(lines[i].replace(/^\s*[-*]\s+/, ''));
           i += 1;
         }
@@ -247,7 +261,14 @@
       }
       if (line.trim() === '') { i += 1; continue; }
       var para = [];
-      while (i < lines.length && lines[i].trim() !== '' && !/^\s*(\||>|-|\*)/.test(lines[i])) {
+      while (i < lines.length && lines[i].trim() !== ''
+        && !isTable(lines[i]) && !isQuote(lines[i]) && !isList(lines[i])) {
+        para.push(lines[i]);
+        i += 1;
+      }
+      // 兜底：上面三个条件与分支判定已同源，理论上必然前进一格；
+      // 仍强制保证 i 递增，任何正则漂移都只退化成「少合并一行」，绝不死循环。
+      if (!para.length) {
         para.push(lines[i]);
         i += 1;
       }
