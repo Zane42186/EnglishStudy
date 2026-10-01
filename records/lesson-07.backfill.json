@@ -1,0 +1,53 @@
+{
+  "lessonNo": 7,
+  "kind": "backfill",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "correct",
+      "userAnswer": "I get up at seven o'clock.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "at + 时刻"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "correct",
+      "userAnswer": "We play football on Sundays.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "on + 星期"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "wrong",
+      "userAnswer": "I was in office on last Sundays.",
+      "correctText": "I was in the office last Sunday.",
+      "errorNote": "三处：①语法——in office 缺限定词，改为 in the office / in my office（与 play game 同源：可数名词不能裸用）；②语法——on last Sundays 里 last 前不加介词（与 at yesterday 同源）；③语法——「上周日」是单数 last Sunday，不是 last Sundays。",
+      "targetPoint": "介词 on / at + 时间状语限定词"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "in office",
+      "correctText": "in the office",
+      "errorType": "grammar",
+      "errorReason": "单数可数名词前必须有 a / the / my 之类的限定词",
+      "sourceExerciseNo": 3
+    },
+    {
+      "wrongText": "on last Sundays",
+      "correctText": "last Sunday",
+      "errorType": "grammar",
+      "errorReason": "last / next / this 前不加介词；「上周日」用单数 last Sunday",
+      "sourceExerciseNo": 3
+    }
+  ],
+  "summary": {
+    "exerciseCount": 3,
+    "errorCount": 3,
+    "backfillErrorCount": 3,
+    "byType": { "grammar": 3 },
+    "note": "补漏块错误独立计数，不计入第 7 课作业 errorCount（作业为 2）"
+  }
+}

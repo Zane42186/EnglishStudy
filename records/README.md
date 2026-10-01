@@ -14,7 +14,8 @@
 | `lesson-NN.grading.json` | 本课**作业**逐题判定（`kind: homework`） | 每次作业批改完成后 |
 | `lesson-NN.backfill.json` | 本课**补漏块**逐题判定（`kind: backfill`） | 补漏块做完后（无补漏块则不产出） |
 | `lesson-NN.review.json` | 本课**课前复习**判定（`kind: review`，含 `reviewOutcomes`） | 旧课回填用；新课由写接口直接落库，可不产出 |
-| `exercise-error-types.json` | **第 1—6 课 34 道题的 `error_type` 逐题映射**（供 `lesson_exercises.error_type` 回填） | 一次性回填；此后随每日 records 同步 |
+| `exercise-error-types.json` | **第 1—7 课 41 道题的 `error_type` 逐题映射**（供 `lesson_exercises.error_type` 回填） | 每次课后同步追加该课的行 |
+| `lesson-NN.study-record.json` | 该课的 **`attend` / `grade` / `feedback` 三条学习记录**（`study_records.payload` 的落库依据；feedback 还决定 `progress.lastClassDate`） | 收完难度反馈后产出 |
 
 - `NN` 为两位课号（`lesson-01`…`lesson-99`），与 `notes` 中的课号一致。
 - 一套题集一个文件：**作业与补漏块必须分开**（`kind` 不同，错误计数口径也不同）。

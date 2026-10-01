@@ -1,0 +1,51 @@
+{
+  "lessonNo": 7,
+  "lessonDate": "2026-10-01",
+  "level": "Level 2",
+  "studyMinutes": 28,
+  "source": "由 Amy 在收完难度反馈后产出；对应 POST /api/study-records（recordType: attend / grade / feedback）",
+  "records": [
+    {
+      "recordType": "attend",
+      "payload": {
+        "lessonNo": 7,
+        "level": "Level 2",
+        "lessonDate": "2026-10-01"
+      }
+    },
+    {
+      "recordType": "grade",
+      "payload": {
+        "lessonNo": 7,
+        "exerciseCount": 4,
+        "errorCount": 2,
+        "blankCount": 1,
+        "byType": { "grammar": 2 },
+        "backfillExerciseCount": 3,
+        "backfillErrorCount": 3,
+        "backfillByType": { "grammar": 3 },
+        "newMistakes": 3,
+        "passedMistakes": 2,
+        "note": "错误处数口径见 docs/ai-teacher.md §11.4；补漏块错误单列，不计入作业 errorCount"
+      }
+    },
+    {
+      "recordType": "feedback",
+      "payload": {
+        "lessonNo": 7,
+        "lessonDate": "2026-10-01",
+        "feedback": "just_right",
+        "levelBefore": "Level 2",
+        "levelAfter": "Level 2",
+        "easyStreak": 0,
+        "nextRecommendation": "第 8 课：常用不规则过去式 go-went / eat-ate / see-saw / have-had，写入 notes/day-08-14.md。复习优先：play game（P0，需连续 2 课不犯才降级）、she always is busy（累计 3 次）、getted、in office、on last Sundays。"
+      }
+    }
+  ],
+  "notes": {
+    "whySeparateFile": "grade / feedback 的 payload 是后端 `study_records` 与 `progress_feedback` 的落库依据，与逐题判定的 grading.json 分离，避免一份文件承载两种语义。",
+    "lastClassDate": "`/api/progress.lastClassDate` 靠本文件的 feedback 记录（带 lessonNo=7、lessonDate）更新 —— 写接口可用后写入即可自动刷新。",
+    "newMistakesList": ["getted", "in office", "on last Sundays"],
+    "passedMistakesList": ["now,liked my teacher", "I reading a book."]
+  }
+}

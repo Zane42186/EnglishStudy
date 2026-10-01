@@ -1,0 +1,63 @@
+{
+  "lessonNo": 7,
+  "kind": "homework",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "blank",
+      "userAnswer": null,
+      "correctText": "watched / studied / stopped",
+      "errorNote": null,
+      "targetPoint": "-ed 三条拼写规则"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "correct",
+      "userAnswer": "played",
+      "correctText": "We played football last Sunday.",
+      "errorNote": null,
+      "note": "并提出「play 是辅元辅结构，为什么不双写」——已在批改段答疑：ay 是元音字母组合，y 在此作元音，不构成辅元辅，故不双写。",
+      "targetPoint": "规则动词过去式"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "correct",
+      "userAnswer": "I studied English yesterday.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "辅音字母 + y 改 y 为 i 再加 -ed"
+    },
+    {
+      "exerciseNo": 4,
+      "verdict": "wrong",
+      "userAnswer": "Last week, I played games with my friend. I teached my friend to use AI. I getted more knowledge about English. I cooked two breakfasts. I watched short movies.",
+      "correctText": null,
+      "revisedAnswer": "Last week, I played games with my friend. I taught my friend to use AI. I learned more about English. I cooked breakfast for my family. I watched short movies.",
+      "errorNote": "两处：①语法——teached → taught，teach 是不规则动词（第 2 次犯，上次第 6 课）；②语法——getted → got，get 也是不规则动词；想说「学到知识」更自然的说法是 I learned more about English。用词建议（不计错）：I cooked two breakfasts 语法无误但语义像「同一天两份早餐」，想说做了两次用 I cooked breakfast twice.。达标项：played games / short movies 可数名词全部加 s（P0 自查项通过），时间标志词 Last week 已用，5 句数量达标。",
+      "targetPoint": "不规则动词过去式 + 可数名词复数"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "I teached my friend to use AI",
+      "correctText": "I taught my friend to use AI",
+      "errorType": "grammar",
+      "errorReason": "teach 是不规则动词，过去式是 taught，不是加 -ed（第 2 次犯，首次在第 6 课）",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "getted",
+      "correctText": "got",
+      "errorType": "grammar",
+      "errorReason": "get 是不规则动词，过去式是 got，不能加 -ed；想表达「学到」更常用 learned",
+      "sourceExerciseNo": 4
+    }
+  ],
+  "summary": {
+    "exerciseCount": 4,
+    "errorCount": 2,
+    "blankCount": 1,
+    "byType": { "grammar": 2 },
+    "note": "错误处数按 §11.4：teached、getted 各 1 处；blank 与用词建议不计入"
+  }
+}
