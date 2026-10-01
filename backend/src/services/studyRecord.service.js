@@ -155,4 +155,6 @@ async function getLastRecommendation(studentId) {
 
 module.exports = {
   listRecords, getStats, createRecord, mapRecord, getLastRecommendation, normalizePayload, parsePayload,
+  // 导出给 db/migration/sync_study_records.js 复用：归档写库与 API 写入必须产出同一句摘要文案
+  defaultSummary,
 };

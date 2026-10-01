@@ -53,20 +53,53 @@ async function statsByType(studentId) {
   );
 }
 
-/** 新增一条学习记录；返回自增 id */
-async function insert(exec, { studentId, lessonId, recordType, summary, payload }) {
+/**
+ * 新增一条学习记录；返回自增 id。
+ *
+ * `dedupeKey`（可选，2026-10-01 起）对应 `uk_study_records_dedupe (student_id, dedupe_key)`：
+ *   - **不传 → 写入 NULL → 行为与改动前完全一致**（唯一键不约束 NULL）；
+ *   - 传入 → 该 (student_id, dedupeKey) 只能存在一行，重复插入会**抛 ER_DUP_ENTRY 而不是静默翻倍**。
+ * 只有 `teach:sync` 这类「批量归档」写手会传它；API 路径暂不传（避免改变既有写入语义）。
+ */
+async function insert(exec, { studentId, lessonId, recordType, summary, payload, dedupeKey = null }) {
   const result = await executeOn(exec,
-    `INSERT INTO study_records (student_id, lesson_id, record_type, summary, payload)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO study_records (student_id, lesson_id, record_type, dedupe_key, summary, payload)
+     VALUES (?, ?, ?, ?, ?, ?)`,
     [
       studentId,
       lessonId ?? null,
       recordType,
+      dedupeKey,
       summary ?? null,
       payload === undefined || payload === null ? null : JSON.stringify(payload),
     ]
   );
   return result.insertId;
+}
+
+/** 按幂等键查已有行（teach:sync 的 SELECT-then-write 前置查询） */
+async function findByDedupeKey(studentId, dedupeKey, exec = null) {
+  const rows = await queryOn(exec,
+    `SELECT id, record_type, summary, payload, lesson_id, created_at
+     FROM study_records
+     WHERE student_id = ? AND dedupe_key = ?
+     LIMIT 1`,
+    [studentId, dedupeKey]
+  );
+  return rows[0] || null;
+}
+
+/** 更新既有行的 payload/summary（幂等 upsert 的 UPDATE 分支） */
+async function updateById(exec, id, { summary, payload }) {
+  const result = await executeOn(exec,
+    `UPDATE study_records SET summary = ?, payload = ? WHERE id = ?`,
+    [
+      summary ?? null,
+      payload === undefined || payload === null ? null : JSON.stringify(payload),
+      id,
+    ]
+  );
+  return result.affectedRows;
 }
 
 /** 某类型最近一条记录（快照 lastRecommendation 的数据来源） */
@@ -91,4 +124,7 @@ async function listGrades(studentId) {
   );
 }
 
-module.exports = { count, list, statsByType, insert, findLatestByType, listGrades };
+module.exports = {
+  count, list, statsByType, insert, findLatestByType, listGrades,
+  findByDedupeKey, updateById,
+};

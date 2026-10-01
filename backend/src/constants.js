@@ -61,6 +61,14 @@ const SECTION_TYPE_LABEL = {
 const EXERCISE_BLOCK_KIND = ['homework', 'backfill'];
 const EXERCISE_BLOCK_KIND_LABEL = { homework: '作业', backfill: '补漏块' };
 
+/**
+ * 题型，与 lesson_exercises.exercise_type 的 ENUM 及
+ * docs/schemas/common.schema.json 的 $defs.ExerciseType 严格同源。
+ * 2026-10-01 补：此前只有 `db/migration/import_json.js` 内联了一份局部数组，
+ * 写接口校验需要同源取值，故上移到本文件（唯一来源）。
+ */
+const EXERCISE_TYPE = ['fill_blank', 'translate', 'error_correction', 'reorder', 'open', 'choice'];
+
 const LESSON_STATUS = ['planned', 'taught', 'archived'];
 
 /**
@@ -81,6 +89,7 @@ module.exports = {
   RECORD_TYPE, RECORD_TYPE_LABEL,
   SECTION_TYPE, SECTION_TYPE_LABEL,
   EXERCISE_BLOCK_KIND, EXERCISE_BLOCK_KIND_LABEL,
+  EXERCISE_TYPE,
   LESSON_STATUS,
   LEVEL_CODE,
   READING_PIECE_MAX, READING_QUESTION_COUNT,

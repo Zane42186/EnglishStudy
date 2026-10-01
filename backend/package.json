@@ -18,6 +18,8 @@
     "db:compare": "node db/migration/compare_snapshot.js",
     "db:sync-mistakes": "node db/migration/sync_mistakes.js",
     "db:apply-error-types": "node db/migration/apply_error_types.js",
+    "teach:sync": "node db/migration/sync_study_records.js",
+    "db:migrate-dedupe-key": "node db/migration/add_study_records_dedupe_key.js",
     "db:summary": "node scripts/build-summary.js",
     "test:api": "node scripts/smoke-test.js",
     "test:write": "node scripts/write-api-check.js"
