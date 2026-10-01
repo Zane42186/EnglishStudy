@@ -131,6 +131,13 @@ function ok(name, cond, detail) {
     out.mdTable = UI.renderMarkdown('| a | b |\n|---|---|\n| 1 | 2 |');
     out.mdQuote = UI.renderMarkdown('> 中文对照');
     out.mdList = UI.renderMarkdown('- 一\n- 二');
+    // 2026-10-01 回归（d868401）：以 -/* 开头但后面不是空格的行（`---` 分隔线、`**加粗**`）
+    // 曾命中段落分支却被旧终止条件 /^\s*(\||>|-|\*)/ 挡下 → i 不前进 → 死循环
+    // （RangeError: Invalid array length，课程详情页 1—7 课整页崩）。以下三例即当时的触发输入。
+    out.mdDash = UI.renderMarkdown('正文一\n---\n正文二');
+    out.mdBold = UI.renderMarkdown('**加粗**开头');
+    out.mdHyphen = UI.renderMarkdown('-没有空格');
+    out.mdMixed = UI.renderMarkdown('段落\n---\n**粗体**\n- 列表项');
     out.sec = UI.sectionBlock({ sectionType: 'grammar', content: 'hi' });
     out.label = UI.label('priority', 'high') + '/' + UI.label('errorType', 'word_choice') + '/' + UI.label('status', 'passed');
     return out;
@@ -152,6 +159,13 @@ function ok(name, cond, detail) {
   ok('ui.js: renderMarkdown 支持表格/引用/列表',
     /<table>/.test(ui.mdTable) && /<blockquote>/.test(ui.mdQuote) && /<ul><li>/.test(ui.mdList),
     [ui.mdTable.slice(0, 30), ui.mdQuote.slice(0, 30), ui.mdList.slice(0, 30)].join(' | '));
+  // 回归断言：只要这条跑得到，就说明 renderMarkdown 没有死循环（死循环会抛 RangeError 让本套件整体失败）
+  ok('ui.js: renderMarkdown 对 `---` / `**粗体**` / `-无空格` 不死循环且不漏内容（2026-10-01 回归）',
+    /正文一/.test(ui.mdDash) && /正文二/.test(ui.mdDash) && /---/.test(ui.mdDash)
+    && /\*\*加粗\*\*开头/.test(ui.mdBold) && !/undefined/.test(ui.mdBold)
+    && /-没有空格/.test(ui.mdHyphen) && !/undefined/.test(ui.mdHyphen)
+    && /段落/.test(ui.mdMixed) && /<ul><li>列表项<\/li><\/ul>/.test(ui.mdMixed),
+    ['dash=' + ui.mdDash.slice(0, 60), 'bold=' + ui.mdBold.slice(0, 40), 'hyph=' + ui.mdHyphen.slice(0, 40), 'mixed=' + ui.mdMixed.slice(0, 80)].join(' | '));
   ok('ui.js: sectionBlock 用中文标签 + data-type', /今日语法/.test(ui.sec) && /data-type="grammar"/.test(ui.sec), ui.sec.slice(0, 120));
   ok('ui.js: label 枚举中文化', ui.label === '高优先/用词/已过关', ui.label);
 
