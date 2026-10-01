@@ -43,6 +43,11 @@ async function waitRendered(page, sel, timeout = 8000) {
       const rs = await API.get('/readings/stats');
       const ls = await API.getPage('/lessons', 1, 1);
       const vs = await API.get('/vocabulary/stats');
+      // 「为什么今天学这个」的数据源 = 快照 lastRecommendation（来自最近一条 feedback 学习记录）。
+      // 2026-10-01：teach:sync 落库后该字段**从 null 变为有值**，故断言必须与接口值联动，
+      // 不能再靠「环境里恰好没有 feedback 记录」来隐式成立（那正是 G4 断链的症状）。
+      const snap = await API.get('/agent/snapshot');
+      const rec = snap && snap.lastRecommendation;
       return {
         // 2026-10-01：统计口径不再写死常数（第 7 课入库后 6→7、51→61），
         // 一律与接口值比对；新增接口值只是「当前口径快照」，不再随每次导入失效。
@@ -61,6 +66,8 @@ async function waitRendered(page, sel, timeout = 8000) {
         trendCols: document.querySelectorAll('#trendBox .trend-col').length,
         hasBand: /目标带 2—4/.test(document.getElementById('trendBox').innerHTML),
         whyHTML: document.getElementById('whyBlock').innerHTML,
+        // 快照 lastRecommendation 的文本（无则为 null）—— 断言据此双向取值
+        apiRecText: rec ? (rec.text || null) : null,
         errHidden: cs(document.getElementById('apiError')),
       };
     });
@@ -79,8 +86,14 @@ async function waitRendered(page, sel, timeout = 8000) {
     ok('[index] 课程卡链接指向参数化页 lesson.html?no=', /lessons\/lesson\.html\?no=\d+/.test(d.firstHref || ''), 'href=' + d.firstHref);
     // 前端写死 `?limit=6`（见 review/index.html:107），故柱数恒为 6，与总课数无关。
     ok('[index] F6 趋势图 6 根柱（limit=6）+ 目标带 2—4', d.trendCols === 6 && d.hasBand, 'cols=' + d.trendCols + ' band=' + d.hasBand);
-    ok('[index] lastRecommendation=null 时「为什么今天学这个」整块不渲染（无空白框）',
-      d.whyHTML === '' , 'whyBlock="' + String(d.whyHTML).slice(0, 60) + '"');
+    // 双向不变量：接口为 null → 整块不渲染（不留空白框）；接口有值 → 必须渲染且含该文本。
+    // 原断言写死 whyHTML === '' 并注释「lastRecommendation=null 时」，实为**依赖降级状态**
+    // （当时库里没有 feedback 记录 = G4 断链的症状）。teach:sync 落库后必然失败，属测试滞后。
+    ok('[index] 「为什么今天学这个」与 /agent/snapshot.lastRecommendation 联动（null→不渲染；有值→渲染含文本）',
+      d.apiRecText
+        ? String(d.whyHTML || '').includes(d.apiRecText.slice(0, 12))
+        : d.whyHTML === '',
+      `api=${d.apiRecText ? '有值' : 'null'} whyBlock="${String(d.whyHTML).slice(0, 60)}"`);
     ok('[index] 无错误时横幅 computed display = none', d.errHidden === 'none', 'display=' + d.errHidden);
     // 搜索过滤：隐藏项 computed display 必须 none
     const f = await page.evaluate(() => {
