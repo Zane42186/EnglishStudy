@@ -143,16 +143,27 @@ CREATE TABLE IF NOT EXISTS mistakes (
 
 -- -----------------------------------------------------------------------------
 -- 7. study_records —— 学习记录（行为流水）
+--    ⚠️ dedupe_key：本表原先**没有任何唯一键**，写 `ON DUPLICATE KEY UPDATE`
+--    只会静默退化成普通 INSERT、重跑即翻倍（与 DQ1 mistakes 同型）。
+--    2026-10-01 补上 dedupe_key + UNIQUE(student_id, dedupe_key)：
+--      课内记录键格式 `lesson-<lessonNo>:<record_type>`，例 `lesson-7:grade`；
+--      非课内记录（如按日期的 reading）由写入方自定义，或留 NULL 不参与去重
+--      （MySQL 唯一键不约束 NULL，多条 NULL 可共存 —— 这是有意留的逃生口）。
+--    不用 `(student_id, lesson_id, record_type)` 做键：record_type 有 6 值，
+--    review / reading 天然同课多值，用它做唯一键「今天能用、明天锁死」。
+--    迁移脚本：db/migration/add_study_records_dedupe_key.js
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS study_records (
   id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   student_id  BIGINT UNSIGNED NOT NULL,
   lesson_id   BIGINT UNSIGNED NULL,
+  dedupe_key  VARCHAR(64)     NULL COMMENT '幂等去重键，如 lesson-7:grade；NULL = 不参与去重',
   record_type ENUM('attend','homework_submit','grade','review','feedback','reading') NOT NULL,
   summary     VARCHAR(255)    NULL COMMENT '一行摘要，便于列表展示',
   payload     JSON            NULL COMMENT '结构化细节',
   created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
+  UNIQUE KEY uk_study_records_dedupe (student_id, dedupe_key),
   KEY idx_records_time (student_id, created_at),
   KEY idx_records_type (student_id, record_type),
   CONSTRAINT fk_records_student FOREIGN KEY (student_id) REFERENCES students (id),
