@@ -1404,6 +1404,24 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 ## 附录 A：契约与文件清单
 
+### 第九轮（2026-10-01：契约描述订正 —— 废弃/未建表名 + G1 过时描述，**纯描述、结构零变更**）
+
+> **背景**：执行待办「核实 `docs/schemas/` 与 `backend/docs/05-api-reference.md` 字段级漂移」。**核查换了个维度**：先跑 `backend/db/schema.sql` 的**实际表清单**（实测 **13 表 + 2 视图**），再反查契约里每一句「取值与 X 表一致」——于是又暴露 4 处**不存在的表**，而此前按关键词 `course_*` 查的那一轮只清掉了另外 6 处。
+
+**结构层结论：无漂移。** `reading-set.schema.json` ↔ `POST /api/readings`（`05 §27`）逐字段一致（含 `questions` 的 `minItems=maxItems=2` ↔ 服务端「恰好 2 道」）；其 `date` 的**真日历守卫**已由 `05` 显式声明为「刻意比 schema 更严」，非静默发明约束。`agent-snapshot.schema.json` ↔ `GET /api/agent/snapshot`（`05 §21`）亦对齐。
+
+| 文件 | 动作 | 说明 |
+|---|---|---|
+| `docs/schemas/common.schema.json` | 改 4 处 | ① `ExerciseType`：`exercises.exercise_type` → **`lesson_exercises.exercise_type`**（原设计稿 18 表稿残留，表已废弃）；② `Feedback`：`progress_feedback.feedback` → **`progress.last_feedback`**，并注明原表**规划中、尚未建**；③ `SkillName` / `SkillRunStatus`：`skill_runs` 两处补注「该表为规划中、尚未建」；④ `MistakeItem`：判重口径写准 —— **判重键 = `wrongText`**（库唯一键 `uk_mistakes_text`）、**判过关 = `streak`**（连对 2 次）、`correctText` **不参与判重** |
+| `docs/schemas/grading-result.schema.json` | 改 1 处 | `errorNote`：`exercises.error_note` → **`lesson_exercises.error_note`** |
+| `docs/schemas/agent-snapshot.schema.json` | 改 2 处 | `recentLessons[].errorCount` 与 `errorTrend`：由「对应文档缺口 **G1**，后端补上前由适配层推算 / 可缺省」改为 **「G1 已闭环」**（对应 `GET /api/lessons/error-trend`；`errorTrend.byLesson[].byType` 取自各课 `study_records(record_type='grade').payload.byType`，该课无数据时**省略该键**） |
+
+**本轮未改（等确认）**：① `common.schema.json` 的 `LevelCode`（`:8` 写 `levels.code`，而实测**无 `levels` 表**，级别散落在 `lessons.level_code` / `progress.current_level`）→ 落点待后端确认；② `agent-snapshot.json` 的 `progress` 未登记后端已返回的 `currentLessonNo` / `nextLessonNo` → 补键属契约追加，待确认取值稳定性。**未升版本**（不改字段 / 不改类型 / 不改必填）。
+
+**验收【已实测】**：`docs/schemas/check_schemas.py` → `SCHEMA_CHECK files=12 refs=85 objects=71` + `SCHEMA_OK`；且与提交态（`git archive HEAD docs/schemas`）**三数逐项一致** → 证明**仅改描述、结构零变更**。12 个 JSON 逐个 `json.load` 全通过。
+
+> ⚠️ **口径提醒（勿当回归）**：全仓有**两份同名脚本、统计口径不同** —— `.workbuddy/build/check_schemas.py` 输出 `objects=535`，而受控的 `docs/schemas/check_schemas.py` 输出 `objects=71`（脚本历史仅 `74b0382` 一次提交、从未改过）。本文档 §6.3 与第三轮引的是**前者**，`docs/schemas/README.md` 与 `docs/plans/skill-plan.md` 引的是**后者**，两处数字**各自自洽**。另：后两处的 `refs=84` 已陈旧，**现为 85**。
+
 ### 第八轮（v2.7.0：归档步产出 `LessonRecord`）
 
 > **背景**：项目负责人 2026-10-01 拍板 **Step 2a 归属 = ①** ——`LessonRecord` 的产出者是 **`daily-lesson` 归档步**，不是后端导出器。依据：`docs/schemas/lesson-record.schema.json:5`「daily-lesson 归档一步的产物」+ 本文件 §3.1 第 8 步；be-dev 独立复核后明确 **反对 ②**（会让 `export_md_to_json.py` 变成第二产出者，且其「md 派生 → snapshot」语义与「md 是本对象的落地形式」方向相反）。

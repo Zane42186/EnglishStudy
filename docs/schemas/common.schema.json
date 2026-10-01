@@ -10,7 +10,7 @@
       "enum": ["Level 1", "Level 2", "Level 3", "Level 4", "Level 5"]
     },
     "Feedback": {
-      "description": "难度反馈，取值与 progress_feedback.feedback 一致。",
+      "description": "难度反馈，取值与 progress.last_feedback 一致（原设计稿的 progress_feedback 表为规划中、尚未建）。",
       "type": "string",
       "enum": ["too_easy", "just_right", "too_hard"]
     },
@@ -25,7 +25,7 @@
       "enum": ["pending", "passed"]
     },
     "ExerciseType": {
-      "description": "题型，取值与 exercises.exercise_type 一致。",
+      "description": "题型，取值与 lesson_exercises.exercise_type 一致（原设计稿作 exercises，该表已废弃）。",
       "type": "string",
       "enum": ["fill_blank", "translate", "error_correction", "reorder", "open", "choice"]
     },
@@ -55,7 +55,7 @@
       "enum": ["new", "review", "backfill"]
     },
     "SkillName": {
-      "description": "九个 Skill 的机器名。三个独立 Skill 与六个内嵌能力共用此枚举，便于 skill_runs 统一登记。",
+      "description": "九个 Skill 的机器名。三个独立 Skill 与六个内嵌能力共用此枚举，便于 skill_runs 统一登记（该表为规划中、尚未建）。",
       "type": "string",
       "enum": [
         "daily-lesson",
@@ -70,7 +70,7 @@
       ]
     },
     "SkillRunStatus": {
-      "description": "Skill 执行结果，取值与 skill_runs.status 一致。",
+      "description": "Skill 执行结果，取值与 skill_runs.status 一致（该表为规划中、尚未建）。",
       "type": "string",
       "enum": ["success", "failed", "partial"]
     },
@@ -101,7 +101,7 @@
       }
     },
     "MistakeItem": {
-      "description": "错词本条目，字段与 mistakes 表一一对应。wrongText 与 correctText 是判重与判过关的唯一依据。",
+      "description": "错词本条目，字段与 mistakes 表一一对应。**判重键是 `wrongText`**（库唯一键 `uk_mistakes_text`）；**判过关看 `streak`**（连续答对 2 次即 passed）；`correctText` 是最小修正文本、**不参与判重**。",
       "type": "object",
       "required": ["id", "wrongText", "correctText", "errorType", "status"],
       "properties": {

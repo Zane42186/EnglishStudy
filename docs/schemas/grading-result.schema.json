@@ -26,7 +26,7 @@
           "type": ["string", "null"]
         },
         "errorNote": {
-          "description": "批改说明，对应 exercises.error_note。判错时必填，含一句话解释。",
+          "description": "批改说明，对应 lesson_exercises.error_note。判错时必填，含一句话解释。",
           "type": ["string", "null"]
         },
         "note": {

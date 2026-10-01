@@ -56,7 +56,7 @@
           },
           "mistakeCount": { "type": "integer", "minimum": 0 },
           "errorCount": {
-            "description": "本课作业错误处数。对应文档缺口 G1，后端补上前该字段可缺省。",
+            "description": "本课作业错误处数。文档缺口 G1 **已闭环**（2026-10-01 起有真实数据源）；该课无数据时为 null。",
             "type": ["integer", "null"]
           }
         }
@@ -92,7 +92,7 @@
       }
     },
     "errorTrend": {
-      "description": "逐课错误趋势。对应文档缺口 G1，用于判断是否加速（教学规则 R3）。后端补上前由适配层从错词与笔记推算。",
+      "description": "逐课错误趋势，用于判断是否加速（教学规则 R3）。文档缺口 G1 **已闭环**：对应 `GET /api/lessons/error-trend`；`byType` 取自各课 `study_records(record_type='grade').payload.byType`，该课无数据时**省略 `byType` 键**、不编造 `{}`。",
       "type": "object",
       "properties": {
         "windowSize": { "type": "integer", "minimum": 1 },
