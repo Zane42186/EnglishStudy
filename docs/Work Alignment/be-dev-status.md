@@ -658,7 +658,114 @@ R3 原文（Amy 侧）：「`wrong_count` 在我错词本是**人工判定**（�
 
 1. `docs/skills.md:190`（§2.3）把 `MistakeAnalysisResult` 映射到 `POST /mistakes` —— **载荷口径已改为 R3「只喂原始条目」**，该行需同步（并说明不再传 `before/after`/`patternHits`/`recurrenceWarnings`）。同段注里「`POST/PUT /lessons` 为 **Step 2a 待实现**」亦已过时（Step 2a 已生效）。
 2. §6.10 的 **A15 复核**（判重键 4 处漏改）仍待处理。
-3. `db:sync-mistakes` 与写接口**均不改 `first/last_lesson_id`**（命中时）—— 这是刻意与迁移器对齐的口径；若教学侧需要"最近犯错课随复发刷新"，需**两条路径一起**改，属独立决策，**未做**。
+3. ~~`db:sync-mistakes` 与写接口**均不改 `first/last_lesson_id`**（命中时）~~ → **已由 Amy 裁定（§11.11），见下 §6.13**。
+
+---
+
+### 6.13 回执 Amy 的 A15 / A16 / A17（2026-10-01 21:40，**A15/A16 已实现并实测；A17 只报可行性**）
+
+**来源**：`docs/ai-teacher.md` §11.11（2026-10-01 裁定）+ `status-amy.md` §1.10 / A15—A17。
+裁定逐字：`first_lesson_id` **冻结**、`last_lesson_id` **随复发刷新**（`max` 单调守卫、
+两条路径同批改、历史不回填）。
+
+#### A15 / A16：`last_lesson_id` 随复发刷新 —— 已实现
+
+| 项 | 内容 |
+|---|---|
+| 新增文件 | **`src/utils/mistakeLesson.js`** —— `resolveNextLastLessonId()`（定则**唯一实现**，两条路径共用）+ `buildLessonMaps()` |
+| 定则 | `first_lesson_id == null` → 整体跳过（「诊断」来源不补填）→ 本次课号不可知 → **不改**；课号在库内不存在 → 不改；否则 `本次课号 > 现有课号` 才刷新（**严格大于**，相等即幂等） |
+| 比较基准 | **按课号（`lesson_no`）比较，不按 `lessons.id`** —— id 与课号当前同序，但那是「恰好如此」的环境状态；用 id 会把逻辑绑到偶然事实上 |
+| 仓库层 | `MISTAKE_CONTENT_COLS` 注释收敛为「**不含 `first`**」+ 新增 `refreshLastLessonOn()`（只落库，不在 SQL 里做 `GREATEST`，避免出现两套守卫） |
+| 写接口 | `createMistakesBatch` 命中分支接入；本次课号取 `items[].courseNo` → 顶层 `lessonNo`；**只刷 `last` 不动 `first`** |
+| 迁移器 | `sync_mistakes.js` 同批接入（与写接口**共用同一定则**） |
+| 契约 | `05 §30` 落库映射表**分列改写**（原「命中时不动（课号归属不由写接口改写）」一句涵盖两列，已拆成 `first` 冻结 / `last` 刷新两行）+ 新增语义 9；§11（`GET /api/mistakes`）补两列语义说明 |
+
+**⚠️ 必须上报的缺口（规格 4 与规格 1 不自洽，我没擅自扩大范围）**
+
+§11.11 **规格 1** 说「本次课号」＝`items[].courseNo` → 顶层 `lessonNo` —— 这是 `POST /api/mistakes`
+的概念；而**规格 4** 要求 `db:sync-mistakes` 也同批改。但迁移器的输入是 `wrong-words.md` 的 8 列，
+其中「课号」列是**首次**课号（§11.7，人工填、且已冻结）——**该路径确实拿不到「本次课号」**。
+
+→ 我的处理：迁移器以 `firstLessonNo` 作**下界**喂入同一定则 —— 对已有行等价于**不刷新**（不倒退），
+对新建行无影响（`first = last`）。即「**形式一致 + 语义安全**」，并在代码里就地注明是数据源缺口而非遗漏。
+→ 实证：`--dry-run` **行为不变**（未变 26 · 跳过 0 · 告警 0）；库内 `play game`(id 12) `first=4/last=6`
+   喂入 `firstLessonNo=4` → `max(6,4)=6` → 确实 no-op。
+→ **结论：真正会推进 `last` 的是 `POST /api/mistakes`（现状）与 `review`（待裁）。**
+   若 Amy 希望 `db:sync-mistakes` 也实质刷新，需要**新增数据源**（md 带「本次课号」或
+   `records/*.json` 带该字段）—— 属契约变更，**请裁定，我不自启**。
+
+**测试夹具一处坑（值得记）**：MW 段需要 ≥2 个**更大**课号；我最初硬编码 91/92，
+首跑即撞 `uk_lessons_no` —— 因为 **`LW` 段的 `POST /api/lessons` 会按 `max+1` 自动分配课号**、
+已占用 91。改为**动态取号**（`MAX(lesson_no) + 10`）后通过。
+→ 教训：**测试里凡涉及唯一键的值，一律从库里现取，不硬编码**（同「禁写死常数」铁律）。
+
+#### 📌 待 Amy 拍板：`POST /api/mistakes/:id/review` 判错时是否也刷 `last_lesson_id` —— 报成本
+
+| 项 | 评估 |
+|---|---|
+| 改动量 | **约 12 行**（`reviewMistake` 加 1 处条件 + `updateReviewState` 加 1 列 + 定则复用） |
+| 为什么便宜 | `reviewMistake` **已经**把 `lessonNo` → `lessonId` 解析好了（`:96-100`），且已有行锁 + `clientEventId` 幂等 ⇒ 不引入新的并发/重复问题 |
+| 建议语义 | **仅 `result === 'wrong'` 时刷**（答对不是复发）；课号取入参 `lessonNo`（未传则不动）；同样走 `max` 单调守卫 |
+| 需要同步改 | `05 §6`（review 的落库列说明）+ `review` 那组测试（RW1—RW8 区段）+ `updateReviewState` 的既有断言 |
+| 回归风险 | **低**——`updateReviewState` 现有 4 列断言集中在一处；但仍需跑全套（`test:write` 129 + `test:api` 49） |
+| 我的意见 | 成本可接受；**仅差您一句「刷」**。您说刷，我立刻做（含测试），不动其他范围。 |
+
+#### A17：`self_check` 载体 —— **可行性报告（未写码）**
+
+**关键发现：主通道其实已经通了，零后端改动。**
+`POST /api/lessons`（Step 2a）**已经**接受并校验 `exercises[].selfCheck`（≤128 字符），
+且 `lesson.repository.js` 的 upsert 会落 `self_check` 列 —— 已有测试锚定（`SC5` / `LW9`）。
+⇒ **第 8 课起只要 `LessonRecord` 的 `exercises[]` 带上 `selfCheck`，G-2 就自然收口**，
+不需要我改任何东西。缺口只在**旁路 md → JSON 通道**（`db:export` → `_snapshot.json` → `db:import`，
+覆盖第 ≤7 课），因为 `export_md_to_json.py:511` 把 `selfCheck` **硬编码为 `None`**。
+
+| 方案 | 可行性 | 成本 | 风险 |
+|---|---|---|---|
+| **① 主通道＝`LessonRecord.exercises[].selfCheck`**（推荐） | ✅ **已实现** | **0**（后端不动） | 无。Skill 归档步带上即可 |
+| ② md 题干末尾 `【自查】…` 标记 | ✅ 可行 | 导出器 **+1 正则 + `emit()` 内 1 处抽取，约 10 行**；需长度守卫（超 128 应 `warn` 不静默截断） | ⚠️ **写错标记 = 静默 null**（可加「题干含 `【` 却未抽出 → `warn`」兜底）；且**必须从 `prompt` 中剔除**标记，否则标记会污染题面 |
+| ③ `records/lesson-NN.self-checks.json` | ✅ 可行 | 新 schema + Skill 产出 + 导入器/T2 读取，**3 处** | 与「一账一文件」粒度不符；且若走 records，**更一致的做法是聚合单文件**（照 `records/exercise-error-types.json` 的 `rows[{lessonNo,kind,exerciseNo}]` 同形），而非 14 个 per-lesson 文件 |
+
+**我的建议**：**①为主、②作为 md 侧人类可读载体（可选）**。
+理由：`selfCheck` 本就是 `ExerciseRecord` 的**契约字段**（`exercise-set.schema.json` 已有），
+第 8 课切换点后 md 不进写路径 ⇒ 走 ② 反而会造出**第二条来源**（与「切换点＝第 8 课」的拍板冲突）。
+②仅在「需要重跑第 ≤7 课旁路」时才有价值，而历史 41 行**已定不回填** ⇒ **②实际收益≈0**。
+⇒ **建议不做 ②**；若您仍想要，我按 10 行 + 2 条测试报实价后实施。
+
+#### 🔴 顺手发现一处**代码里的**旧口径（第三份「去标点」）—— **只报不改**
+
+`db/migration/export_md_to_json.py:91-95`：
+```python
+def norm_key(text: str) -> str:
+    """错词判重用的规范化：去空白/标点、统一小写。"""
+    s = re.sub(r"[\s,，。.、！？!?：:；;\"'（）()\[\]【】]", "", s)
+    return s.lower()
+```
+这是与 `ai-teacher.md §11.3` **同一个错误表述在代码里的实体**（Amy 本轮订正的是文档）。
+`mistakeKey.js:normKey` **不去标点** ⇒ **两份实现语义不同**。
+**影响面（已核实，限缩在告警层）**：该函数只用于 `:610/:615` 的**错词对账**（records 的
+`mistakeCandidates` 是否已在错词本中），**不参与落库**（落库走 JS `normKey`）。
+⇒ 后果是「对账**漏报**」（`Do you like coffee.` 与 `Do you like coffee?` 被判成同一条），
+**不会写错数据**。归属：导出器 = Skill 设计师域 ⇒ **只报，等指令**。
+
+#### 实测（**非声明**）
+
+| 项 | 结果 |
+|---|---|
+| `test:write` | **129 / 129**（123 → 129，新增 **MW17—MW20 共 6 条**） |
+| `test:api` | **49 / 49** |
+| `db:compare` | **15 / 0 / 0** |
+| F2 零影响 | 13 表逐项一致（`students=1 lessons=7 vocabulary=61 lesson_vocabulary=62 mistakes=26 mistake_events=0 study_records=21 progress=1 lesson_exercises=41 lesson_sections=60 readings=5 reading_pieces=14 reading_questions=28`） |
+| **`db:sync-mistakes --dry-run`** | **行为不变**：未变 26 · 跳过 0 · 告警 0 |
+| 新增断言 | MW17 `last` 前进且 `changed=['last_lesson_id']` · MW17b `first` **冻结** · MW17c 响应形状 · MW18 课号更小**不回退** · MW19 重放**幂等** · MW20 顶层 `lessonNo` 作默认本次课号 |
+| 端口纪律 | 只用我方实例，跑完即停，4000 已释放 |
+| **库内数据未动** | 只读核对 + 临时学生（自建自清）；**真实学生 1 行未改**（历史不回填，遵裁定） |
+
+#### 仍待（**只报不改**）
+
+1. **Amy 拍板**：`review` 判错是否刷 `last`（成本已报，约 12 行）。
+2. **Amy 拍板**：`db:sync-mistakes` 的「本次课号」数据源（现为 no-op；需契约变更才能实质刷新）。
+3. **skill-designer**：`export_md_to_json.py:91-95` 的 `norm_key` 去标点（第三份旧口径）。
+4. **skill-designer**：`docs/skills.md:190` 载荷口径同步（Step 2b 遗留）+ §6.10 的 A15 复核。
 
 ---
 
@@ -674,7 +781,7 @@ npm run teach:sync           # records/*.study-record.json → study_records + p
 npm run db:migrate-dedupe-key # study_records.dedupe_key 迁移（幂等，--dry-run / --rollback）
 npm run db:summary           # 生成 INDEX.md / digest.md（--check / --dry-run）
 npm run test:api             # 49 项
-npm run test:write           # 123 项（Step 2a 的 LW1—LW33 + Step 2b 的 MW1—MW16）
+npm run test:write           # 129 项（Step 2a 的 LW1—LW33 + Step 2b 的 MW1—MW16 + §11.11 的 MW17—MW20）
 ```
 
 > `test:*` 与 `integration-check` / `verify-frontend-*` 需要后端服务在线；

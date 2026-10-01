@@ -2,7 +2,7 @@
 
 > 状态：**已实现并实测**（2026-09-29）。本文档描述的是**可运行的真实接口**，非设计稿。
 > 服务地址：`http://localhost:4000`　接口前缀：`/api`
-> 冒烟测试：`npm run test:api`（**49 项全部通过**）；写接口正向验证：`npm run test:write`（**123 项全部通过**）
+> 冒烟测试：`npm run test:api`（**49 项全部通过**）；写接口正向验证：`npm run test:write`（**129 项全部通过**）
 >
 > 变更记录：
 > - 2026-09-29 · 第一批写接口与聚合快照落地：`GET /api/lessons/all`、`POST /api/mistakes/:id/review`、
@@ -37,6 +37,14 @@
 >   `wrong_count` **以人工值覆盖写**，与库内自动累计值不一致时**逐条告警**；
 >   **DQ1 守卫**：`wrongText` 含全角括号批注 → 400。`test:write` 99 → **123 项**（新增 MW1—MW16 共 24 条断言，含 `b`/`c` 子项）。
 >   接口总数 **29 → 30**；`db:sync-mistakes --dry-run` 实测行为不变（未变 26 / 跳过 0 / 告警 0）。
+> - 2026-10-01 · 第八批 · **§11.11 落地：`last_lesson_id` 随复发刷新**（回应 Amy 裁定 A15/A16）——
+>   `first_lesson_id` **冻结**（命中时永不改写）、`last_lesson_id` **按 `max(现有课号, 本次课号)`
+>   单调刷新**（防重放旧批次倒退）；「本次课号」取 `items[].courseNo` → 顶层 `lessonNo`。
+>   定则唯一实现 `src/utils/mistakeLesson.js`，本接口与 `db:sync-mistakes` **共用**。
+>   `test:write` 123 → **129 项**（新增 MW17—MW20）。
+>   ⚠️ **`db:sync-mistakes` 侧为「形式一致 + 语义安全」而非实质刷新**：错词本 md 只带**首次**课号，
+>   拿不到「本次课号」，故该路径以 `firstLessonNo` 作下界（对已有行等价于不刷新），
+>   `--dry-run` 实测行为仍不变。真正推进 `last` 的是本接口；`review` 是否同刷待 Amy 拍板。
 
 ---
 
@@ -252,6 +260,11 @@
 - 排序：未过关优先 → `wrongCount` 降序 → 最久未复习在前。
 - `priority` 由服务端推导：`wrongCount ≥ 2` → `high`；`streak === 1` → `medium`；其余 `low`。
 - `errorType` 枚举：`grammar` / `spelling` / `punctuation` / `word_choice` / `capitalization` / `other`。
+- **`firstLessonNo` / `lastLessonNo` 语义不同**（`docs/ai-teacher.md` §11.11）：
+  `first` ＝**首次**出错课（冻结）；`last` ＝**最近一次**出错课（随复发刷新，`POST /api/mistakes`
+  命中时按 `max(现有课号, 本次课号)` 单调前进）。上例 `4 / 6` 即真实形态。
+  ⚠️ 2026-10-01 之前两列**恒等**（写路径均不改写）→ `last` 曾是**死列**；
+  历史行维持原样（**不回填**，见 §11.11「明确不做」）。
 
 ### 12. GET `/api/mistakes/pending`
 **Query**：`limit`（1—200，默认 50）
@@ -789,7 +802,8 @@
 | `streak` | `streak` | 覆盖 |
 | `wrongCount` | `wrong_count` | **覆盖（人工值为准）** |
 | `status` | `status` | 覆盖 |
-| `courseNo` | `first_lesson_id` / `last_lesson_id` | **新建时**两列同取课号；**命中时不动**（课号归属不由写接口改写） |
+| `courseNo` | `first_lesson_id` | **新建时**取课号；**命中时冻结不动**（「首次出错课」是历史事实） |
+| `courseNo` | `last_lesson_id` | **新建时**取课号；**命中时按 `max(现有课号, 本次课号)` 单调刷新**（「最近一次出错课」随复发前进，见下语义 9） |
 
 **语义（与 `db:sync-mistakes` 逐列同口径 —— 共用 `normKey` 与列白名单，不是两套实现）**
 
@@ -808,6 +822,16 @@
 6. **幂等**：同一 payload 重复提交，第二次起 `created=0` / `unchanged=N`。
 7. **单事务**：任一条失败整批回滚（400 时一行不入库）。
 8. **批内同键 → 400**（不静默取一条，避免把上游缺陷藏起来）。
+9. **课号两列口径（`docs/ai-teacher.md` §11.11）—— 两列语义不同，不是同一件事**：
+   - `first_lesson_id`（**首次**出错课）→ **冻结**，命中时永不改写。
+     它被快照 `recentLessons[].mistakeCount`（＝本课**新引入**错词数）消费，一改就失真。
+   - `last_lesson_id`（**最近一次**出错课）→ 命中时按 `max(现有课号, 本次课号)` **单调刷新**。
+     「本次课号」取值优先级：`items[].courseNo` → 顶层 `lessonNo`。
+     **刻意不采**错词本 8 列里的「课号」（那是**首次**课号，人工填、已冻结）。
+     `max` 守卫是必须的：两条写入路径都可能**重放旧批次**，无守卫会让 `last` **倒退**。
+   - 本次课号不大于现有值时定则返回「不改」→ 该行仍计 `unchanged`（**课号刷新同样幂等**）。
+   - `first_lesson_id` 为 `NULL` 的行（「诊断」来源）后续命中**也不补填**。
+   - 定则唯一实现：`src/utils/mistakeLesson.js`（本接口与 `db:sync-mistakes` 共用）。
 
 **响应 200**
 
