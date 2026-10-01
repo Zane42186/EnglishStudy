@@ -78,7 +78,7 @@
     "levelCode": { "$ref": "common.schema.json#/$defs/LevelCode" },
     "summary": { "type": "string", "maxLength": 255 },
     "studyMinutes": {
-      "description": "本课学习时长，对应 courses.study_minutes。按上下课时间差估算，由 daily-lesson 归档时填入。",
+      "description": "本课学习时长，按上下课时间差估算，由 daily-lesson 归档时填入。当前无落库列（courses 表已废弃、lessons 表亦无 study_minutes 列）——G5 维持降级；是否新增 lessons.study_minutes 列属 R2 议题，未定前列空。",
       "type": ["integer", "null"],
       "minimum": 1,
       "maximum": 240

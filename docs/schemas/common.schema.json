@@ -50,7 +50,7 @@
       "enum": ["attend", "homework_submit", "grade", "review", "feedback", "reading"]
     },
     "KnowledgeRole": {
-      "description": "知识点在本课中的角色，取值与 course_knowledge_points.role 一致。backfill 表示补漏，不占新语法点额度。",
+      "description": "知识点在本课中的角色，取值与 lesson_knowledge_points.role 一致（该关联表为规划中、尚未建）。backfill 表示补漏，不占新语法点额度。",
       "type": "string",
       "enum": ["new", "review", "backfill"]
     },
