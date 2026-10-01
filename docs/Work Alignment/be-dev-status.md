@@ -618,6 +618,50 @@ R3 原文（Amy 侧）：「`wrong_count` 在我错词本是**人工判定**（�
 
 ---
 
+### 6.12 Step 2b 完成：`POST /api/mistakes`（2026-10-01 19:05，**已实现并实测**）
+
+**负责人裁定（逐字）**：`接口名：POST /api/mistakes` + `照准`（载荷按 R3「只喂原始错词条目」）。
+→ 按此实现，**两个分叉均已闭合**。
+
+#### 交付
+
+| 项 | 内容 |
+|---|---|
+| 新接口 | **`POST /api/mistakes`**（批量写入错词本条目），接口总数 **29 → 30** |
+| 载荷 | 错词本 **8 列**（`wrongText`/`correctText`/`errorType`/`wrongCount`/`errorReason`/`streak`/`status`/`courseNo`）+ 顶层 `lessonNo`；`items` 1—200 条 |
+| 落库 | 判重命中 → 更新 7 个内容列；未命中 → 新建（`first_lesson_id = last_lesson_id = courseNo`） |
+| 新增文件 | `src/utils/mistakeKey.js`（`normKey` **唯一实现**） |
+
+#### 四条硬设计（均有测试锚定）
+
+1. **判重键单一来源**：`normKey`（去全角括号批注 → 折叠空白 → 转小写）从 `sync_mistakes.js` **上移**为共享模块，写接口与迁移器**共用同一份**；顺手把 `sync_mistakes.js` 的 **2 处内联枚举**（`ERROR_TYPES`/`STATUSES`）收归 `src/constants.js`，并让两处共用 `MISTAKE_CONTENT_COLS`。
+   → 意义：两条「错词本 → 库」路径对「同一行」的判断**逐字一致**，从根上堵住 DQ1 那类"两套口径"。
+2. **落库写原始文本、规范化只用于找行**：库唯一键 `uk_mistakes_text(student_id, wrong_text)` 建在**原始列**上 ⇒ 判重只能在应用层做；MW2/MW4c 断言"存的是本次原文，不是规范化结果"。
+3. **人工值为准 + 差异逐条告警**：`wrong_count` 以入参**覆盖写**；库内自动累计值 ≠ 人工值 → `warnings` 逐条记明（MW6/MW6b/MW6c）。`POST /:id/review` 仍是**纯 `+1` 增量**，不覆盖人工判定。
+4. **🆕 DQ1 守卫（我自己加的，非点名项）**：`wrongText` 含全角括号批注 → **400**。
+   → 理由：错词本硬规范是「错误点只写错误形式本身」；若写接口原样落库，批注就会进 `wrong_text`，将来被唯一键**拆成两行** —— 正是 DQ1 的成因。MW5/MW5b 锚定。
+   另：**批内规范化同键 → 400**（MW12，不静默取一条）；**`error_type`/`wrong_count`/`streak`/`status` 一律取入参、绝不推导**（MW7）。
+
+#### 实测（**非声明**）
+
+| 项 | 结果 |
+|---|---|
+| `test:write` | **123 / 123**（99 → 123，新增 **MW1—MW16 共 24 条**断言） |
+| `test:api` | **49 / 49** |
+| `db:compare` | **15 / 0 / 0** |
+| F2 零影响 | 13 表计数与基线**逐项一致**（`7/61/62/26/21/41/60/5/14/28`） |
+| **`db:sync-mistakes --dry-run`** | **行为不变**：未变 26 · 跳过 0 · 告警 0（重构未改语义） |
+| 路由已加载 | `GET /api` 索引含 `POST /api/mistakes`，**29 条 + 自身 = 30 接口** |
+| 端口纪律 | 只用我方实例，跑完即停，4000/5500 均已释放 |
+
+#### 仍待（**只报不改，属 Skill 设计师/Amy 域**）
+
+1. `docs/skills.md:190`（§2.3）把 `MistakeAnalysisResult` 映射到 `POST /mistakes` —— **载荷口径已改为 R3「只喂原始条目」**，该行需同步（并说明不再传 `before/after`/`patternHits`/`recurrenceWarnings`）。同段注里「`POST/PUT /lessons` 为 **Step 2a 待实现**」亦已过时（Step 2a 已生效）。
+2. §6.10 的 **A15 复核**（判重键 4 处漏改）仍待处理。
+3. `db:sync-mistakes` 与写接口**均不改 `first/last_lesson_id`**（命中时）—— 这是刻意与迁移器对齐的口径；若教学侧需要"最近犯错课随复发刷新"，需**两条路径一起**改，属独立决策，**未做**。
+
+---
+
 ## 附：常用验证命令（均在 `backend/` 下）
 
 ```bash
@@ -630,7 +674,7 @@ npm run teach:sync           # records/*.study-record.json → study_records + p
 npm run db:migrate-dedupe-key # study_records.dedupe_key 迁移（幂等，--dry-run / --rollback）
 npm run db:summary           # 生成 INDEX.md / digest.md（--check / --dry-run）
 npm run test:api             # 49 项
-npm run test:write           # 99 项（含 Step 2a 的 LW1—LW33）
+npm run test:write           # 123 项（Step 2a 的 LW1—LW33 + Step 2b 的 MW1—MW16）
 ```
 
 > `test:*` 与 `integration-check` / `verify-frontend-*` 需要后端服务在线；

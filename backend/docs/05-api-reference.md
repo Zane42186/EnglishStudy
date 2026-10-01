@@ -2,7 +2,7 @@
 
 > 状态：**已实现并实测**（2026-09-29）。本文档描述的是**可运行的真实接口**，非设计稿。
 > 服务地址：`http://localhost:4000`　接口前缀：`/api`
-> 冒烟测试：`npm run test:api`（**49 项全部通过**）；写接口正向验证：`npm run test:write`（**99 项全部通过**）
+> 冒烟测试：`npm run test:api`（**49 项全部通过**）；写接口正向验证：`npm run test:write`（**123 项全部通过**）
 >
 > 变更记录：
 > - 2026-09-29 · 第一批写接口与聚合快照落地：`GET /api/lessons/all`、`POST /api/mistakes/:id/review`、
@@ -29,6 +29,14 @@
 >   改为按实际 `affected` **逐项生成**（`DEGRADE_HINT` 表）；旧文案「待 `knowledge_points` 建表**与教学侧写入
 >   nextRecommendation**」在 `teach:sync` 回填后即失真。§21 的实测样例同步刷新为 **2026-10-01 实况**
 >   （课号 7 / `affected:["backlog"]` / `lastRecommendation`·`lastIncomplete` 已非 null）。
+> - 2026-10-01 · 第七批 · **Step 2b：开放 `POST /api/mistakes`**（**30 节**）——
+>   批量写入错词本条目，载荷按 **R3「只喂原始错词条目」**（错词本 8 列），
+>   **不喂** `MistakeAnalysisResult` 的 `before/after` 全状态。判重键、列白名单与
+>   `db:sync-mistakes` **同口径共用一份实现**（新 `src/utils/mistakeKey.js` 的 `normKey`；
+>   `sync_mistakes.js` 的 2 处内联枚举与本地 `normKey` 一并收归单一来源）。
+>   `wrong_count` **以人工值覆盖写**，与库内自动累计值不一致时**逐条告警**；
+>   **DQ1 守卫**：`wrongText` 含全角括号批注 → 400。`test:write` 99 → **123 项**（新增 MW1—MW16 共 24 条断言，含 `b`/`c` 子项）。
+>   接口总数 **29 → 30**；`db:sync-mistakes --dry-run` 实测行为不变（未变 26 / 跳过 0 / 告警 0）。
 
 ---
 
@@ -114,6 +122,7 @@
 | 27 | POST | `/api/readings` | 写入当天阅读（`ReadingSet`；同日已存在 → 409，`force=true` 重出） |
 | 28 | POST | `/api/lessons` | 新建课程归档（`LessonRecord`；课号已存在 → 409） |
 | 29 | PUT | `/api/lessons/:id` | 回填批改与反馈（**部分更新**；`:id` 是主键不是课号） |
+| 30 | POST | `/api/mistakes` | 批量写入错词本条目（`wrong-words.md` 8 列；按规范化 `wrongText` 判重、命中即更新） |
 
 ---
 
@@ -741,6 +750,84 @@
 
 ---
 
+### 30. POST `/api/mistakes` ★
+
+**批量写入错词本条目**（Step 2b）。消费方：`mistake-analysis`（`docs/skills.md` §3.7）。
+载荷口径＝ **R3「只喂原始错词条目」**（2026-10-01 负责人照准）：**只传错词本的一行 8 列**，
+**不传** `MistakeAnalysisResult` 的 `before/after` 全状态、`patternHits`、`recurrenceWarnings`。
+
+**Query**：`studentId`（默认学生）
+
+**Body**
+
+| 字段 | 必需 | 说明 |
+|---|---|---|
+| `lessonNo` | | 本批所属课号，作为条目未给 `courseNo` 时的默认值 |
+| `items` | ✅ | 错词条目数组，**至少 1 条、最多 200 条** |
+
+**`items[]`（＝`wrong-words.md` 的 8 列，逐列对应）**
+
+| 字段 | 必需 | 对应列 | 说明 |
+|---|---|---|---|
+| `wrongText` | ✅ | 错误点 | 落库存**原始文本**；判重键由它派生。≤512 字符，**不得含全角括号批注**（见下 DQ1 守卫） |
+| `correctText` | ✅ | 正确形式 | ≤512 字符（库内 `NOT NULL`） |
+| `errorType` | ✅ | 类型 | `grammar / spelling / punctuation / word_choice / capitalization / other` |
+| `wrongCount` | ✅ | 累计犯错 | ≥1，**人工判定值**，服务端**不推导** |
+| `errorReason` | | 错因 | ≤512 字符（批注写这里，不写 `wrongText`） |
+| `streak` | | 连续答对 | ≥0，默认 `0` |
+| `status` | | 状态 | `pending` / `passed`，默认 `pending` |
+| `courseNo` | | 课号 | ≥1；默认取 `lessonNo` |
+
+**落库映射**（`mistakes` 表）
+
+| 入参 | 列 | 命中既有行时 |
+|---|---|---|
+| `wrongText` | `wrong_text` | 覆盖（写本次原文） |
+| `correctText` | `correct_text` | 覆盖 |
+| `errorType` | `error_type` | 覆盖 |
+| `errorReason` | `error_reason` | 覆盖 |
+| `streak` | `streak` | 覆盖 |
+| `wrongCount` | `wrong_count` | **覆盖（人工值为准）** |
+| `status` | `status` | 覆盖 |
+| `courseNo` | `first_lesson_id` / `last_lesson_id` | **新建时**两列同取课号；**命中时不动**（课号归属不由写接口改写） |
+
+**语义（与 `db:sync-mistakes` 逐列同口径 —— 共用 `normKey` 与列白名单，不是两套实现）**
+
+1. **判重键 = 规范化 `wrongText`**（去全角括号批注 → 折叠空白 → 小写），**只在本人范围内**比对。
+   自定义「同键」即视为**同一行**：命中 → 更新；未命中 → 新建。
+2. **落库一律写原始文本**，规范化**只用于找行**，绝不把规范化结果写进 `wrong_text`。
+   （库唯一键 `uk_mistakes_text(student_id, wrong_text)` 建在**原始列**上，故判重必须在应用层做。）
+3. **`error_type` / `wrong_count` / `streak` / `status` 一律取入参、服务端绝不推导**
+   （`docs/ai-teacher.md` §11.7：后两列无法从其他列推导）。
+4. **人工值为准 + 差异告警**：`wrong_count` 以入参覆盖写；若库内自动累计值 ≠ 人工值，
+   在 `warnings` 中**逐条**记明 `库内自动累计值 X ≠ 人工判定值 Y（可能含未留档的复发）→ 已按人工值覆盖`。
+   `POST /api/mistakes/:id/review` **只做 `+1` 增量**，不覆盖人工判定。
+5. **DQ1 守卫**：`wrongText` 含全角括号批注（`（…）`）→ **400**。
+   错词本硬规范是「错误点只写错误形式本身」；若写接口原样落库，批注会进 `wrong_text`，
+   将来被唯一键拆成两行 —— 正是 DQ1 的成因。
+6. **幂等**：同一 payload 重复提交，第二次起 `created=0` / `unchanged=N`。
+7. **单事务**：任一条失败整批回滚（400 时一行不入库）。
+8. **批内同键 → 400**（不静默取一条，避免把上游缺陷藏起来）。
+
+**响应 200**
+
+```json
+{ "code": 200, "message": "success", "data": {
+  "created": 1, "updated": 1, "unchanged": 0, "total": 2,
+  "items": [ { "id": 151, "action": "updated",   "wrongText": "MW recieve",
+               "status": "pending", "wrongCount": 2, "changed": ["wrong_count"] },
+             { "id": 152, "action": "created",   "wrongText": "MW a new one",
+               "status": "pending", "wrongCount": 1 } ],
+  "warnings": [ "「MW recieve」wrong_count：库内自动累计值 1 ≠ 人工判定值 2（可能含未留档的复发）→ 已按人工值覆盖" ] } }
+```
+（上例为 **2026-10-01 实测原样**，`test:write` MW 系列产出。）
+
+**Error**
+- 400 `批量错词校验失败` + 字段级 `data: [{field, message}]`，`field` 形如 `items[0].wrongText`
+- **不返回 404/409**：本接口只增改本人错词，不涉及跨资源寻址
+
+---
+
 ## 四、错误路径实测样例
 
 **404 · 资源不存在**
@@ -775,6 +862,15 @@ POST /api/readings?studentId=1   （levelCode 非法 + pieces 为空）
 → 400  { "code": 400, "message": "ReadingSet 校验失败", "data": [
            { "field": "levelCode", "message": "必填，取值必须是 Level 1 / Level 2 / Level 3 / Level 4 / Level 5 之一" },
            { "field": "pieces",    "message": "必填，至少 1 篇" } ] }
+```
+
+**400 · 批量错词：DQ1 守卫（错误点不得夹带括号批注）**
+```
+POST /api/mistakes?studentId=1   { "items": [ { "wrongText": "MW go to school（批注）",
+                                                "correctText": "MW x", "errorType": "grammar", "wrongCount": 1 } ] }
+→ 400  { "code": 400, "message": "批量错词校验失败", "data": [
+           { "field": "items[0].wrongText",
+             "message": "不得夹带全角括号批注（批注请写 errorReason）——「错误点只写错误形式本身」" } ] }
 ```
 
 ---
