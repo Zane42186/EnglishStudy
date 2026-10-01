@@ -2,7 +2,7 @@
 
 > 状态：**已实现并实测**（2026-09-29）。本文档描述的是**可运行的真实接口**，非设计稿。
 > 服务地址：`http://localhost:4000`　接口前缀：`/api`
-> 冒烟测试：`npm run test:api`（**49 项全部通过**）；写接口正向验证：`npm run test:write`（**66 项全部通过**）
+> 冒烟测试：`npm run test:api`（**49 项全部通过**）；写接口正向验证：`npm run test:write`（**99 项全部通过**）
 >
 > 变更记录：
 > - 2026-09-29 · 第一批写接口与聚合快照落地：`GET /api/lessons/all`、`POST /api/mistakes/:id/review`、
@@ -20,6 +20,11 @@
 >   单一事务、幂等判重；同日已存在 → **409**（「当天不覆盖」硬规则），显式 `?force=true` 为重出例外。
 >   `reading_pieces` 加列 `source_url`（此前 `sourceUrl` 在写入路径被静默丢弃，写接口一并修正）。
 >   阅读的写路径由「只有 `db:import`」变为「`db:import`（md 回填）+ `POST`（在线写入）」双通道。
+> - 2026-10-01 · 第五批 · **Step 2a：开放课程归档写接口**（**28—29 节**）——
+>   `POST /api/lessons`（按 `LessonRecord` 新建）、`PUT /api/lessons/:id`（回填批改与反馈）。
+>   写路径切换点 = **第 8 课**（负责人拍板）：第 8 课起课程由本接口归档，
+>   `db:import` 加**零 DDL 守卫**跳过 `lesson_no >= 8`，退化为「历史回填 + 只读校验」，
+>   两条路径不再写同一批表。`test:write` 66 → **99 项**（新增 LW1—LW33）。
 
 ---
 
@@ -103,6 +108,8 @@
 | 25 | GET | `/api/readings` | 阅读日清单（倒序分页） |
 | 26 | GET | `/api/readings/:date` | 某天阅读全文（英中对照 + 理解题） |
 | 27 | POST | `/api/readings` | 写入当天阅读（`ReadingSet`；同日已存在 → 409，`force=true` 重出） |
+| 28 | POST | `/api/lessons` | 新建课程归档（`LessonRecord`；课号已存在 → 409） |
+| 29 | PUT | `/api/lessons/:id` | 回填批改与反馈（**部分更新**；`:id` 是主键不是课号） |
 
 ---
 
@@ -570,6 +577,155 @@
 
 > 两条路径的正文渲染、词数统计、题数口径**共用同一实现**，故同一份内容经任一路径落库结果一致。
 
+### 28. POST `/api/lessons` ★
+把**一节课的归档记录**写入库（新建）。产出者是 Skill 侧 `daily-lesson` 的**归档步**
+（`docs/skills.md` §3.1 第 8 步）；请求体即 `LessonRecord`
+（`docs/schemas/lesson-record.schema.json`）—— **本接口按契约实现，契约不改**。
+
+**Query**：`studentId`
+
+**请求体（`LessonRecord`）**
+```json
+{
+  "lessonNo": 8,
+  "lessonDate": "2026-10-02",
+  "levelCode": "Level 2",
+  "summary": "学会常用不规则过去式，能说清「昨天做了什么」",
+  "grammarPoint": "常用不规则过去式",
+  "sourceFile": "day-08-14.md",
+  "sections": [
+    { "sectionType": "review",   "contentMd": "…", "orderIndex": 0 },
+    { "sectionType": "grammar",  "contentMd": "…", "orderIndex": 1 },
+    { "sectionType": "homework", "contentMd": "…", "orderIndex": 2 }
+  ],
+  "vocabulary": [
+    { "word": "went", "phonetic": "/went/", "meaning": "去（go 的过去式）",
+      "example": "I went home.", "isNew": true, "orderIndex": 0 }
+  ],
+  "exercises": [
+    { "exerciseNo": 1, "exerciseType": "fill_blank", "prompt": "I ___ (go) home yesterday.",
+      "selfCheck": "句尾标点", "referenceAnswer": "went", "targetPoint": "irregular-past",
+      "userAnswer": "goed", "isCorrect": false, "errorNote": "…" },
+    { "exerciseNo": 1, "blockKind": "backfill", "blockNo": 1,
+      "exerciseType": "translate", "prompt": "…" }
+  ],
+  "gradeSummary": { "exerciseCount": 7, "errorCount": 2, "byType": { "grammar": 2 } },
+  "feedback": { "feedback": "just_right", "levelBefore": "Level 2", "levelAfter": "Level 2" },
+  "nextRecommendation": "下一课继续练不规则过去式"
+}
+```
+
+**成功（201 · created）**
+```json
+{ "code": 201, "message": "success", "data": {
+  "id": 48, "lessonNo": 8, "levelCode": "Level 2", "status": "taught",
+  "sectionCount": 3, "vocabCount": 1, "exerciseCount": 2, "errorCount": 2,
+  "warnings": [] } }
+```
+
+**落库映射（四表）**
+
+| 表 | 唯一键 | 来源字段 |
+|---|---|---|
+| `lessons` | `uk_lessons_no (student_id, lesson_no)` | `lessonNo` / `lessonDate` / `levelCode` / `summary` / `grammarPoint` / `feedback.feedback` / `sourceFile` / `status` |
+| `lesson_sections` | `uk_section (lesson_id, section_type)` | `sections[]`（`sectionType` → `section_type`、`contentMd` → `content_md`、`orderIndex`） |
+| `lesson_exercises` | `uk_exercise (lesson_id, block_kind, block_no, exercise_no)` | `exercises[]`（省略 `blockKind` 视为 `homework`，其 `block_no` **恒为 0**；`backfill` 必带 `blockNo`） |
+| `vocabulary` / `lesson_vocabulary` | `uk_vocab_word` / `uk_lesson_vocab` | `vocabulary[]`（已存在的词**只补空字段、不覆盖释义**） |
+
+- `status` 缺省 `taught` —— 与 `db/schema.sql` 的列默认值、以及现有 1—7 课的实际值一致
+  （本项目的「归档」**不等于** `status='archived'`）
+- 三项计数由 service **派生回写**：`vocab_count` / `exercise_count` = 子表行数；
+  `error_count` 取 `gradeSummary.errorCount`（**作业口径、不含补漏块**），缺失则回落为作业块判错题数
+  （与 `db:import` 的 `syncLessonCounts` 同一口径）
+- ⚠️ **`error_type` 不写**：该列只由 Amy 人工判定（`records/` → `npm run db:apply-error-types`），
+  接口**既不接收也不推导**。新建行该列为 `NULL`，回填时保持既有值（LW8 / LW27）
+
+**校验规则（与 `lesson-record.schema.json` 一致，不额外发明）**
+
+| 字段 | 约束 | 违反 |
+|---|---|---|
+| `lessonNo` | 必填，≥1 整数；**同学生内已存在 → 409** | 400 / 409 |
+| `levelCode` | 必填，`Level 1`—`Level 5` 之一 | 400 |
+| `summary` | 必填非空，≤255 | 400 |
+| `sections` | 必填，≥1 条；`sectionType` 取 `SectionType` 的 11 值且**同课不重复**；`contentMd` 非空 | 400 |
+| `exercises[].exerciseNo` | 必填，≥1 整数；**同题块内不重复** | 400 |
+| `exercises[].exerciseType` | 必填，6 值之一 | 400 |
+| `exercises[].blockKind` / `blockNo` | `homework`（缺省）或 `backfill`；`backfill` 必带 `blockNo ≥ 1`，`homework` 的 `blockNo` 必须为 0 或省略 | 400 |
+| `exercises[].prompt` | 必填非空；`selfCheck` ≤128；`isCorrect` 为布尔或 `null` | 400 |
+| `vocabulary[].word` / `isNew` | 均必填；`word` ≤64 | 400 |
+| `status` / `lessonDate` / `sourceFile` | 可选；分别取 3 值 / 形如 `2026-10-02` / 形如 `day-08-14.md` | 400 |
+| `gradeSummary.exerciseCount` / `errorCount` | 若提供则两者必填，且为 ≥0 整数 | 400 |
+| `feedback.feedback` / `levelBefore` / `levelAfter` | 若提供则三者必填，取值须合法 | 400 |
+
+- 校验失败返回 400，`data` 为**字段级明细数组**（`[{field, message}]`）
+- 深层结构（`sections[]` / `exercises[]` / `vocabulary[]`）与 §27 同理：`validate()` 只认浅层，
+  逐层校验在 service 内完成，故错误码同为 400 但来源不同
+
+**⚠️ 契约里没有落库点的字段 —— 不报错，进 `warnings[]`**
+
+| 字段 | 现状 |
+|---|---|
+| `studyMinutes` | `lessons` 无该列 → **G5 维持降级**（是否加列属 R2 议题） |
+| `knowledgePoints` | `knowledge_points` / `lesson_knowledge_points` 尚未建表（P1） |
+| `skillRunIds` | `skill_runs` 尚未建表（P2） |
+
+> 契约演进原则是「加字段不升版本、**忽略未知字段**」——但**静默丢弃与硬报错都不合适**。
+> 故本接口把这类「收到了但没落库」的字段收进响应的 `warnings[]`，让调用方看得见。
+
+**⚠️ 超出契约的一个可选扩展字段：`grammarPoint`**
+`lessons.grammar_point` 是 `/api/lessons` 列表的可见列，但 `LessonRecord` **没有定义该字段**。
+本接口按「加字段不升版本」**可选接收**（字符串 ≤128；缺省留 `NULL`）。
+契约侧是否补写由 Skill 设计师定 —— **已登记为待确认项**；未定前不静默丢弃也不硬报错。
+
+**写路径边界（两条必须知道）**
+- 本接口只写**课程域四表**。`feedback` / `gradeSummary` / `nextRecommendation` 中与学习记录相关的部分
+  **不由本接口写 `study_records`** —— 那是 `npm run teach:sync`（消费 `records/*.study-record.json`）
+  与 `POST /api/study-records` 的职责，避免再造一条并行写路径。
+- 第 8 课起 `db:import` **跳过 `lesson_no >= 8`**（零 DDL 守卫，见 `04-migration-and-roadmap`），
+  两条路径不再写同一批表。
+
+**Error**
+- 400 `LessonRecord 校验失败`（+ 字段级明细）
+- 409 `第 N 课已存在（id=…）—— POST 只新建；回填批改与反馈请用 PUT /api/lessons/<id>`
+
+### 29. PUT `/api/lessons/:id` ★
+**回填批改与反馈**（**部分更新**）。`:id` 是 `lessons.id` **主键**、**不是课号**
+（第 7 课 `id = 47`）。
+
+**Query**：`studentId`　**请求体**：`LessonRecord` 的**任意子集**（字段规则同 §28）
+
+**成功（200）**
+```json
+{ "code": 200, "message": "success", "data": {
+  "id": 48, "lessonNo": 8, "levelCode": "Level 2", "status": "taught",
+  "sectionCount": 0, "vocabCount": 1, "exerciseCount": 2, "errorCount": 3,
+  "warnings": [] } }
+```
+
+**语义（三条必须知道的）**
+1. **部分更新**：只写请求里出现的字段；**未提供的字段保持原值** —— 不会把没传的
+   `summary` / `level_code` 抹成 `NULL`（LW24）。
+2. **子行只增改、不删**：小节 / 练习 / 词汇按各自唯一键 upsert；请求里没出现的子行
+   **不会被删除**（与 `db:import` 同口径，LW28）。
+3. **不改 `error_type`**：错误类型只能在 `records/` 与 `npm run db:apply-error-types` 里由 Amy 定，
+   回填批改**不会覆盖**已判定的错误类型（LW27）。
+
+**计数回写的阈值（关键）**
+- 仅当该课 `lesson_no >= 8` 时回写 `vocab_count` / `exercise_count` / `error_count`；
+- `lesson_no < 8` 的课**不动计数**（第 1—6 课是 Amy 手工口径：第 1 课 `exercise_count = 7`
+  而 `lesson_exercises` 只有 4 行），并在 `warnings[]` 中说明原因（LW29 / LW30）。
+
+**写路径选型（教学侧参考）**
+
+| 场景 | 用哪条 |
+|---|---|
+| 批量回填历史 md（第 1—7 课） | `npm run db:export` → `db:import`（离线、幂等、可 `--dry-run`；已跳过 `lesson_no >= 8`） |
+| 新一课讲完归档（第 8 课起） | `POST /api/lessons` |
+| 批改完 / 收完难度反馈再回填 | `PUT /api/lessons/:id` |
+
+**Error**：400 校验失败（+ 字段级明细）；404 `课程不存在：id=<id>`
+（**跨学生同样是 404** —— 查询始终带 `student_id` 过滤）
+
 ---
 
 ## 四、错误路径实测样例
@@ -623,6 +779,37 @@ POST /api/readings?studentId=1   （levelCode 非法 + pieces 为空）
 | 路径前缀 | `/api/v1` | `/api`（第一阶段不带版本号） |
 
 > 影响面：前端工程师与 Skill 设计师按**本文档**对接；`03-api-contract.md` 保留作为长期契约参考。
+
+### 5.1 课程写入路径切换（Step 2a · 需 Skill 设计师 / 数据侧同步）
+
+**背景**：课程数据历史上只有一条写入路径 —— 迁移管线 `db:export → db:import`（消费 Skill 侧产出的
+`md`）。Step 2a 新增了第二条路径 —— `POST /api/lessons` / `PUT /api/lessons/:id`（消费 `LessonRecord` JSON）。
+两条路径写的是**同一批表**（`lessons` / `lesson_sections` / `lesson_exercises` / `lesson_vocabulary`
+/ `vocabulary`），若同时活跃会出现「同课两产出者」的双写风险。
+
+**已定口径（项目负责人 2026-10-01 拍板）**：
+
+| 项 | 口径 |
+|---|---|
+| 切换点 | **第 8 课** |
+| 第 1—7 课 | 维持历史路径（`db:import`），已入库不回溯 |
+| 第 8 课起（阶段 B） | 写入路径 = **`POST/PUT /api/lessons`**（API） |
+| 阶段 B 的 `md` | **仍产出、不入写路径**（保留为人类可读落地形式） |
+| `db:import` | 退化为**历史回填 + 只读校验**工具 |
+
+**双写守卫（已落地）**：`db:import` 顶部对 `lesson_no >= WRITE_API_FROM_LESSON_NO (=8)` 的课
+**整课跳过**并逐条 `warn()`，避免误用旧管线覆盖 API 写入的数据。
+
+- 常量双份同源：API 侧 `src/services/lesson.service.js` 与导入器侧 `db/migration/import_json.js`
+  各持一份 `WRITE_API_FROM_LESSON_NO = 8`，语义同源、改动须成对。
+- `db:import --dry-run` 行为零变化（`±0`）；仅当快照真含 `lesson_no >= 8` 时才打印
+  `写路径已切 API 跳过 N`。
+- **未采纳** `lessons.write_source ENUM('import','api')` 方案（需走 DDL 规程，且 `lessons.status`
+  语义是生命周期、不可复用；课号判定已足够，零 DDL）。
+
+> 影响面：**Skill 设计师** —— 归档步产出的 `LessonRecord` 自第 8 课起即为唯一权威写入源；
+> **Amy** —— 第 8 课起 `lesson_exercises.self_check` 等字段必须随 `LessonRecord` 一起落库
+> （见本文档 §28 落库映射表）。`docs/skills.md` §7.2 已同步本口径。
 
 ---
 
