@@ -64,6 +64,8 @@ router.get('/', (req, res) =>
       'GET /api/lessons/error-trend',
       'GET /api/lessons/:id',
       'GET /api/lessons/:id/exercises',
+      'POST /api/lessons',
+      'PUT /api/lessons/:id',
       'GET /api/vocabulary',
       'GET /api/vocabulary/stats',
       'GET /api/vocabulary/:id',

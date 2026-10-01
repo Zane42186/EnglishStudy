@@ -1,7 +1,7 @@
 'use strict';
 
 const asyncHandler = require('../utils/asyncHandler');
-const { ok, okList, parsePaging } = require('../utils/response');
+const { ok, okList, created, parsePaging } = require('../utils/response');
 const { validate } = require('../utils/validate');
 const studentService = require('../services/student.service');
 const lessonService = require('../services/lesson.service');
@@ -85,4 +85,28 @@ const exercises = asyncHandler(async (req, res) => {
   return ok(res, data);
 });
 
-module.exports = { list, listAll, latest, errorTrend, detail, exercises };
+/**
+ * POST /api/lessons —— 新建课程归档（按 `LessonRecord`）。
+ * 请求体整体交给 service 按 `docs/schemas/lesson-record.schema.json` 校验并返回字段级明细；
+ * 课号已存在 → 409（POST 只新建，回填批改与反馈用 PUT）。
+ */
+const create = asyncHandler(async (req, res) => {
+  const query = validate(req.query, STUDENT_SCHEMA);
+  const studentId = await studentService.resolveStudentId({ studentId: query.studentId });
+  const data = await lessonService.createLesson(studentId, req.body || {});
+  return created(res, data);
+});
+
+/**
+ * PUT /api/lessons/:id —— 回填批改与反馈（**部分更新**）。
+ * `:id` 是 `lessons.id` 主键，不是课号。
+ */
+const update = asyncHandler(async (req, res) => {
+  const params = validate(req.params, ID_SCHEMA);
+  const query = validate(req.query, STUDENT_SCHEMA);
+  const studentId = await studentService.resolveStudentId({ studentId: query.studentId });
+  const data = await lessonService.updateLesson(studentId, params.id, req.body || {});
+  return ok(res, data);
+});
+
+module.exports = { list, listAll, latest, errorTrend, detail, exercises, create, update };
