@@ -1,8 +1,8 @@
 # GIT-MANAGER-STATUS.md — 版本管理工作状态
 
 > 角色：Git / 版本管理工程师（`AGENTS.md` §3.5）
-> 更新时间：**2026-10-01 17:55**（本轮变更集已按角色分批提交，共 **13** 个提交；含跨角色核查回执）
-> 数据来源：`git status / log / rev-list` 实测（2026-10-01 12:28 / 13:14 / 17:40）＋ 共享日志
+> 更新时间：**2026-10-01 18:06**（第二轮变更集已按角色分批提交，共 **7** 个提交；累计本地领先 **57**）
+> 数据来源：`git status / log / rev-list` 实测（2026-10-01 12:28 / 13:14 / 17:40 / 18:06）＋ 共享日志
 > 可信度标注：**【实测】**= git 命令当场得出；**【记录】**= 他人文档/日志记载，未经本人复验；**【推断】**= 依据现状推测
 >
 > 边界声明：本角色**不做业务开发、不改他人内容、不擅自推远端**。所有提交只做版本归档，
@@ -16,10 +16,10 @@
 |---|---|
 | 分支 | `main`（唯一工作分支）+ `backup/2026-09-29-before-push` |
 | 远端 | `origin` = `https://github.com/Zane42186/EnglishStudy.git` |
-| 同步状态 | **本地领先 50 个提交，落后 0**（未推送）。其中本轮（2026-10-01 17:40）新增 **13** 个：`4e2fc46` … 本状态文档提交 |
+| 同步状态 | **本地领先 57 个提交，落后 0**（未推送）。其中 2026-10-01 两轮共 **20** 个：`4e2fc46` … `69c5de1` + 本状态文档提交 |
 | 远端已含 | `main` = `87ee73e`；`backup/2026-09-29-before-push` = `54f8330` |
 | 本地标签 | `pre-push-20260929`→`c792b03`、`stage-02-backend-api`→`87ee73e`、<br>`skill-english-daily-v2.2.0/2.2.1/2.2.2`（均已推远端）；**尚无里程碑 tag** |
-| 工作区 | **干净**（本轮 24 个路径已全部提交；仅剩 `.gitignore` 覆盖项，无遗漏入库风险） |
+| 工作区 | ⚠️ **2 个新 in-flight**（`backend/docs/05-api-reference.md`、`backend/src/services/snapshot.service.js`，18:05 起由 be-dev 在改 A12 修复）→ **已按纪律搁置、未提交**；其余干净 |
 | 未跟踪/被忽略 | `backend/.env`、`node_modules/`、`backend/db/backup-*.sql`、`backend/db/migration/_snapshot.json`、`.workbuddy/`、`*.zip` 均已被 `.gitignore` 覆盖，无遗漏入库风险 |
 
 ---
@@ -116,6 +116,33 @@
 `check-ignore` 确认 3 类敏感文件被忽略；4 个纯格式文件**提交前二次复验指纹未变**。
 
 **未做**：未打 tag、未推送（等待授权）。
+
+### 10. 第二轮变更集提交（2026-10-01 18:06）—— 共 7 个提交
+
+**背景**：第一轮 13 个提交后，Step 2a（写接口）在途批次**落定**（负责人再次下令「提交本轮变更集」）。
+提交前逐一核对 `mtime` vs `date`：10 个文件均 ≥4 分钟未动、无并发写入，遂入库。
+
+| # | Commit | 内容 | 角色归属 |
+|---|---|---|---|
+| 1 | `570111d` | **Step 2a 写接口** `POST /api/lessons`（课号重复→409）+ `PUT /api/lessons/:id`（部分更新→404）；`services`/`repositories`/`controllers`/`routes` 5 文件 | 后端 |
+| 2 | `c4bc8a6` | `write-api-check` 增 **LW1—LW33** 覆盖 Step 2a（`test:write` 66 → **99**） | 后端 |
+| 3 | `78bf8cb` | `db:import` **零 DDL 写路径守卫**（跳过 `lesson_no ≥ 8`）+ 枚举/词汇落库收归单一来源 | 后端 |
+| 4 | `9a66dc6` | 契约描述订正 **7 处**（废弃/未建表名 + G1 已闭环）+ `skills.md` 附录 A 第九轮 | 契约 |
+| 5 | `2af4af5` | `ai-teacher.md` 数据真相源切后端 + 缺口清单 G1—G7 状态刷新 | Amy |
+| 6 | `9ee3833` | `05-api-reference` 增 **§28/§29**（Step 2a）+ **§5.1** 写路径切换口径 | 后端 |
+| 7 | `69c5de1` | 本轮各角色状态回写（be-dev §6.9 / SKILL-DESIGNER §1.2—§1.3 / status-amy §1.9 等） | 全员 |
+
+**本批无 DDL** → 无需独立 DDL 提交（Step 2a 的 `dedupe_key` DDL 已在第一轮 `4e2fc46`）。
+
+**提交前静态校验（本人执行）**：`node --check` 7 个 JS 全过（含 `import_json.js`）；`JSON.parse` 3 个 schema 全过。
+
+**⚠️ 搁置（未提交，非本人职责）**：`backend/docs/05-api-reference.md`、`backend/src/services/snapshot.service.js`
+于 **18:04—18:05 又被 be-dev 改动**（正在修 Amy 登记的 **A12**：快照降级 `reason` 由「写死全局结论」改为
+按 `affected` 逐项生成 + 两处陈旧注释）。改动时点距提交点仅 **31 秒** → 判定**在飞**，按纪律搁置，待其定稿后另批。
+
+**待办（本角色）**：① 打里程碑 tag 并推送（领先 57，待授权）；② `docs/changelog.md` 补记
+**09-30 + 10-01 两日**（含 v2.3.0—v2.7.0，**注意 `14718d6` 内已含 v2.7.0 但题名只写 v2.6.0**）；
+③ 交接单模板。
 
 ---
 
