@@ -459,6 +459,57 @@
 
 ---
 
+### 6.9 Step 2a 开工与实测（2026-10-01 18:00，**已实现并实测**）
+
+**负责人拍板（逐字）：`1 确认 2 确认`** → ① 2a 归属 = ①；② 双写口径 = 切换点第 8 课 + 阶段 B md「仍产出、不入写路径」。**据此开工，已完成。**
+
+**新增接口（契约不动，仅补齐 Skill 契约 `LessonRecord` 的写入落点）**
+
+| 接口 | 行为 | 关键约束 |
+|---|---|---|
+| `POST /api/lessons` | 按 `LessonRecord` **新建**课程归档，单事务写 **4 张表**（`lessons` / `lesson_sections` / `lesson_exercises` / `lesson_vocabulary`+`vocabulary`） | 课号已存在 → **409**（防覆盖）；字段级 400 |
+| `PUT /api/lessons/:id` | **部分更新**（只写 body 出现的列），回填批改与反馈 | 不存在 → **404**；**`:id` 是 `lessons.id` 主键、非 `lessonNo`** |
+
+**落库要点**
+- `error_type` **刻意不写**（只由 Amy 人工判定，`skills.md` 3.6）—— 写入路径不得推导。
+- 计数回写（`vocab_count`/`exercise_count`/`error_count`）**仅对 `lessonNo >= 8`**（`WRITE_API_FROM_LESSON_NO`）；历史课 99/99/99 保护不变。
+- 契约内但**无落库点**的字段（`studyMinutes` / `knowledgePoints` / `skillRunIds`）收进响应 **`warnings`**，**不静默丢弃**。
+- ID 序列改用 `EXERCISE_TYPE` 单一来源（`src/constants.js`）。
+
+**双写守卫（零 DDL）**：`db:import` 对 `lesson_no >= 8` **整课跳过**并告警，退化为「历史回填 + 只读校验」。
+
+**实测（当前代码，非声明）**
+
+| 项 | 结果 |
+|---|---|
+| `test:api` | **49 / 49** |
+| `test:write` | **99 / 99**（66 → 99，新增 **LW1—LW33** 共 33 条：契约→四表落库、`warnings`、`error_type` 不写、`selfCheck`/`blockKind`/`blockNo`、409 不覆盖、400 字段级、PUT 不抹字段、`<8` 不回写计数、404 含跨学生） |
+| F2 零影响 | 一致：`students=1 lessons=7 vocabulary=61 lesson_vocabulary=62 mistakes=26 study_records=21 lesson_exercises=41 lesson_sections=60 readings=5 reading_pieces=14 reading_questions=28` |
+| `db:import --dry-run` | 全表 **±0**；守卫输出 `写路径已切 API 跳过 0`（现快照 7 课） |
+| 守卫触发实证 | 合成「含第 8 课」快照 → `写路径已切 API 跳过 1` + `! 第 8 课 >= 8：…本脚本跳过，不写库`，子表仍 **±0**（第 8 课未落库） |
+
+**前端三项（4000 空闲后已补跑，2026-10-01 18:05）**
+
+| 项 | 结果 |
+|---|---|
+| `integration-check`（jsdom + 真打后端） | **17 / 17** ✅（首次跑 10/15 假失败 —— 见下「竞态发现」，复跑即全绿） |
+| `verify-frontend-pages`（Playwright + 本机 Edge） | **47 / 47** ✅ |
+| `verify-frontend-shared`（Playwright + 本机 Edge） | **36 / 36** ✅ |
+| `db:compare`（跑完复核） | **15 / 0 / 0** ✅ |
+| 13 表计数（跑完复核） | 与 F2 基线**逐项一致、零漂移** |
+| 服务收停 | 后端 4000 / 静态 5500 / 4010 **全部已释放**（跑完即停） |
+
+**⚠️ 竞态发现（`integration-check.js`，本次实测暴露，未改脚本）**：首跑报 5 项假失败（`statLevel` / `statVocab` / `statMistakes` / 卡片数 / 课程文案 均为 `…` 或空），但**同一次运行里 8 个请求全部命中、无 JS 错误**；复跑 17/17。
+根因：脚本的 `waitFor()` **只等 `#statLessons` 非 loading 即返回**（`integration-check.js:100-103`），其余统计卡尚未回填就进入断言 → **时序相关假失败**。
+→ 是**验证脚本自身的缺陷**，非页面/接口回归（四个接口直连均正常：`progress=Level 2`、`vocabulary/stats.total=61`、`mistakes/stats={total:26,pending:20,passed:6}`、`lessons/all` 返第 7 课）。
+→ **建议**（待授权再动）：把 `waitFor` 条件改为「四张统计卡全部非 `…`」；属 `backend/scripts/` 自域，但会改变既有验证基线语义，**故先报不动**。
+
+**文档**：`backend/docs/05-api-reference.md` 已补 变更记录第五批 / 接口清单 28—29 / **§28·§29 详情** / **§5.1 写路径切换口径**。
+
+**未提交**：本轮改动（`backend/**` 5 文件 + 2 脚本 + `05-api-reference.md` + 记忆/状态文档）仍 uncommitted，等 git-manager 授权。
+
+---
+
 ## 附：常用验证命令（均在 `backend/` 下）
 
 ```bash
@@ -471,7 +522,7 @@ npm run teach:sync           # records/*.study-record.json → study_records + p
 npm run db:migrate-dedupe-key # study_records.dedupe_key 迁移（幂等，--dry-run / --rollback）
 npm run db:summary           # 生成 INDEX.md / digest.md（--check / --dry-run）
 npm run test:api             # 49 项
-npm run test:write           # 66 项
+npm run test:write           # 99 项（含 Step 2a 的 LW1—LW33）
 ```
 
 > `test:*` 与 `integration-check` / `verify-frontend-*` 需要后端服务在线；

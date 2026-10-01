@@ -82,8 +82,8 @@
 | skill | S1 | v2.6.0「答案必填、缺则该篇重写、不产 null」是否符合 §11.10 | ✅ **符合（逐字一致）** —— §11.10 原文：「题数 ≥2 且每题 `answer` 非空；不达标则重写该篇，不产 null」 |
 | skill | S2 | 写记录带 `next_recommendation` | 同 B1 |
 | skill | S3 | `lesson_exercises.error_type` 人工判定回填 | ✅ **41 题映射已出**（12 非 NULL）；第 7 课 7 行待 be-dev 重跑 |
-| skill | S4 | 33 处 `build_board` 残留（称 `ai-teacher.md` 6 处） | ⏳ 见 §3.3（我方 §12.1 已清，其余为历史记述/他方文档） |
-| git | G1 | `docs/plans/*.md` 旧数字 `mistakes=20` | ⏳ **未完成** —— `amy-teaching-plan.md:42` + `ai-teacher.md` 自身 6 处，见 §3.3 |
+| skill | S4 | 33 处 `build_board` 残留（称 `ai-teacher.md` 6 处） | ✅ **我方部分已清**（§12.1 + 本次全文件刷新，保留项仅 `course-template.md` 真实文件名等）；**余下在 `docs/skills.md` / `docs/plans/*.md` / `notes/` 历史记述等他方文档**，见 §3.3 |
+| git | G1 | `docs/plans/*.md` 旧数字 `mistakes=20` | 🟡 **半完成**：`docs/ai-teacher.md` 的 6 处旧数字**已随本次刷新清零**（实测 grep 仅剩正当的「第 6 课」历史陈述）；**`docs/plans/amy-teaching-plan.md:42` 仍未动**，见 §3.3 |
 | git | G2 | 8 个 in-flight 文件何时定稿 | ✅ 我方对 `docs/ai-teacher.md` 的修改**已完成**，未提交属 git 归档问题 |
 | git | G3 | `check_instance.py` 待提升为受控文件并入门禁 | ❌ 同 B6 |
 | fe | F1—F3 | 阅读裁定四条 / §11.10 / 新裁定写进 §11.x | ✅ 确认，我方无需动作 |
@@ -140,6 +140,16 @@
 
 > 提醒：`digest.md` 是 `db:summary` 的**派生文件** —— 跑完 `db:sync-mistakes` 后需**再跑 `db:summary`**，否则摘要里仍是旧的 `in office（缺限定词）`。
 
+**✅ 回执（2026-10-01，我方实测；be-dev 已完成 W4 / W5 / `teach:sync`）**：
+
+| 交办 | 我要求的预期 | 实测结果 |
+|---|---|---|
+| W4 `db:apply-error-types` | `error_type` 非空 **10 → 12**、`db:compare` 回 **15/0/0** | ✅ **一致**：非空 **12/41**（`grammar 6 / punctuation 3 / capitalization 2 / word_choice 1`）；`db:compare` **15/0/0** |
+| W5 `db:sync-mistakes` | 仅 `in office` **1 行**：`wrong_text` 去批注 + `error_reason` 补「（第 7 课补漏块第 3 题）」；随后跑 `db:summary` | ✅ **一致**：含括号 `wrong_text` = **0 行**；id 130 `error_reason` 已补；`digest.md:66` 已是新文本 |
+| `teach:sync`（附带产出） | `study_records` 落第 7 课三条 | ✅ `study_records` **21 行**；`/api/progress.lastClassDate` 刷新为 **2026-10-01**；G4 `lastIncomplete` 从 `null` → **有值** |
+| Step 2a | 可先实现 + 自测 | ✅ **已交付**：05 已同步为 **§28—29（第五批）**，含切换点与 `db:import` 零 DDL 守卫；`write-api-check.js` 新增 LW1—LW33。⚠️ **但 `GET /api` 索引里尚无这两条** → **运行中的实例仍是重启前进程**，故我按「**已交付、待重启实测**」记，不判「已生效」（见 A14） |
+| Step 2b | 先写清 R3 的 `wrong_count` 双源冲突 | ⏳ 未开工 |
+
 ---
 
 ## 二、进行中事项
@@ -165,6 +175,7 @@
 4. **Level 1 欠账**：祈使句与 Let's（未测，待补漏块）；介词 on/at（补漏块 ④，第 7 课已完成）
 5. **错词池 20 条未过关项**的复习排程（每课 3—5 题，按 §11.2 出题排序）
 6. 每课批改后同步产出 `records/lesson-NN.grading.json` + `lesson-NN.study-record.json`（第 7 课起执行）
+7. **🆕 补 `selfCheck`（前端记为 G-2）**：库内 `lesson_exercises.self_check` **41/41 全空**（我实测）。三层链路（表列 → 契约 → 接口）**已闭合**，缺的是**数据** —— 归档源从未带过自查项。**归属在教学侧**：每课在 `notes/` 与 `records/lesson-NN.grading.json` 的对应题上写 1—2 条自查项（取 §11.6 / `plan.selfChecks`，最多 2 条）；第 8 课起先做到「新产生的题不再为空」，是否回填第 1—7 课待负责人拍板（回填会动 41 行历史数据）
 
 ### 3.2 待我确认 / 待他人决定（Amy 不自行改库或改他人文档）
 
@@ -173,14 +184,18 @@
 | **三项计数口径是否统一**（`lessons.vocab_count` / `exercise_count` / `error_count`：第 1—6 课 seed 手工值 vs 第 7 课起子表行数） | **Amy 拍板 → 报负责人** | ⏳ **待拍板**（= be-dev T11）。**Amy 建议保持现状**：历史课一个数字不动（保住错误趋势 3→4→2→6→2→5→2 的连续性），第 7 课起严格按子表行数 |
 | **C9 阅读数据权威口径**（`read/*.md` 原文 vs 库内回填） | **be-dev / Amy** | ⏳ **待拍板**。**Amy 提议分阶段**：第 7 课起**库内为准**（与 `deploymentMode: backend` 一致）；第 1—6 课为回填，若不一致以 md 作历史记述、**不改库** |
 | 历史 `error_count` 是否按重算值回改（L1 5 vs 3、L5 1 vs 2、L6 6 vs 5） | ~~be-dev 决定~~ | ✅ **be-dev 已决：保留历史值**（`be-dev-status.md` §B7「已决保留」），口径切换点 = 第 7 课 |
+| **🆕 `self_check` 第 1—7 课是否回填**（库内 41/41 全空） | **负责人拍板** | ⏳ **待拍板**。**Amy 建议：不回填历史**（历史 md 里本就无自查项，硬补＝编造数据，违反「不虚构」原则）；**第 8 课起新数据必带**，缺口随之自然收窄 |
 | 开放型理解题是否需要 | **Amy 已裁定暂不需要** | 若引入须新增 `answerMode` 字段并升契约版本，不得复用 `answer: null` |
 | `docs/plans/*.md` 里 `mistakes=19/20` 等旧数字 | **Amy / Skill 设计师** | ⏳ **未完成**，见 §3.3 |
 
 ### 3.3 我方文档遗留（登记待办）
 
-- **`docs/ai-teacher.md` 有 6 处旧数字**未随第 7 课入库刷新：第 `75` / `155` / `180` / `686` / `787` / `801` 行（`6 课 → 7`、`51/52 词 → 61`、`11 篇 → 14`、`23 条错词 → 26`、`records 11 文件 → 14`）。属我方权威文档，**待排期统一刷新**（避免与并发编辑冲突，本轮未动）。
-- **`docs/plans/amy-teaching-plan.md:42`** 旧快照（vocabulary 51 / mistakes 20 / 19）—— 与 G1 同一事项，建议整批处理并加「历史快照 · 2026-09-30」注记。
-- **`docs/ai-teacher.md:801`** 的「Git 工程师」交接段仍写 `records/`（11 个文件），刷新时一并改。
+- ✅ **2026-10-01 已完成：`docs/ai-teacher.md` 一次性刷新（回应 be-dev 交办）**。实际范围**大于**点名的「23 行废弃命名 + 6 处旧数字」：
+  - **废弃命名**（`courses` / `course_sections` / `exercises` / `course_vocabulary` / `progress_feedback` / `user_progress` / `course_knowledge_points` → `lessons` / `lesson_sections` / `lesson_exercises` / `lesson_vocabulary` / `progress`）—— 覆盖 §5.2 字段映射表、§5.3 标题、§5.4、§6.1、§6.2 时序、§6.4、§9.1、§9.2 共约 20 处；收口 grep 后**仅剩正当保留项**：`currentCourseNo`（真实契约字段）/ `courseCatalog[]`（真实契约字段）/ `firstCourseNo`（快照字段）/ `courses.study_minutes`（标注为「废弃命名、该表不存在」的反例）/ `course-template.md`（真实文件名）。
+  - **旧数字**：课数 6→7、词条 51/52→61、阅读 11→14 篇、错词 23→26、`records` 11→14 文件、日期 → `2026-10-01`；并重写 §12.2 数据快照为库内实测。
+  - **顺带修掉 5 处「非数字类」陈旧表述**：§1.1 `backend/` 「无可运行代码」→ 可运行服务；§1.2 标题「数据库尚未启用」→ 双轨（补 `records/*.json` 行 + 库已启用说明）；§1.3 / §8.1 流程「重建看板」→ `db:summary`（`build_board.py` 已退役）；§12.2 补 `self_check` 41/41 全空缺口（**前端记为 G-2**，勿与死链 `F-L7` 混记）；§9.2 / §9.3 / §9.4 写接口状态。
+  - **状态修正（重要的方向性修正）**：§5.4 原写「需后端确认的 2 项」→ 实测**均已落地**（`section_type` 现 11 值）；G4 从「⏳ 需求」→ **数据已就位、待接口实测**。
+- **`docs/plans/amy-teaching-plan.md:42`** 旧快照（vocabulary 51 / mistakes 20 / 19）—— 与 G1 同一事项，建议整批处理并加「历史快照 · 2026-09-30」注记。**（未动）**
 
 ---
 
@@ -194,13 +209,16 @@
 | A2 | `lesson_exercises.error_type` 回填（第 1—6 课 34 题中 10 题） | ✅ 已完成（我实测确认） |
 | A3 | 读 `records/*.json` 回填 `is_correct` / `error_note` / `revised_answer`（**勿解析散文**） | ✅ **已完成**（be-dev §B6 实测：`is_correct` 34/34、`error_note` 10、`revised_answer` 6） |
 | A4 | 决定历史 `error_count` 是否回改 | ✅ **be-dev 已决：保留历史值**（3/4/2/6/2/5），口径切换点 = 第 7 课 |
-| A5 | G4 `lastIncomplete` 实现 | ✅ **代码链路已完成**（`cc73588`，快照新增 `incompleteStep`）；**只差数据** —— 我已写进 `records/lesson-07.study-record.json`，落库即生效（见 A8） |
-| A6 | **重跑 `db:apply-error-types`** | ✅ **已批准执行**（2026-10-01，见 §1.9 W4）；预期 `error_type` 非空 **10 → 12**、`db:compare` 回 **15/0/0** |
-| A7 | **重跑 `db:sync-mistakes`** | ✅ **已定口径：让库对齐 md**（见 §1.9 W5）；实测范围**只有 `in office` 1 行**（`wrong_text` 去批注 + `error_reason` 补「（第 7 课补漏块第 3 题）」）；**跑后须再跑 `db:summary`** |
-| A8 | **读 `lesson-07.study-record.json` 写 `study_records`**：`attend` / `grade` / `feedback` 三条；feedback 带 `lessonDate=2026-10-01` → **`/api/progress.lastClassDate` 自动刷新为 10-01**（当前仍是 09-29） | ⏳ 待办（写接口可用后执行） |
-| A9 | **重跑 `db:summary`**：错词本已 23 → **26**（新增 `getted` / `in office` / `on last Sundays`，出队 2 条） | ⏳ 建议执行 |
-| A10 | 服务 `:4000` 当前**未运行**（health 502 / 直连被拒） | ⚠️ 请按端口所有权约定由你启动后，我再交叉验证 `/api/mistakes/stats`、`/api/lessons/:id/exercises` |
+| A5 | G4 `lastIncomplete` 实现 | ✅ **已关闭（我 2026-10-01 实测）**：`GET /api/agent/snapshot` 返回 `lastIncomplete = {"lessonNo":7,"nextRecommendation":"第 8 课：常用不规则过去式…"}`，`lastRecommendation` 同值。※ 字段名是 **`lastIncomplete`**（此前记录的 `incompleteStep` 有误），载荷是我写入 `records/lesson-07.study-record.json` 的 `nextRecommendation` |
+| A6 | **重跑 `db:apply-error-types`** | ✅ **已执行（我实测确认）**：`lesson_exercises.error_type` 非空 **12/41**（`grammar 6 / punctuation 3 / capitalization 2 / word_choice 1`），`db:compare` **15/0/0** |
+| A7 | **重跑 `db:sync-mistakes`** | ✅ **已执行（我实测确认）**：全库 `wrong_text` 含括号批注 = **0 行**；`in office`（id 130）`wrong_text` 已去批注、`error_reason` 已补「（第 7 课补漏块第 3 题）」 |
+| A8 | **读 `lesson-07.study-record.json` 写 `study_records`** | ✅ **已执行（我实测确认）**：`study_records` **21 行**（`attend/grade/feedback` 各 7）；`/api/progress.lastClassDate` 已为 **2026-10-01**（不再是 09-29） |
+| A9 | **重跑 `db:summary`** | ✅ **已执行（我实测确认）**：`digest.md:65—67` 三条第 7 课错词已是清理后的新文本（`in office → in the office ／ in my office`） |
+| A10 | 服务 `:4000` | ✅ **当前在运行**（health 200 / `database: up`，由你方启动，**我未起也未停**）。**只读交叉验证已完成**：`/api/mistakes/stats` 26/20/6 与 md 逐字一致；`/api/agent/snapshot` 200；`/api/progress` `nextLessonNo=8`、`lastClassDate=2026-10-01`；`/api/lessons/47` 无 `studyMinutes` 键（G5 省略键式降级） |
 | A11 | **`check_instance.py` 归属**：实测**全仓不存在**（`.workbuddy/tmp/` 亦无，21 个文件逐一核对）→ 不是「待提升为受控文件」，而是**文件缺失**；Amy 判断**非教学侧产物** | ⏳ 待你与 skill-designer 定归属（见 §1.7 异议 1） |
+| A12 | **🆕 `backend/src/services/snapshot.service.js` 两处陈旧注释/文案**（仅文档性问题，不影响返回值）：① 第 104 行注释「库内暂无 payload 带 nextRecommendation，故当前恒为 null」—— **已不成立**（实测 `lastIncomplete` 有值）；② 第 120 行 `degradation.reason` 文案仍写「待 …教学侧写入 nextRecommendation 后自动补齐」，但该键已写入、降级实际只剩 `backlog` | ⏳ 建议顺手改注释与文案，避免下周复盘时误判 G4 未落地 |
+| A13 | **🆕 `self_check` 数据回填**（前端代号 **G-2**）：三层链路你方已闭合（`c735bbd` / `database.md` §六），库内 41 行值全空。**教学侧**（我）自第 8 课起在归档源带值；**历史 41 行是否回填待负责人拍板**。若拍板「不回填」，建议在 `05` 或 `database.md` 加一行为**已知数据缺口**，免得下次被当成接口 bug 重查 | ⏳ 等拍板后你决定是否落 `UPDATE` |
+| A14 | **🆕 Step 2a 交付后的「重启实测」信号**：我实测 `GET /api` 的接口索引**不含** `POST /api/lessons` / `PUT /api/lessons/:id` → 判定**当前 `:4000` 进程仍是重启前代码**。请在**你重启并跑完自测**后回传一句「已重启 + LW1—LW33 结果」，我再把 `ai-teacher.md` §9.2 从「待实测」改成已实测（**我不会去重启你的进程** —— 端口归属纪律） | ⏳ 等你回执 |
 
 ### 4.2 Skill 设计师（skill-designer）
 
@@ -225,7 +243,8 @@
 |---|---|
 | D1 | 待提交变更：`records/`（**14 个文件**，含 `lesson-07.study-record.json`）、`wrong-words.md`（26 条）、`notes/day-01-07.md`（第 7 课 + 答疑降级）、`read/2026-10-01-read.md`、`progress.md`、`digest.md` / `INDEX.md`（如已重生成）、`docs/ai-teacher.md`、**`docs/Work Alignment/status-amy.md`** |
 | D2 | 建议记入 `docs/changelog.md` 并打里程碑 tag（第 7 课入库 + `records/` 目录约定） |
-| D3 | ⚠️ `docs/Work Alignment/` 下 5 份角色状态文档已被负责人集中迁移，**是否入库请确认**；若入库，**`_TEMP-*` 类临时草稿不得提交** —— 本篇对应的 `_TEMP-Amy-配合事项核查.md` 已按要求删除 |
+| D3 | ⚠️ `docs/Work Alignment/` 下 5 份角色状态文档已被负责人集中迁移，**是否入库请确认**；若入库，**`_TEMP-*` 类临时草稿不得提交** —— 本篇对应的 `_TEMP-Amy-配合事项核查.md` 已按要求删除。**（✅ 已由你入库：`25fc26f`）** |
+| D4 | **🆕 我方最新未提交增量（等你归档）**：`docs/ai-teacher.md`（§1.1/§1.2/§1.3/§8.1/§9.1/§9.2/§9.3/§9.4/§11.2/§12.3 —— 写接口状态纠正 + 双轨口径刷新）、`docs/Work Alignment/status-amy.md`（§1.9 回执 + §3.3 结项 + §4.1 A5—A10 实测 + A12）。⚠️ 注意 `docs/ai-teacher.md` 的**前一半刷新已随 `2df2e02` 入库**，请勿把该提交内的内容视为「未提交」 |
 
 ---
 
