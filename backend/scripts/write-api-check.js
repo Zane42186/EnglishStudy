@@ -688,7 +688,7 @@ async function cleanup(studentId) {
       [testStudentId]
     );
     const probeLessons = [];
-    for (const offset of [10, 11]) {
+    for (const offset of [10, 11, 12]) {
       const no = Number(maxNo) + offset;
       const ins = await db.execute(
         `INSERT INTO lessons (student_id, lesson_no, lesson_date, level_code, summary, status)
@@ -697,8 +697,9 @@ async function cleanup(studentId) {
       );
       probeLessons.push({ no, id: ins.insertId });
     }
-    const probeNoA = probeLessons[0].no;   // 首次课（新建 MW_TOP 用）
+    const probeNoA = probeLessons[0].no;   // 首次课（新建 / 「更小课号」用）
     const probeNoB = probeLessons[1].no;   // 复发课（更大 → 应推进 last）
+    const probeNoC = probeLessons[2].no;   // 更大一课：用于「判对**不**刷」的隔离断言
     const lessonIdOfNo = (no) => (probeLessons.find((l) => l.no === no) || {}).id;
 
     const mwBase = await cntMistakes(); // 前置 2 条（probe m1 / m2）
@@ -866,6 +867,98 @@ async function cleanup(studentId) {
     eq(`MW20 顶层 lessonNo 作默认本次课号：first 停在第 ${probeNoA} 课、last 前进到第 ${probeNoB} 课`,
       row && [row.first_lesson_id, row.last_lesson_id],
       [lessonIdOfNo(probeNoA), lessonIdOfNo(probeNoB)]);
+
+    // ---------- MW21—MW24 §11.11 + A19：`review` **判错**也刷 `last_lesson_id` ----------
+    // 语义：仅 `result === 'wrong'`（复发）时刷；同样走 `max` 单调守卫（不回退）；
+    //       课号取请求的 `lessonNo`（与写入 `mistake_events.lesson_id` 同一次解析）。
+    const MW_REV = 'MW review refreshes last';
+    const mwRev = async () => dbMistake(MW_REV);
+
+    await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: MW_REV, correctText: 'MW review fixed', errorType: 'grammar', wrongCount: 1, courseNo: probeNoA },
+    ]));
+    let revRow = await mwRev();
+    eq('MW21 前置：新建行 first=last=首次课（A19 现场实证的起始形态）',
+      revRow && [revRow.first_lesson_id, revRow.last_lesson_id],
+      [lessonIdOfNo(probeNoA), lessonIdOfNo(probeNoA)]);
+
+    // MW22 判错 → last 前进到本次课号
+    await post(`/api/mistakes/${revRow.id}/review?studentId=${testStudentId}`,
+      { result: 'wrong', lessonNo: probeNoB, clientEventId: 'mw-rev-w1' });
+    revRow = await mwRev();
+    eq(`MW22 review 判错 → last 前进到第 ${probeNoB} 课（A19 缺口已修）`,
+      [revRow.first_lesson_id, revRow.last_lesson_id],
+      [lessonIdOfNo(probeNoA), lessonIdOfNo(probeNoB)]);
+
+    // MW23 判错但本次课号更小 → 单调守卫，不回退
+    await post(`/api/mistakes/${revRow.id}/review?studentId=${testStudentId}`,
+      { result: 'wrong', lessonNo: probeNoA, clientEventId: 'mw-rev-w2' });
+    revRow = await mwRev();
+    eq(`MW23 review 判错但课号更小 → last 不回退（仍 ${probeNoB}）`,
+      revRow.last_lesson_id, lessonIdOfNo(probeNoB));
+
+    // MW24 判**对**且本次课号**更大** → 仍不刷（隔离「只有复发才刷」这条规则）
+    await post(`/api/mistakes/${revRow.id}/review?studentId=${testStudentId}`,
+      { result: 'correct', lessonNo: probeNoC, clientEventId: 'mw-rev-c1' });
+    revRow = await mwRev();
+    eq(`MW24 review 判对（哪怕课号更大）→ last 不动，仍 ${probeNoB}`,
+      revRow.last_lesson_id, lessonIdOfNo(probeNoB));
+
+    // MW24b 幂等：同一 clientEventId 重放 → 不重复刷
+    await post(`/api/mistakes/${revRow.id}/review?studentId=${testStudentId}`,
+      { result: 'correct', lessonNo: probeNoC, clientEventId: 'mw-rev-c1' });
+    revRow = await mwRev();
+    eq('MW24b 同 clientEventId 重放 → 幂等，last 仍不变',
+      revRow.last_lesson_id, lessonIdOfNo(probeNoB));
+
+    // ---------- MW25—MW27 A20：`review` **未传 `lessonNo`** 时回退 `progress.current_lesson_no` ----------
+    // 真实调用面：全前端**唯一**调用方 `review/wrong.html:187` 只发 `{result, clientEventId}`。
+    // 故本组夹具**刻意不传 `lessonNo`**（与真实前端逐字一致）—— MW21—MW24b 每条都显式传了课号，
+    // 所以「测试全绿」盖不住真实链路上的死代码（A20：测试绿 ≠ 链路活）。
+    // 课号来源改为把 progress 指向目标课；`probeNo*`/`lessonIdOfNo` 全部来自库内现取，不写死。
+    const setProgressNo = (no) => db.execute(
+      'UPDATE progress SET current_lesson_no = ? WHERE student_id = ?', [no, testStudentId]);
+
+    // MW25 progress 指向 probeNoC（比现有 last 更大）→ 判错仍应推进 `last`（A19 在真实链路上复活）
+    await setProgressNo(probeNoC);
+    const rA20 = await post(`/api/mistakes/${revRow.id}/review?studentId=${testStudentId}`,
+      { result: 'wrong', clientEventId: 'mw-rev-n1' });   // ← 不传 lessonNo（真实前端形态）
+    revRow = await mwRev();
+    check(`MW25 未传 lessonNo → 回退 progress.current_lesson_no=${probeNoC}，last 前进且 first 冻结（A20）`,
+      rA20.status === 200 && revRow.last_lesson_id === lessonIdOfNo(probeNoC)
+        && revRow.first_lesson_id === lessonIdOfNo(probeNoA),
+      `status=${rA20.status} first=${revRow.first_lesson_id} last=${revRow.last_lesson_id} want=${lessonIdOfNo(probeNoC)}`);
+
+    // MW26 同源：事件流水 `lesson_id` 必须与 `last_lesson_id` 指向**同一课**（不再是 NULL）
+    const evA20 = (await db.query(
+      'SELECT lesson_id FROM mistake_events WHERE student_id = ? AND client_event_id = ?',
+      [testStudentId, 'mw-rev-n1']))[0];
+    eq('MW26 事件 lesson_id 与 last_lesson_id 同源（回退后不再留 NULL）',
+      [evA20 && evA20.lesson_id, !!(evA20 && evA20.lesson_id === revRow.last_lesson_id)],
+      [lessonIdOfNo(probeNoC), true]);
+
+    // MW26b 回退到的课号更小 → 单调守卫仍生效（回退 **不能** 绕过 `max` 守卫）
+    await setProgressNo(probeNoA);
+    await post(`/api/mistakes/${revRow.id}/review?studentId=${testStudentId}`,
+      { result: 'wrong', clientEventId: 'mw-rev-n2' });
+    revRow = await mwRev();
+    eq(`MW26b 回退课号更小 → last 不回退（仍 ${probeNoC}）`,
+      revRow.last_lesson_id, lessonIdOfNo(probeNoC));
+
+    // MW27 回退课号在 lessons 中不存在（≈「进度表跑在实际课号之前」的中间态）→
+    //      不报错、不刷 last、事件课号留空（维持「课号不可知」的既有行为）
+    const staleNo = probeNoC + 1000;
+    await setProgressNo(staleNo);
+    const rStale = await post(`/api/mistakes/${revRow.id}/review?studentId=${testStudentId}`,
+      { result: 'wrong', clientEventId: 'mw-rev-n3' });
+    revRow = await mwRev();
+    const evStale = (await db.query(
+      'SELECT lesson_id FROM mistake_events WHERE student_id = ? AND client_event_id = ?',
+      [testStudentId, 'mw-rev-n3']))[0];
+    check(`MW27 回退课号 ${staleNo} 无对应课 → 200、last 不变、事件课号留空（不报错、不静默乱刷）`,
+      rStale.status === 200 && revRow.last_lesson_id === lessonIdOfNo(probeNoC)
+        && !!evStale && evStale.lesson_id === null,
+      `status=${rStale.status} last=${revRow.last_lesson_id} evLesson=${evStale && evStale.lesson_id}`);
 
     // MW15 学生隔离：默认学生列表不含临时学生错词
     r = await get('/api/mistakes?size=500');
