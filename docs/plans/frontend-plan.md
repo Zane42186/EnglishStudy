@@ -664,3 +664,64 @@ team-lead 转述为「**不展示「是否有诊断」标记**」，而 Amy 原�
   - ⚠️ **我最初的判断有误，已更正**：起初用 `git diff --ignore-cr-at-eol` 看到 144/130、237/176、648/155、666/154 的大差异便判为「内容重写」—— 该法只忽略**行尾符**，对「重排缩进 / 拆行」照样报全文件差异。**格式噪声 vs 语义改动只能用剥空白指纹法判定**（此法在 `MEMORY.md` 已有记录，此次是我未先查口径就下判断）。详见 `docs/Work Alignment/前端工程师-工作状态.md` §8.3。
 - **D1 / D2 备注**：详见 `docs/Work Alignment/前端工程师-工作状态.md` §8.4。要点：**后端从未告知「这些静态页是残留垃圾」**；相反，`be-dev-status.md` §5.2 **P6** 与本节 **§10.2（team-lead 批准的 Q5 裁决）** 双双裁定「**保留 1—6 静态页**」。根因是**后端数据缺口 G-2**（`selfCheck` 落库被丢、`lesson_sections` 曾不全）→ 兜底链一直被渲染。**删除的正确前置是「补齐 G-2」，而非现在删。**
 - **第 7 课实测（复核负责人观察）**：`review/index.html` 课程卡 → `lessons/lesson.html?no=7`（API 驱动）→ 渲染 **10 个小节**、标题「第 7 课 · 2026-10-01」、**0 个 JS 错误** → **内容完整可看**；唯一缺陷是 `.missing` 自查块内的 `lesson-7.html` 死链。故 **D2 建议采纳 ②（去掉/条件化兜底链），不补 `lesson-7.html`**。
+
+### 11.10 第七轮：首页 UI 改版（负责人 6 条需求，2026-10-02，前端）
+
+**触发**：负责人两张截图 + 6 条布局需求；另确认两个口径：单课内容区显示**完整正文**、关键词搜索框**保留**。
+
+**实现**（全部在 `review/index.html` 页内 `<style>`/`<script>`，**不动共享层 board.css**，避免影响 reading 等页）：
+
+| 需求 | 实现 |
+|---|---|
+| ① 副标题一句话隐藏 | HTML 注释包裹（代码保留，恢复=取消注释） |
+| ② 标题左移 | 版心 `.wrap` 900 → **1200**（标题随版心左移） |
+| ③ 统计卡缩小左移 | `.board-main .stat`：`flex:0 0 auto; min-width:0; padding:8px 12px`，仍居标题下方 |
+| ④ 三跳转块右置纵向 | `.board-top` flex 两栏：左统计 / 右 `.entries-v`（column、132px；`span` 说明文字 `display:none`） |
+| ⑤ 两块隐藏 | 「为什么今天学这个」(#whyBlock)、「近 6 课错误趋势」(#trendBox) **HTML+JS 均整块注释保留**；恢复三步：取消 HTML 注释 → 取消 JS 里 `loadSnapshot`/`loadTrend` 注释 → `loadAll()` 放行两函数 |
+| ⑥ 课程改阅读板块同构 | `.lesson-layout`：左目录（`#q` 搜索 + `.ltoc-list`，按课号**倒序**、max-height 滚动）+ 右 `.lesson-stage`（单课**完整正文**：摘要/元信息/自查/8 小节/词汇表）+ 底部 `#lsPrev/#lsNext` + 键盘 ←→；**默认展示最新一课**；缺失小节只标注、**不再给 `lesson-N.html` 兜底链** |
+
+**🔴 真机发现的坑（截图才暴露）**：`.stage-body` 与共享层 `board.css:150` **撞名** —— 阅读板块的 `.stage-body` 是横向 flex（左箭头+正文+右箭头），首页正文被它命中 → 各小节横排溢出视口。修复 = 页内双类选择器 `.lesson-stage .stage-body { display: block; }` 覆盖（优先级 2 类 > 1 类）。**结构断言（DOM/display）抓不住这种布局污染 —— 视觉改动必须截图目视复核**。
+
+**验证**【实测；后端 4000 在线（非我起，全程只读）；静态 5500 由我起、跑完已停】：
+- `backend/scripts/verify-frontend-pages.js` **index 段断言同步新布局**：删「课程卡链接 `lesson.html?no=`」「F6 趋势图 6 柱」「lastRecommendation 联动」3 条（对应结构已隐藏/移除）；新增「统计卡 5 张」「右侧跳转栏 3 块+纵向+说明文字隐藏」「两块已隐藏（DOM 不存在）」「目录项数=课程总数」「默认最新一课（首项高亮）」「上一课/下一课按钮」6 条。套件 **47 → 49**，**49/49 通过**（EXIT=0、无 JS 运行时异常）。
+- 首屏截图目视复核：6 条需求全部呈现（`.workbuddy/tmp/index-after-top.png`）。
+
+**跨职责登记**：`backend/scripts/verify-frontend-pages.js` 的 **index 段**断言由 fe-dev 更新（该脚本验证的页面归 fe-dev 维护；words/wrong/lesson 段一行未动）。与 `verify-frontend-shared.js` 同类，**提交归属请 be-dev 一并裁定**（对应 be-dev-status Q5）。
+
+**🔴 负责人补充（2026-10-02 同日第二轮）：小节折叠功能保留，「跟以前一样」**
+初版把 `.sec` 做成了**平铺不折叠**（自作主张），负责人随即纠正：**「全部展开/隐藏功能不要去掉，跟以前一样」**。已改回与 `lesson.html` 完全同构：
+- 每个 `.sec` 内部 = `<details open?><summary><h4>小节名</h4></summary><div class="secbody">…</div></details>`，summary 带 ▸/▾ 指示符；
+- 默认展开规则照搬 `lesson.html`：桌面 = 语法/例句/作业/批改，移动端（≤720px）只展开批改；支持 `#sec-<type>` 深链；
+- 小节区顶部保留 `<button id="toggleAll">全部展开</button>`，点击 = 有关着的一律全开（文案变「全部折叠」）、再点全合（文案回「全部展开」）；切换课程时按钮随正文重建、重新绑定；
+- 验证：`verify-frontend-pages.js` 新增断言「点开→全开、再点→全合、文案切换」，套件 **49 → 50，50/50 通过**【实测】+ 截图目视复核（自查清单/复习/词汇折叠 ▸，今日语法/例句展开 ▾，按钮就位）。
+- **教训（同 §11.9.2）：渲染断言先对齐交互口径，不能拿自己的第一版实现当规格** —— 本轮「同构展示」我在折叠交互上自作主张丢了既有功能，被负责人一句纠正拉回；**改版前应先盘点旧交互清单，逐项声明「保留/移除」并给出理由**。
+
+#### 11.10.1 三轮补记（2026-10-02 同日）：全站顶部导航 + 折叠按钮文案同步 bug 修复
+
+**① Bug 修复（负责人报）：手动折叠单节后按钮文案与点击动作相反**
+- 根因：旧 `bindTools`（index 与 lesson.html 同病）只在**点击按钮时**更新文案，不监听小节自身的折叠/展开。
+- 修法（index + lesson.html 同款）：`sync()` 同时绑定每个 `details` 的 **`toggle` 事件**——全开→「全部折叠」、否则→「全部展开」；文案与点击动作永远一致（未采用「固定文案〈全部展开/折叠〉」的备选方案，因为好修）。
+- 🔴 **测试陷阱**：`details` 的 toggle 事件是**异步派发**的——断言里设 `open` 后同步读文案读到的是残留值，曾致 index 断言**假阳性**通过（残留值恰好等于期望）、lesson 断言假阴性失败。修正：设 `open` 后 `await sleep(0)` 再读。
+
+**② 全站顶部导航（负责人需求，替代原「右侧纵向跳转栏」与各页「← 返回看板」）**
+- 四块横向：**首页 / 阅读 / 词汇卡 / 错词本**（首页=index），排序即此；当前所在模块**蓝底高亮**（与左侧目录选中态同色：border `#185fa5` + bg `#eef4fb`）。
+- 样式进共享层 `board.css`（`.top-bar`/`.site-nav`），五页静态写入（无 JS 注入、无加载闪烁）：`index` / `reading` / `words` / `wrong` / `lessons/lesson`（lesson 归「首页」组）；各页「← 返回看板」删除。`lessons/lesson-1..6.html` 静态兜底页**未动**（D1 待拍板项，不扩面）。
+- index 原 `.entries-v` 右侧栏（HTML+CSS+媒体查询）移除。
+
+**验证**【实测】：`verify-frontend-pages.js` — 改「右侧跳转栏」断言为「顶部导航 4 块横向+当前页高亮+旧栏移除」；新增 words/wrong/lesson 三页导航高亮断言、index+lesson 手动折叠文案同步回归断言（含 toggle 异步等待）。套件 **50 → 55，55/55 通过**（EXIT=0）；首屏截图目视复核（导航四块右上、首页高亮、旧栏消失）。
+
+**跨职责**：本轮改动全部在 fe-dev 自有文件（`review/*.html`、`review/assets/board.css`、index/lesson 段断言），无新增跨职责文件。
+
+#### 11.10.2 四轮补记（2026-10-02 同日）：词汇卡字母索引移左栏 + sticky
+
+- **需求**：A–Z 字母索引从顶部横向移到**左侧、纵向排列**（同阅读板块左栏风格），且**跟随页面滚动**（sticky）——长列表滚到后面的字母组时索引仍可一键跳组。
+- **实现**（`words.html` 页内 `<style>`，不进共享层）：`.words-layout` flex 两栏 —— 左 `aside.words-side`（52px、`position: sticky; top: 12px`）内 `.idx-v` 纵向字母（白底圆角块，视觉同原 pill）；右 `section.words-main`（搜索框 `#q` + `#wordGroups`）。`#letterNav`/`#q`/`#wordGroups` 的 id 全部不变，**JS 零改动**；`≤720px` 移动端回退为顶部横向换行、取消 sticky。
+- **验证**【实测】：`verify-frontend-pages.js` 新增断言「索引在左栏、纵向、sticky、锚点数>0」，套件 **55 → 56，56/56 通过**（EXIT=0）；首屏截图目视复核（左栏 A–Y 纵向、搜索框与词汇组居右、导航高亮「词汇卡」）。
+- ⚠️ 踩坑（环境）：Git Bash 会把 `/words.html` 这类参数做 **MSYS 路径转换**（展开成脚本路径拼进 URL → invalid URL）；截图脚本传页路径时须加 `MSYS_NO_PATHCONV=1`。
+
+#### 11.10.3 五轮补记（2026-10-02 同日）：词汇卡左栏再调整（内容左移 / 搜索框上移 / 索引两列放大）
+
+- **需求三条**：① 除顶部导航外内容整体左移；② 搜索框移到左栏、位于字母索引上方；③ 字母索引**两列网格**（A B / C D / E F…）、每块放大约 1.5 倍。
+- **实现**（仍全在 `words.html` 页内 `<style>`）：① `.wrap{max-width:1200px}`（同首页模式）；② `#q` 移入 `aside.words-side` 顶部（placeholder 缩短为「搜索单词/释义/例句」）；③ `.idx-v` flex 纵列改 **grid `repeat(2,1fr)`**，字母块 `font 13→17px、padding 3→7px`（高约 26→40px ≈1.5 倍），左栏 52→104px；sticky 保留，≤720px 回退自适应横向。**id 全部不变、JS 零改动**。
+- **验证**【实测】：断言同步为「两列 grid + 块高 ≥38px + 搜索框在索引上方（`compareDocumentPosition`）+ sticky」→ 套件 **56/56 通过**（EXIT=0）+ 截图目视复核（A B / C D 两列、搜索框在索引上、内容左移、导航高亮不变）。
+- **微调（同日，负责人截图指正）**：右侧首个字母组标题「A 3 个」须与左栏搜索框**顶部对齐**——被共享层 `h2{margin:24px 0 8px}` 推下 24px；页内加 `.words-main #wordGroups > h2:first-child{margin-top:0}` 抵消（仅首组，后续组仍保留节奏）。断言「|h2.top − q.top| ≤ 4px」→ 套件 **56 → 57，57/57 通过**【实测】+ 截图复核。
