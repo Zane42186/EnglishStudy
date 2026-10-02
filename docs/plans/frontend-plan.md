@@ -725,3 +725,170 @@ team-lead 转述为「**不展示「是否有诊断」标记**」，而 Amy 原�
 - **实现**（仍全在 `words.html` 页内 `<style>`）：① `.wrap{max-width:1200px}`（同首页模式）；② `#q` 移入 `aside.words-side` 顶部（placeholder 缩短为「搜索单词/释义/例句」）；③ `.idx-v` flex 纵列改 **grid `repeat(2,1fr)`**，字母块 `font 13→17px、padding 3→7px`（高约 26→40px ≈1.5 倍），左栏 52→104px；sticky 保留，≤720px 回退自适应横向。**id 全部不变、JS 零改动**。
 - **验证**【实测】：断言同步为「两列 grid + 块高 ≥38px + 搜索框在索引上方（`compareDocumentPosition`）+ sticky」→ 套件 **56/56 通过**（EXIT=0）+ 截图目视复核（A B / C D 两列、搜索框在索引上、内容左移、导航高亮不变）。
 - **微调（同日，负责人截图指正）**：右侧首个字母组标题「A 3 个」须与左栏搜索框**顶部对齐**——被共享层 `h2{margin:24px 0 8px}` 推下 24px；页内加 `.words-main #wordGroups > h2:first-child{margin-top:0}` 抵消（仅首组，后续组仍保留节奏）。断言「|h2.top − q.top| ≤ 4px」→ 套件 **56 → 57，57/57 通过**【实测】+ 截图复核。
+
+## 十二、Vue 3 框架化启动（2026-10-02，负责人拍板，fe-dev 实施）
+
+**决策背景**：P5/Q2 的「⛔ 需负责人决策」由负责人行使——「现在可以进行前端框架化（Vue 3）的任务了」；此前「暂缓 Vue」（integration-plan D-2）**就此作废**。前置确认：F-A 已解决（`build_board.py` 退役）、A 阶段契约资产（api.js 包络封装 + 全页 API 驱动）已完成、后端已开 CORS（实测回显任意 Origin）→ dev 直连 4000 无需 proxy、`skills.md` B4 明确「前端迁 Vue 对 Skill 零改动」。
+
+**负责人 4 项拍板**：① 构建方式＝**Vue 3 + Vite**（PROJECT.md 推荐栈）；② 节奏＝**渐进式、先试点 1 页**；③ 目录＝**新目录并行**（`review/` 不动）；④ 配套＝授权 fe-dev 按项目实际裁定。
+
+**fe-dev 配套裁定**：本轮**只上 Vue + Vite**；**vue-router 第 2 个页面迁入时再引入**（单路由时代 Router 无价值）；**TS/Pinia/Axios 暂不上**（api.js 的 fetch 封装已被验证脚本依赖，替换需同步改测试；项目规模小、维持 JS 与既有共享层一致）。试点页＝**词汇卡 words**（最小 5.4KB、纯只读不碰学生数据、覆盖 computed/v-model/条件渲染核心能力）。
+
+**工程结构**（全部新增文件，`review/` 一行未动 → 回滚＝删目录）：
+```
+frontend/
+├── package.json        # vue ^3.5.43 / vite ^8.3.2 / @vitejs/plugin-vue ^6.0.9（npmmirror 实测最新，npm 10.9.7）
+├── .npmrc              # registry=npmmirror —— npmjs 官方源本机不可达（实测 000）
+├── vite.config.js      # dev 5173 strictPort；build→dist/；后端 CORS 已开故无需 proxy；VITE_API_BASE 可覆盖
+├── .gitignore          # node_modules/ dist/ —— 对应 git-plan.md G3 预告规则
+├── index.html          # Vite 入口壳
+└── src/
+    ├── main.js / App.vue / api.js（ESM 版，逻辑逐字移植）/ styles/board.css（原样复制）
+    ├── components/SiteNav.vue   # 顶部导航；未迁移项指向 VITE_LEGACY_BASE（默认 http://localhost:5500），每迁一页改一项
+    └── views/WordsView.vue      # 试点页（分组=computed、过滤=v-model+computed、翻卡=:class）
+└── scripts/verify-vue.cjs        # Vue 版等价性验证（期望值 Node 侧直连后端现取，不写死常数）
+```
+
+**关键移植决策**：`api.js` → ESM（包络/超时/全量分页逻辑一字未改，仅「挂 window」改 `export` + BASE 支持 env 覆盖）；**`ui.js` 不搬** —— `esc`/`wordCard` 拼接/`bindFilter` 的 DOM 隐藏分别由 Vue 模板自动转义、模板渲染、computed 过滤天然替代；`board.css` 原样复制作样式基线（words 页内布局样式放 `WordsView.vue` 的 `<style scoped>`）。
+
+**验证**【实测】：
+- `verify-vue.cjs` **10/10 通过**（卡片总数/分组数/索引数 = 接口现取值；两列网格+sticky+搜索框上置+首组对齐；导航高亮；翻卡；过滤；无 JS 异常）。期间库内词条 71→**80**（当日新课入库），脚本因数据驱动**仍然全绿** —— 「不写死常数」再次自证。
+- `vite build` 成功：`dist/` 69.45KB JS（gzip 27.70KB）+ 11.24KB CSS，**221ms**。
+- 首屏截图目视复核：与原生版视觉一致。
+
+**踩坑留档**：🔴 **Vue 的 DOM 更新是异步批量的（nextTick）** —— 断言在 `click()` 后必须 `await` 一拍再读 computed style，否则读到更新前的值（与 `details` toggle 异步同型，**第 2 次踩同型坑**，已录入 MEMORY）。
+
+**跨职责登记**：
+- **git-manager**：`frontend/.gitignore` 已建（node_modules/dist）；请复核**仓级 `.gitignore` 是否需补 `dist/` 规则**（G3）；提交时 `frontend/` 整目录新增、显式路径。
+  - ✅ **2026-10-02 复核更正（fe-dev 自查 + be-dev §6.18 双证）：G3 早已闭合，本条撤回** —— 根 `.gitignore` **第 32 行早有 `dist/`**（与 `build/` 同块），由 **`1aca69c`**「chore(git): .gitignore 补 9 项忽略缺口」引入、**已在 HEAD**；`git status --porcelain -- .gitignore` 为空；`git check-ignore -v frontend/dist/index.html` 命中 `frontend/.gitignore:3`。⇒ **无需 git-manager 动作**（属我方陈旧信息，非新缺口）。
+- **be-dev**：`backend/scripts/verify-frontend-pages.js` **一行未动**；Vue 版验证独立放 `frontend/scripts/`（fe-dev 自有域）。全量迁移完成后 review 版脚本与页面的退役方案**另行请裁**。
+- Skills / Amy：零影响（契约不变）。
+
+**下一步**：负责人验收试点页（`cd frontend && npm run dev` → http://localhost:5173）→ 认可后迁第 2 页（建议 reading 或 wrong）**同时引入 vue-router**，并逐步把 SiteNav 的 legacy 项切进路由。
+
+### 12.1 搜索体验补丁（2026-10-02 同日，负责人报「搜索有些 bug」）
+
+**现象**：负责人截图——词汇卡搜索 `yesterday` 出现 bought / cooked 等单词，「搜 yesterday 却出来别的词」。
+
+**诊断**【实测，`diag-search.cjs`】：**过滤逻辑无 bug**。匹配域＝`word + meaning + example`（既有口径），接口口径命中 6 条：bought / cooked / fine / played / went / yesterday——前 5 条均为**例句含 yesterday**（如 "I bought a book yesterday."）。真正的问题是**命中原因不可见**：命中的词在卡片折叠态，例句藏着看不见，用户只看到「不相干单词」。
+
+**修复两处（两版同步）**：
+1. **搜索态命中卡自动展开**：Vue 版 `WordsView.vue` 加 `hasKeyword` computed，卡片 `:class="{ show: !!opened[w.word] || hasKeyword }"`；原生版 `words.html` 新增 `bindSearchEnhance()`（`input` 监听：命中卡 `classList.toggle('show', …)`、**组计数随过滤实时更新**（`h.dataset.full` 缓存全量值）、空组整组隐藏 `h.classList.toggle('hide', …)`），在 `loadAll().then` 内绑定、`searchEnhanceBound` 防重复绑定。
+2. **组计数不随过滤更新**（原生版独有问题，Vue 版 computed 天然正确）：过滤态显示「命中 N 个」而非全量。
+
+**验证**【实测】：Vue 版 `verify-vue.cjs` 补「搜索态命中卡自动展开」断言 → **11/11 通过**；原生版套件 **57 → 60，60/60 通过**（新增 3 条：命中卡展开 / 组计数更新且空组隐藏 / 清空恢复）。截图 `vue-search-fixed.png` 目视复核：搜 yesterday → 命中卡全部展开、例句可见（bought → "I bought a book yesterday."）、组标题「B 1 个 / C 1 个…」、空组不显示。
+
+**⚠️ 遗留提醒**：修复上线前后两版都在跑（5500 原生 / 5173 Vue），负责人截图可能来自修复前版本；已请负责人确认所看端口。
+
+### 12.2 搜索口径裁定收紧：只按单词/释义匹配（2026-10-02 负责人拍板）
+
+- **裁定原文**：「只按单词/释义匹配」——例句不再参与搜索匹配（§12.1 曾请裁的口径问题就此闭环）。
+- **改动点（三处）**：
+  1. **共享层 `review/assets/ui.js` `wordCard`**：`data-text` 由 `[word, meaning, example]` 收紧为 `[word, meaning]`（⚠️ **共享层改动**——`bindFilter`（ui.js:301）与 words 页 `bindSearchEnhance` 同读 `data-text`，两套过滤口径自动一致；`wordCard` 仅 words.html 使用，其他页零影响；已登记请 git-manager/be-dev 知悉）；
+  2. **Vue 版 `WordsView.vue` `filteredGroups`**：同口径 `[w.word, w.meaning]`；
+  3. **两版搜索框 placeholder**：「搜索单词/释义/例句」→「搜索单词/释义」。
+- **口径实测**（接口 80 词条）：改后 `book` → 1 条（仅 book 本词）；`yesterday` → 1 条（bought/cooked 等「仅例句含该词」不再命中）。
+- **回归守卫**：两版验证脚本各新增断言「搜索 yesterday 只按单词/释义命中」——期望值用接口数据现算（`[word,meaning]` 域过滤）与 DOM 可见卡逐词比对，不写死。
+- **验证**【实测】：Vue **11 → 12，12/12 通过**；原生 **60 → 61，61/61 通过**（EXIT=0）。截图 `native-search-after.png`（5500）目视复核：搜 yesterday → 只剩「Y 1 个」组、yesterday 卡自动展开。
+- **踩坑留档**：🔴 Edit 工具替换注释首行时把 `/*` 写坏成 `/ *`（多空格）→ Vite 编译报「Unterminated regular expression」、页面整体白屏（curl 模块路径可见 Error overlay）。**改带块注释的源码后必须确认编译/无白屏再跑断言。**
+
+## 十三、Vue 全站迁移完成（2026-10-02，负责人拍板「全面迁移、不用逐步拍板」）
+
+**决策原文**：「现在全面迁移vue 不用让我拍板」「迁移完成后不要删除原生版 运行到4000端口 我确认后可选择删除原生版」。
+据此：① 迁移**一步到位**（5 页 + 路由），不再逐页请裁；② **原生版 `review/` 一行不动**（保留回滚与对照基线）；③ 后端 4000 被负责人关停导致两版前端均无数据 → fe-dev 已用 `node src/server.js` **代为拉起**（纯启动、零代码改动；负责人可随时接管/停掉）。
+
+### 13.1 迁移范围与结构
+
+| 路由 | 对应原生页 | 说明 |
+|---|---|---|
+| `/` | `review/index.html` | 首页课程区（统计卡 + 左目录 + 单课正文 + 上一课/下一课 + 键盘 ←→） |
+| `/reading/:date?` | `review/reading.html` | 阅读（一次一篇、三路翻页、F8、理解题作答存本机、§11.10 缺陷登记） |
+| `/words` | `review/words.html` | 词汇卡（原试点页，本日收编进路由） |
+| `/wrong` | `review/wrong.html` | 错词本（筛选 + 搜索 + P3 复习面板，提交走 POST review） |
+| `/lesson/:no?` | `review/lessons/lesson.html` | 单课详情（?open=all 与 `#sec-<type>` 深链；缺 no 给用法提示） |
+
+新增：`vue-router@4`；`src/router/index.js`、`src/views/{HomeView,ReadingView,WrongView,LessonView}.vue`、
+`src/components/{SiteNav,ApiErrorBar,LessonSections,LessonVocab,MistakeCard}.vue`、
+`src/utils/{markdown,labels,lessonSections}.js`、`src/stores/pageTitle.js`、`frontend/serve.cjs`（生产静态服务，SPA 回退）。
+
+**移植原则**：算法**逐字**（`renderMarkdown` 连同 while 兜底防死循环一并移植，2026-10-01 的死循环修复不丢）；交互口径**逐项对齐**原生页；DOM 的 **id/class 与原生保持同名**（`#stageTitle`/`#toggleAll`/`.ltoc-item`/`.mcard`…），使两版断言可逐条对照、等价性可证。
+
+### 13.2 fe-dev 自主裁定（依「不用拍板」授权，均已留档可复议）
+
+1. **Router = HTML5 history** + 自带 `serve.cjs`（SPA 回退静态服务）——普通 `python -m http.server` 无回退能力，直连深链会 404。
+2. **阅读深链改路径参数**：原生 `reading.html#<date>` → Vue `/reading/<date>`（能力等价：可刷新、可分享直达；F8 与三路翻页不变）。
+3. **目录/错词筛选用 `v-show`** 而非 v-for 删项——保留 DOM 总数与原生 `.hide` 语义一致（首版用 v-for 被断言抓出：目录项数 ≠ 课程总数，已改）。
+4. **`<h1>` 标题覆盖位**：`stores/pageTitle.js`——单课详情在 h1 显示「第 N 课 · 日期」（对齐原生 `#ltitle`），路由切换自动回落 meta.title。
+5. **折叠状态改响应式 `openMap` + `toggle` 事件**：行为等价（文案实时同步的 bug 修复不回退）；但 🔴 **Vue DOM 更新异步批量**，自动化断言点击后必须 `await` 一拍（第 3 次踩同型坑，已录 MEMORY）。
+6. **静态版全文入口改指 `VITE_LEGACY_BASE`**（默认 5500）：原生相对链接 `lesson-N.html` 在 Vue 端口下不成立。⚠️ **登记：原生版退役时该兜底入口须一并移除**（与 G-2 补齐联动）。
+
+### 13.3 验证【实测，2026-10-02】
+
+- `verify-vue.cjs` 从「仅 words 12 条」扩为**全站 64 条**（期望值全部 Node 侧直连 4000 现取，不写死常数）：
+  - **dev 5173：64/64 通过**（EXIT=0）；
+  - **生产构建 + serve.cjs（8080）：64/64 通过**（SPA 回退实测 200）；
+  - `vite build`：128.55KB JS（gzip 47.96KB）+ 15.57KB CSS；
+  - **原生版回归 `verify-frontend-pages.js` 61/61 通过**（`review/` 未受影响）；
+  - 5 页截图目视复核（布局污染类问题 DOM 断言抓不到，必须看图）。
+
+### 13.4 服务现状与访问入口
+
+| 端口 | 内容 | 归属 |
+|---|---|---|
+| 4000 | 后端 API（fe-dev 代起，`cd backend && node src/server.js`） | be-dev（代码）/ 负责人可接管 |
+| 5500 | 原生版（`review/`，`python -m http.server`） | fe-dev |
+| 5173 | Vue dev（`cd frontend && npm run dev`，热更新） | fe-dev |
+| 8080 | Vue 生产构建（`node frontend/serve.cjs 8080`） | fe-dev |
+
+**待负责人确认后**：可选择退役原生版（届时 SiteNav 无需改——已全走路由；需处理 13.2-6 的静态版入口与 `lesson-1..6.html` 遗留页 D1 裁定）。
+
+---
+
+## 十四、原生版退役（2026-10-02，负责人指令「再执行原生版退役方案」）
+
+**授权与口径**：负责人指令原文「再执行原生版退役方案」；在二选一询问中选定 **「硬退役 + 我代改那 3 个脚本」**——即 ① 物理删除 `review/`（不用软退役/保留跳转壳）；② **授权 fe-dev 跨角色代改 3 个后端验证脚本**（原脚本以 `review/` 为测试夹具，属 be-dev 职责域，本次经用户显式授权后由 fe-dev 完成等价迁移，**须由 be-dev/git-manager 知悉**）。
+
+### 14.1 前端解耦（先解耦、后删除，避免「删了才发现有引用」）
+
+| 项 | 处置 |
+|---|---|
+| `LessonSections.vue` | 移除 `staticLink` prop 与 `const LEGACY = import.meta.env.VITE_LEGACY_BASE \|\| 'http://localhost:5500'`；缺失小节不再给「查看静态版全文」入口，仅留中性「未入库」说明（待 G-2 补齐后自然消失） |
+| `HomeView.vue` / `LessonView.vue` | 去掉 `:static-link` 传参 |
+| `vite.config.js` / `SiteNav.vue` 注释 | 更新为「全站唯一前端」，删去「与 review/ 并行」「legacy 回退」表述 |
+| 复核 | `grep -rn "staticLink\|LEGACY\|VITE_LEGACY_BASE\|localhost:5500" frontend/src` → **仅剩注释中的来源说明**（无功能性依赖） |
+
+### 14.2 物理删除
+
+- 删除 14 个文件：`review/{index,reading,words,wrong}.html`、`review/assets/{api.js,ui.js,board.css}`、`review/lessons/{lesson,lesson-1..6}.html`（**D1 遗留页随之退役**）。
+- `git status --porcelain review` → **14 个 `D`**；回滚命令：`git restore review/`（全部为 git 跟踪文件）。
+- 空目录 `review/` 因本机环境权限（`rmdir`/PowerShell/safe-delete 均拒绝）未能抹除；`ls` 为空、不入 git、无实际影响。
+
+### 14.3 3 个后端脚本的等价迁移（**非假通过**）
+
+原脚本以 `review/` 静态站为夹具；迁移后等价对象 = Vue 工程。
+
+| 脚本 | 原对象 | 迁移后 | 结果【实测】 |
+|---|---|---|---|
+| `verify-frontend-pages.js` | `review/index.html` 等 61 条断言 | **入口别名**：`spawnSync` 转发 `frontend/scripts/verify-vue.cjs`，透传退出码（两版 DOM id/class 同名，64 条断言逐条可对照） | 5173 **64/64**、8080 **64/64** |
+| `verify-frontend-shared.js` | `review/assets/{api.js,ui.js}` | 改为验证 Vue 侧模块（dev 5173 注入 `/src/utils/markdown.js`、`/src/utils/labels.js`、`/src/api.js`）。api.js 9 条 + markdown 3 条（含 2026-10-01 死循环回归）+ esc/label 2 条**原样保留**；**新增**四态 + `.hide` 可见性实测 4 条；随 `ui.js` 退役的 8 条组件字符串断言**只打印对照说明、不伪装成通过** | **18/18** |
+| `integration-check.js` | jsdom 执行 `review/index.html` | **改 playwright 驱动 Vue 站**（Vue 是 Vite ESM，jsdom 不支持）：[A] 正常链路 12 条 / [B] 空数据 2 条 / [C] 请求失败 4 条 | **18/18** |
+
+> 🔴 **[C] 设计教训（本轮自查抓出）**：首版只拦 `/api/lessons/all` 喂失败包络 → 2 条失败。根因**不是产品缺陷**：`API.lessonIndex()` 对 `/all` 失败**内置「回退分页 `/lessons`」容错**，单点失败被静默兜住，横幅自然不出现。原 jsdom 版是让 fetch **全量 reject**——故修复为拦截 `**/api/**` 全量失败，恢复同一语义。**教训：写「失败态」断言前必须先读被测实现的容错/回退链，否则拦错端点会得到假阴性。**
+
+### 14.4 退役后复核【实测，2026-10-02】
+
+- `frontend/scripts/verify-vue.cjs`：dev 5173 **64/64**、dist 8080 **64/64**（重建后复跑仍 64/64）。
+- `vite build`：**EXIT=0**，`dist/assets/index-*.js` **128.37 kB**（gzip 47.89 kB）+ `index-*.css` 15.57 kB（退役时改过 `LessonSections.vue`/`vite.config.js`，故重建确认**无残留编译错误、无白屏**）。
+- 三脚本：`verify-frontend-pages`（5173/8080 各 64/64）、`verify-frontend-shared` 18/18、`integration-check` 18/18。
+- 无失效脚本：原 61 条页级断言已由 64 条全站断言完整覆盖，调用习惯（脚本路径）与「测试全绿」口径继续成立。
+
+### 14.5 服务现状（退役后）
+
+| 端口 | 内容 | 状态 |
+|---|---|---|
+| 4000 | 后端 API | **保留运行**（负责人要求；fe-dev 代起，代码属 be-dev） |
+| 5173 | Vue dev | 验证完成后 **跑完即停** |
+| 8080 | Vue 生产构建（`node frontend/serve.cjs 8080`） | 验证完成后 **跑完即停** |
+| 5500 | ~~原生版~~ | **已不存在**（`review/` 已删） |
+
+**访问入口（唯一）**：`5173`（开发/热更新）或 `8080`（生产构建）。目录穿越防护与 SPA 回退由 `frontend/serve.cjs` 提供。

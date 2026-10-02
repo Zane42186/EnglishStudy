@@ -1,23 +1,35 @@
-/* 真机验证：review/assets/{api.js,ui.js,board.css}（共享层）
+/* Vue 版共享层回归（2026-10-02 随原生版退役迁移）
  *
- * 前置条件（两个服务都必须活着，缺一则失败）：
+ * 原脚本验证 `review/assets/{api.js,ui.js,board.css}`；原生站退役后（frontend-plan §14），
+ * 等价对象变为 Vue 工程：`frontend/src/api.js`（api.js 逐字移植为 ESM）、
+ * `frontend/src/utils/markdown.js`（renderMarkdown 连同防死循环兜底逐字移植）、
+ * `frontend/src/utils/labels.js`、`frontend/src/components/ApiErrorBar.vue`（原 UI.error/clearError）。
+ *
+ * 迁移对照（**逐条**，不做假通过）：
+ *   · api.js 9 条（包络/getPage/getAll/404/400/网络中断/daysSince/lessonIndex）→ **原样保留**，改为模块级导入；
+ *   · renderMarkdown 2 条（表格/引用/列表 + 2026-10-01 死循环回归）→ **原样保留**；
+ *   · esc / label 2 条 → **原样保留**（均为 Vue 侧模块）；
+ *   · 四态与 `.hide`（F5 陷阱）→ 在 Vue 站上以「路由拦截喂失败包络」实测 ApiErrorBar；
+ *   · 组件字符串断言 8 条（stateHTML/streakBar/lessonCard/wordCard/mistakeCard×2/trendChart×2/sectionBlock）
+ *     → **随 ui.js 退役**：Vue 版由组件承担，等价覆盖在 `frontend/scripts/verify-vue.cjs`
+ *       （错词卡四项硬指标 + streak 条、词卡翻面、小节区块、导航等），此处仅打印对照说明，不伪装成通过。
+ *
+ * 前置：
  *   1) 后端：curl --noproxy '*' http://localhost:4000/api/health  → code=200
- *      未启动则：cd E:\English\backend && npm start
- *   2) 静态服务（根目录 review/，端口 5500）：
- *      cd E:\English\review && python -m http.server 5500
+ *   2) **Vue dev server（5173）**：本脚本按源码模块导入（`/src/...`），故必须用 dev；
+ *      `cd E:\English\frontend && npm run dev`
  *
- * 运行（依赖装在受管工作区，必须带 NODE_PATH）：
+ * 运行（需 NODE_PATH）：
  *   NODE_PATH="C:\Users\lenovo\.workbuddy\binaries\node\workspace\node_modules" \
- *     node E:/English/backend/scripts/verify-frontend-shared.js
+ *     node backend/scripts/verify-frontend-shared.js [BASE]      # BASE 默认 http://localhost:5173
  *
- * 覆盖：包络解析 / getPage / getAll 全量 / 404·400·网络中断三条错误分支 /
- *       lessonIndex(含 grammarPoint) / daysSince / 四态切换 / 渲染函数 /
- *       过滤 / **`.hide` 一律用 getComputedStyle(el).display 判定，不做 class 断言**。
  * 退出码：0 = 全通过，1 = 有失败（各条已打印实测值），2 = 脚本自身异常。
  */
+'use strict';
+
 const { chromium } = require('playwright-core');
 
-const SITE = 'http://localhost:5500';
+const SITE = process.env.BASE || process.argv[2] || 'http://localhost:5173';
 const results = [];
 function ok(name, cond, detail) {
   results.push({ name, pass: !!cond, detail: detail == null ? '' : String(detail) });
@@ -26,54 +38,63 @@ function ok(name, cond, detail) {
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
   const page = await browser.newPage();
-  const jsErrors = [];       // 真正的 JS 运行时异常（pageerror）
-  const resErrors = [];      // 资源加载失败（含负向测试刻意触发的 404/400，仅记录不判失败）
-  page.on('console', m => { if (m.type() === 'error') resErrors.push(m.text()); });
+  const jsErrors = [];
   page.on('pageerror', e => jsErrors.push(e.message));
 
-  // 用一个同源页面拿到 origin，再注入共享层（相对路径/CORS 都真实）
-  await page.goto(SITE + '/index.html', { waitUntil: 'domcontentloaded' });
-  await page.addScriptTag({ url: SITE + '/assets/api.js' });
-  await page.addScriptTag({ url: SITE + '/assets/ui.js' });
-  await page.waitForFunction(() => window.API && window.UI, null, { timeout: 5000 });
+  /* 打开任意 Vue 页面（同源），再把源码模块暴露到 window（dev server 提供 /src/ 模块） */
+  await page.goto(SITE + '/words', { waitUntil: 'networkidle' });
+  await page.addScriptTag({
+    type: 'module',
+    content:
+      "import { renderMarkdown, esc } from '/src/utils/markdown.js';\n" +
+      "import { label } from '/src/utils/labels.js';\n" +
+      "import { API } from '/src/api.js';\n" +
+      'window.__shared = { renderMarkdown, esc, label, API };\n' +
+      'window.__sharedReady = true;\n'
+  });
+  await page.waitForFunction(() => window.__sharedReady === true, null, { timeout: 10000 });
 
   // ---------- api.js：正常包络 ----------
   const health = await page.evaluate(async () => {
-    try { const d = await API.get('/health'); return { ok: true, d }; }
+    try { const d = await window.__shared.API.get('/health'); return { ok: true, d }; }
     catch (e) { return { ok: false, code: e.code, msg: e.message }; }
   });
   ok('api.js: /health resolves 且只吐 data（data.service 存在，无 code 包裹）',
     health.ok && health.d && health.d.service === 'english-learning-backend' && health.d.code === undefined,
     JSON.stringify(health).slice(0, 160));
 
-  // 2026-10-01：口径不再写死常数（第 7 课入库后 51→61），改为「接口自身一致 + 与全量去重比对」：
-  // ① stats.total === getAll 去重后的词条数；② getAll 不静默截断（len === total）。
+  // 口径不写死常数：① stats.total === getAll 去重后的词条数；② getAll 不静默截断。
   const vocab = await page.evaluate(async () => {
+    const API = window.__shared.API;
     const vs = await API.get('/vocabulary/stats');
     const all = await API.getAll('/vocabulary', { size: 20 });
-    return { total: vs.total, letters: Object.keys(vs.byLetter || {}).length, len: all.list.length, apiTotal: all.total,
-      distinct: new Set(all.list.map(v => v.word)).size };
+    return {
+      total: vs.total, letters: Object.keys(vs.byLetter || {}).length, len: all.list.length, apiTotal: all.total,
+      distinct: new Set(all.list.map(v => v.word)).size
+    };
   });
   ok('api.js: /vocabulary/stats.total === getAll 去重词条数（口径：按 word 去重）',
     Number.isInteger(vocab.total) && vocab.total > 0 && vocab.total === vocab.distinct,
     JSON.stringify(vocab));
 
   // ---------- api.js：分页 ----------
-  const pg = await page.evaluate(() => API.getPage('/vocabulary', 1, 3));
+  const pg = await page.evaluate(() => window.__shared.API.getPage('/vocabulary', 1, 3));
   ok('api.js: getPage 返回 {list,total,page,size}',
     pg && Array.isArray(pg.list) && pg.list.length === 3 && pg.total === vocab.total && pg.page === 1 && pg.size === 3,
-    JSON.stringify({ len: pg && pg.list && pg.list.length, total: pg && pg.total, page: pg && pg.page, size: pg && pg.size,
-      expectTotal: vocab.total }));
+    JSON.stringify({
+      len: pg && pg.list && pg.list.length, total: pg && pg.total, page: pg && pg.page, size: pg && pg.size,
+      expectTotal: vocab.total
+    }));
 
   // ---------- api.js：getAll 循环取全量（规避 size 上限静默截断） ----------
-  const all = await page.evaluate(() => API.getAll('/vocabulary', { size: 20 }));
+  const all = await page.evaluate(() => window.__shared.API.getAll('/vocabulary', { size: 20 }));
   ok('api.js: getAll 循环取全量（无静默截断）',
     all && all.list.length === vocab.total && all.total === vocab.total,
     'len=' + (all && all.list.length) + ' total=' + (all && all.total) + ' expect=' + vocab.total);
 
   // ---------- api.js：业务错误分支（404） ----------
   const e404 = await page.evaluate(async () => {
-    try { await API.get('/lessons/99999'); return { threw: false }; }
+    try { await window.__shared.API.get('/lessons/99999'); return { threw: false }; }
     catch (e) { return { threw: true, name: e.name, code: e.code, msg: e.message, data: e.data }; }
   });
   ok('api.js: 404 抛 ApiError（code=404，name=ApiError，data=null）',
@@ -82,7 +103,7 @@ function ok(name, cond, detail) {
 
   // ---------- api.js：400 参数校验分支（字段明细拼进 message） ----------
   const e400 = await page.evaluate(async () => {
-    try { await API.get('/lessons/abc'); return { threw: false }; }
+    try { await window.__shared.API.get('/lessons/abc'); return { threw: false }; }
     catch (e) { return { threw: true, code: e.code, msg: e.message, isArr: Array.isArray(e.data) }; }
   });
   ok('api.js: 400 抛 ApiError 且把 data 字段明细拼进 message',
@@ -92,7 +113,7 @@ function ok(name, cond, detail) {
   // ---------- api.js：网络失败分支（code=0） ----------
   await page.route('**/api/progress', route => route.abort('failed'));
   const eNet = await page.evaluate(async () => {
-    try { await API.get('/progress'); return { threw: false }; }
+    try { await window.__shared.API.get('/progress'); return { threw: false }; }
     catch (e) { return { threw: true, code: e.code, msg: e.message }; }
   });
   await page.unroute('**/api/progress');
@@ -100,151 +121,115 @@ function ok(name, cond, detail) {
     eNet.threw && eNet.code === 0, JSON.stringify(eNet));
 
   // ---------- api.js：daysSince ----------
-  const ds = await page.evaluate(() => API.daysSince('2026-09-29'));
+  const ds = await page.evaluate(() => window.__shared.API.daysSince('2026-09-29'));
   ok('api.js: daysSince 返回整数天数（相对当天）', Number.isInteger(ds), 'daysSince=' + ds);
 
   // ---------- api.js：lessonIndex（优先 /lessons/all，含 grammarPoint） ----------
-  const li = await page.evaluate(() => API.lessonIndex().then(d => ({
+  const li = await page.evaluate(() => window.__shared.API.lessonIndex().then(d => ({
     n: d.list.length, total: d.total, hasGP: d.list.every(x => 'grammarPoint' in x),
     map: d.list.map(x => x.lessonNo + ':' + x.id).join(',')
   })));
-  // 课数不写死：只要求「全量（n === total）」且「含 grammarPoint 键」；
-  // 另查 /lessons 分页 total 做交叉校验，避免 /lessons/all 与分页口径不一致。
-  const lt = await page.evaluate(() => API.getPage('/lessons', 1, 1).then(d => d.total));
+  // 课数不写死：只要求「全量（n === total）」且「含 grammarPoint 键」；另查 /lessons 分页 total 交叉校验。
+  const lt = await page.evaluate(() => window.__shared.API.getPage('/lessons', 1, 1).then(d => d.total));
   ok('api.js: lessonIndex 返回全量课程且含 grammarPoint（用于 lessonNo↔id 映射）',
     li.n === li.total && li.n === lt && li.hasGP && li.n > 0,
     JSON.stringify(li) + ' lessonsTotal=' + lt);
 
-  // ---------- ui.js：纯函数渲染 ----------
-  const ui = await page.evaluate(() => {
+  // ---------- 纯函数：esc / label / renderMarkdown ----------
+  const pure = await page.evaluate(() => {
+    const S = window.__shared;
     const out = {};
-    out.esc = UI.esc('<a href="x">&"\'');
-    out.state = UI.stateHTML('empty', '暂无XX');
-    out.streak1 = UI.streakBar(1, false);
-    out.streak2 = UI.streakBar(2, true);
-    out.lesson = UI.lessonCard({ lessonNo: 6, lessonDate: '2026-09-29', summary: 's', grammarPoint: 'g', vocabCount: 10, exerciseCount: 9, errorCount: 5 });
-    out.word = UI.wordCard({ word: 'like', phonetic: '/laɪk/', meaning: '喜欢', example: 'I like music.', firstLessonNo: 1 });
-    out.mistake = UI.mistakeCard({ wrongText: 'Tom play soccer', correctText: 'Tom plays soccer', errorType: 'grammar', errorReason: '三单', streak: 1, wrongCount: 3, status: 'pending', priority: 'high', firstLessonNo: 2 });
-    out.mistakeDiag = UI.mistakeCard({ wrongText: 'a', correctText: 'b', errorType: 'other', errorReason: 'r', streak: 0, wrongCount: 1, status: 'passed', priority: 'low', firstLessonNo: null });
-    out.trend = UI.trendChart([{ lessonNo: 1, lessonDate: '2026-09-26', errorCount: 3 }, { lessonNo: 4, lessonDate: '2026-09-27', errorCount: 6 }]);
-    out.trendEmpty = UI.trendChart([]);
-    out.mdTable = UI.renderMarkdown('| a | b |\n|---|---|\n| 1 | 2 |');
-    out.mdQuote = UI.renderMarkdown('> 中文对照');
-    out.mdList = UI.renderMarkdown('- 一\n- 二');
-    // 2026-10-01 回归（d868401）：以 -/* 开头但后面不是空格的行（`---` 分隔线、`**加粗**`）
-    // 曾命中段落分支却被旧终止条件 /^\s*(\||>|-|\*)/ 挡下 → i 不前进 → 死循环
-    // （RangeError: Invalid array length，课程详情页 1—7 课整页崩）。以下三例即当时的触发输入。
-    out.mdDash = UI.renderMarkdown('正文一\n---\n正文二');
-    out.mdBold = UI.renderMarkdown('**加粗**开头');
-    out.mdHyphen = UI.renderMarkdown('-没有空格');
-    out.mdMixed = UI.renderMarkdown('段落\n---\n**粗体**\n- 列表项');
-    out.sec = UI.sectionBlock({ sectionType: 'grammar', content: 'hi' });
-    out.label = UI.label('priority', 'high') + '/' + UI.label('errorType', 'word_choice') + '/' + UI.label('status', 'passed');
+    out.esc = S.esc('<a href="x">&"\'');
+    out.label = S.label('priority', 'high') + '/' + S.label('errorType', 'word_choice') + '/' + S.label('status', 'passed');
+    out.mdTable = S.renderMarkdown('| a | b |\n|---|---|\n| 1 | 2 |');
+    out.mdQuote = S.renderMarkdown('> 中文对照');
+    out.mdList = S.renderMarkdown('- 一\n- 二');
+    // 2026-10-01 回归：以 -/* 开头但后面不是空格的行（`---` 分隔线、`**加粗**`）曾命中段落分支
+    // 却被旧终止条件挡下 → i 不前进 → 死循环（RangeError: Invalid array length，课程页整页崩）。
+    out.mdDash = S.renderMarkdown('正文一\n---\n正文二');
+    out.mdBold = S.renderMarkdown('**加粗**开头');
+    out.mdHyphen = S.renderMarkdown('-没有空格');
+    out.mdMixed = S.renderMarkdown('段落\n---\n**粗体**\n- 列表项');
     return out;
   });
-  ok('ui.js: esc 转义 &<>"\'', ui.esc === '&lt;a href=&quot;x&quot;&gt;&amp;&quot;&#39;', ui.esc);
-  ok('ui.js: stateHTML 生成 .state 占位', /class="state"/.test(ui.state), ui.state);
-  ok('ui.js: streakBar(1) 显示 1/2 且宽度 50%', /连续答对 1 \/ 2/.test(ui.streak1) && /width:50%/.test(ui.streak1), ui.streak1);
-  ok('ui.js: streakBar(2,passed) 显示「已过关」且满格', /已过关/.test(ui.streak2) && /width:100%/.test(ui.streak2) && /full/.test(ui.streak2), ui.streak2);
-  ok('ui.js: lessonCard 标题/href 参数化正确', /第 6 课/.test(ui.lesson) && /lessons\/lesson\.html\?no=6/.test(ui.lesson), ui.lesson.slice(0, 120));
-  ok('ui.js: wordCard 含词/音标/释义/来源课', /like/.test(ui.word) && /\/laɪk\//.test(ui.word) && /第 1 课首次出现/.test(ui.word), ui.word);
-  ok('ui.js: mistakeCard 含四项硬指标（wrongCount/priority/errorType/来源课）+ streak 条',
-    /第 3 次犯/.test(ui.mistake) && /高优先/.test(ui.mistake) && /语法/.test(ui.mistake) && /来源 第 2 课/.test(ui.mistake) && /class="streak"/.test(ui.mistake),
-    ui.mistake.slice(0, 240));
-  ok('ui.js: mistakeCard 来源为 null 时显示「诊断」（Amy §B.3.1 L619）、passed 带 passed-item',
-    /来源 诊断/.test(ui.mistakeDiag) && /passed-item/.test(ui.mistakeDiag),
-    ui.mistakeDiag.slice(0, 120));
-  ok('ui.js: trendChart 含目标带 2—4 与柱', /目标带 2—4/.test(ui.trend) && /trend-col/.test(ui.trend) && /bar over/.test(ui.trend), ui.trend.slice(0, 200));
-  ok('ui.js: trendChart 空数据走 Empty 态', /state/.test(ui.trendEmpty) && /暂无/.test(ui.trendEmpty), ui.trendEmpty);
-  ok('ui.js: renderMarkdown 支持表格/引用/列表',
-    /<table>/.test(ui.mdTable) && /<blockquote>/.test(ui.mdQuote) && /<ul><li>/.test(ui.mdList),
-    [ui.mdTable.slice(0, 30), ui.mdQuote.slice(0, 30), ui.mdList.slice(0, 30)].join(' | '));
+  ok('markdown.js: esc 转义 &<>"\'', pure.esc === '&lt;a href=&quot;x&quot;&gt;&amp;&quot;&#39;', pure.esc);
+  ok('labels.js: label 枚举中文化', pure.label === '高优先/用词/已过关', pure.label);
+  ok('markdown.js: renderMarkdown 支持表格/引用/列表',
+    /<table>/.test(pure.mdTable) && /<blockquote>/.test(pure.mdQuote) && /<ul><li>/.test(pure.mdList),
+    [pure.mdTable.slice(0, 30), pure.mdQuote.slice(0, 30), pure.mdList.slice(0, 30)].join(' | '));
   // 回归断言：只要这条跑得到，就说明 renderMarkdown 没有死循环（死循环会抛 RangeError 让本套件整体失败）
-  ok('ui.js: renderMarkdown 对 `---` / `**粗体**` / `-无空格` 不死循环且不漏内容（2026-10-01 回归）',
-    /正文一/.test(ui.mdDash) && /正文二/.test(ui.mdDash) && /---/.test(ui.mdDash)
-    && /\*\*加粗\*\*开头/.test(ui.mdBold) && !/undefined/.test(ui.mdBold)
-    && /-没有空格/.test(ui.mdHyphen) && !/undefined/.test(ui.mdHyphen)
-    && /段落/.test(ui.mdMixed) && /<ul><li>列表项<\/li><\/ul>/.test(ui.mdMixed),
-    ['dash=' + ui.mdDash.slice(0, 60), 'bold=' + ui.mdBold.slice(0, 40), 'hyph=' + ui.mdHyphen.slice(0, 40), 'mixed=' + ui.mdMixed.slice(0, 80)].join(' | '));
-  ok('ui.js: sectionBlock 用中文标签 + data-type', /今日语法/.test(ui.sec) && /data-type="grammar"/.test(ui.sec), ui.sec.slice(0, 120));
-  ok('ui.js: label 枚举中文化', ui.label === '高优先/用词/已过关', ui.label);
+  ok('markdown.js: renderMarkdown 对 `---` / `**粗体**` / `-无空格` 不死循环且不漏内容（2026-10-01 回归）',
+    /正文一/.test(pure.mdDash) && /正文二/.test(pure.mdDash) && /---/.test(pure.mdDash)
+    && /\*\*加粗\*\*开头/.test(pure.mdBold) && !/undefined/.test(pure.mdBold)
+    && /-没有空格/.test(pure.mdHyphen) && !/undefined/.test(pure.mdHyphen)
+    && /段落/.test(pure.mdMixed) && /<ul><li>列表项<\/li><\/ul>/.test(pure.mdMixed),
+    ['dash=' + pure.mdDash.slice(0, 60), 'bold=' + pure.mdBold.slice(0, 40),
+      'hyph=' + pure.mdHyphen.slice(0, 40), 'mixed=' + pure.mdMixed.slice(0, 80)].join(' | '));
 
-  // ---------- 四态切换 + .hide 可见性（getComputedStyle） ----------
-  const disp = await page.evaluate(async () => {
-    const r = {};
-    // 造一个沙箱
-    const box = document.createElement('div');
-    box.innerHTML = '<div id="apiError" class="api-error"><span id="apiErrorMsg"></span></div>'
-      + '<div id="apiRetry" class="btn" style="display:inline-block"></div>'
-      + '<div id="zone"><p class="state loading">正在加载…</p></div>'
-      + '<div class="wcard" id="wc1"></div><div class="wcard" id="wc2"></div>'
-      + '<div class="mcard hide" id="mc1"></div><div class="tag hide" id="tg1"></div>'
-      + '<input id="q"><div id="list"></div>';
-    document.body.appendChild(box);
+  ok('无 JS 运行时异常（dev 页 pageerror 为空）', jsErrors.length === 0, jsErrors.join(' ; '));
+  await page.close();
 
-    const cs = n => getComputedStyle(n).display;
+  // ---------- 四态 + .hide 可见性（getComputedStyle，对应原 UI.error/clearError） ----------
+  {
+    const p = await browser.newPage();
+    // 局部失败：喂一个业务失败包络（code 500）给「错词统计」→ 错误横幅应可见
+    await p.route('**/api/mistakes/stats', route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ code: 500, message: '模拟失败', data: null })
+    }));
+    await p.goto(SITE + '/wrong', { waitUntil: 'domcontentloaded' });
+    await p.waitForSelector('#apiError', { timeout: 10000 });
+    await p.waitForFunction(
+      () => getComputedStyle(document.getElementById('apiError')).display !== 'none',
+      null, { timeout: 10000 }
+    ).catch(() => { });
+    const shown = await p.evaluate(() => ({
+      display: getComputedStyle(document.getElementById('apiError')).display,
+      text: (document.getElementById('apiErrorMsg') || {}).textContent,
+      hasRetry: !!document.getElementById('apiRetry')
+    }));
+    ok('四态: 局部失败让错误横幅可见（display != none）且文案含「加载失败」',
+      shown.display !== 'none' && /加载失败/.test(shown.text || ''), JSON.stringify(shown));
+    ok('四态: 横幅带「重试」按钮', shown.hasRetry, 'hasRetry=' + shown.hasRetry);
+    await p.close();
 
-    // Loading 态
-    UI.setLoading('zone', '正在加载课程…');
-    r.loading = /loading/.test(document.getElementById('zone').innerHTML) && /正在加载课程/.test(document.getElementById('zone').innerHTML);
-
-    // Error 态：.api-error 本身 display:flex，.api-error.hide 必须压过它
-    document.getElementById('apiError').classList.add('hide');
-    r.errHidden = cs(document.getElementById('apiError'));       // 期望 none
-    UI.error('课程列表加载失败');
-    r.errShown = cs(document.getElementById('apiError'));        // 期望 flex
-    r.errText = document.getElementById('apiErrorMsg').textContent;
-    UI.clearError();
-    r.errCleared = cs(document.getElementById('apiError'));      // 期望 none
-
-    // 各类 .hide 的 computed display
-    r.mcardHide = cs(document.getElementById('mc1'));            // none（.mcard 默认 block）
-    r.tagHide = cs(document.getElementById('tg1'));              // none（.tag 默认 inline-block）
-
-    // 正常态渲染
-    document.getElementById('list').innerHTML = UI.mistakeCard({ wrongText: 'x', correctText: 'y', errorType: 'grammar', errorReason: 'r', streak: 1, wrongCount: 2, status: 'pending', priority: 'high', firstLessonNo: 1 });
-    r.rendered = document.querySelectorAll('#list .mcard').length;
-
-    // bindFilter：输入即过滤，隐藏项 computed display 必须 none
-    document.getElementById('list').innerHTML = UI.wordCard({ word: 'like' }) + UI.wordCard({ word: 'book' });
-    const apply = UI.bindFilter('q', 'list', '.wcard', '没有匹配的词汇，换个关键词试试');
-    document.getElementById('q').value = 'book';
-    const res = apply();
-    const cards = document.querySelectorAll('#list .wcard');
-    r.filterVisible = res.visible;
-    r.filterHiddenDisplay = cs(cards[0]);   // like -> none
-    r.filterShownDisplay = cs(cards[1]);    // book -> grid/block
-    // 无命中 -> 出现提示
-    document.getElementById('q').value = 'zzz';
-    apply();
-    r.filterEmptyTip = !!document.querySelector('#list .filter-empty') && cs(document.querySelector('#list .filter-empty')) !== 'none';
-
-    return r;
-  });
-  ok('四态: setLoading 写入 loading 态', disp.loading, JSON.stringify(disp).slice(0, 80));
-  ok('四态: .api-error.hide 的 getComputedStyle().display === none（F5 陷阱不复现）', disp.errHidden === 'none', 'display=' + disp.errHidden);
-  ok('四态: UI.error() 让横幅可见（display=flex）且文案正确', disp.errShown === 'flex' && /加载失败/.test(disp.errText), 'display=' + disp.errShown + ' text=' + disp.errText);
-  ok('四态: UI.clearError() 重新隐藏横幅', disp.errCleared === 'none', 'display=' + disp.errCleared);
-  ok('可见性: .mcard.hide computed display === none', disp.mcardHide === 'none', 'display=' + disp.mcardHide);
-  ok('可见性: .tag.hide computed display === none', disp.tagHide === 'none', 'display=' + disp.tagHide);
-  ok('正常态: mistakeCard 渲染出 .mcard 节点', disp.rendered === 1, 'count=' + disp.rendered);
-  ok('过滤: bindFilter 命中 1 条', disp.filterVisible === 1, 'visible=' + disp.filterVisible);
-  ok('过滤: 隐藏项 computed display === none', disp.filterHiddenDisplay === 'none', 'display=' + disp.filterHiddenDisplay);
-  ok('过滤: 显示项 computed display !== none', disp.filterShownDisplay !== 'none', 'display=' + disp.filterShownDisplay);
-  ok('过滤: 无命中出现「没有匹配」提示且可见', disp.filterEmptyTip === true, 'tip=' + disp.filterEmptyTip);
-
-  ok('无 JS 运行时异常（pageerror 为空；资源 404/400 为负向测试与 favicon，已排除）',
-    jsErrors.length === 0, jsErrors.slice(0, 3).join(' ; '));
-  results.push({ name: '【信息】资源加载告警（预期内）', pass: true, detail: resErrors.length + ' 条：' + resErrors.slice(0, 4).join(' | ') });
+    const p2 = await browser.newPage();
+    await p2.goto(SITE + '/wrong', { waitUntil: 'networkidle' });
+    await p2.waitForSelector('#mistakeList .mcard', { timeout: 15000 });
+    const disp = await p2.evaluate(() => {
+      const err = document.getElementById('apiError');
+      const card = document.querySelector('#mistakeList .mcard');
+      const tag = card.querySelector('.tag');
+      return {
+        errHidden: getComputedStyle(err).display,
+        cardDisplay: getComputedStyle(card).display,
+        tagDisplay: getComputedStyle(tag).display
+      };
+    });
+    ok('四态: 无错误时 #apiError computed display === none（F5 陷阱不复现）',
+      disp.errHidden === 'none', 'display=' + disp.errHidden);
+    ok('可见性: 正常态 .mcard / .tag 可见（display != none）',
+      disp.cardDisplay !== 'none' && disp.tagDisplay !== 'none', JSON.stringify(disp));
+    await p2.close();
+  }
 
   await browser.close();
 
-  // ---------- 汇总 ----------
+  /* ---- 已随 ui.js 退役的 8 条组件字符串断言（打印对照，不伪装成通过） ---- */
+  console.log('\n[迁移说明] 以下断言随 `review/assets/ui.js` 退役，等价覆盖已转移（不计入下方通过率）：');
+  [
+    'ui.js: stateHTML          → Vue 各视图的 .state 占位（verify-vue.cjs [home]/[lesson] 空态断言）',
+    'ui.js: streakBar          → MistakeCard 的 .streak/.bar/i（verify-vue.cjs [wrong] 四项硬指标断言）',
+    'ui.js: lessonCard         → HomeView 目录项 .ltoc-item（verify-vue.cjs [home] 目录/搜索断言）',
+    'ui.js: wordCard           → WordsView 卡片（verify-vue.cjs [words] 卡片/翻面/搜索断言）',
+    'ui.js: mistakeCard ×2     → MistakeCard.vue（verify-vue.cjs [wrong] 硬指标/来源「诊断」覆盖）',
+    'ui.js: trendChart ×2      → 首页「错误趋势」已按负责人需求隐藏，Vue 版不渲染（无对应组件）',
+    'ui.js: sectionBlock       → LessonSections.vue（verify-vue.cjs [lesson] 8 小节/默认展开断言）'
+  ].forEach(function (line) { console.log('  - ' + line); });
+
   const pass = results.filter(r => r.pass).length;
-  console.log('\n===== 共享层真机验证结果 =====');
-  results.forEach(r => {
-    console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ('\n       实测: ' + r.detail)));
-  });
-  console.log(`\n合计 ${pass}/${results.length} 通过`);
+  console.log('\n===== Vue 版共享层回归（原 review/assets/ → frontend/src/）=====');
+  results.forEach(r => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : '\n       实测: ' + r.detail)));
+  console.log(`\n合计 ${pass}/${results.length} 通过  |  期望值来源: 后端 4000 现取（vocabTotal=${vocab.total} lessons=${li.n}）`);
   process.exit(pass === results.length ? 0 : 1);
 })().catch(e => { console.error('HARNESS ERROR:', e); process.exit(2); });
