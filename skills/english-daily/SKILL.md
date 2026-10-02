@@ -1,7 +1,7 @@
 ---
 name: english-daily
 description: "面向零基础学习者的每日英语课：讲一课英语、按课次归档笔记（每 7 课一份 md）、阅读材料单独按天存到 read 目录（每篇一个整篇看中文按钮）、词汇卡按首字母分组索引、读取总目录与学习摘要（digest.md 供上课读取，不必读 notes 全文）、看板首页只放统计与入口（课程正文、阅读、词汇卡、错词各一页）、按用户当课反馈升级或降级难度、按级别生成分级阅读文章（Level 4 起改为改写后的当日英文新闻）。当用户说「上课」「开始今天的英语课」「今天学英语」「下一课」「继续」「上次学到哪了」「生成复习看板」「复习错词」「重新出今天的阅读」「英语每日课」时使用。"
-version: 2.7.0
+version: 2.8.0
 agent_created: true
 ---
 
@@ -75,8 +75,9 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
    - **追加写 md**：把第 5—7 步的内容**追加**到目标 `notes/` 文件末尾，只追加，不重写、不删除已有内容。
    - **更新 `wrong-words.md`**：按第七章口径（新错词追加整行，含人工判定的 `类型` / `累计犯错`）。
    - **产出 `LessonRecord`（机器契约）**：按 `docs/schemas/lesson-record.schema.json` 组装本课归档对象（`lessonNo` / `levelCode` / `summary` / `sections` / `vocabulary` / `exercises` / `feedback` / `gradeSummary` / `nextRecommendation`）。**对象由本步已在手的教学内容直接组装 —— 不解析 md、不拼 HTML**。
-     - `deploymentMode = backend`（写接口就绪）→ 经 `POST /lessons` 提交；批改与反馈回填走 `PUT /lessons/:id`。
-     - `deploymentMode = markdown`（当前）→ 落盘 `records/lesson-NN.record.json`，供后端就绪后提交。
+     - **`exercises[].selfCheck` 必带**：给 **1—2 道题**填**规则**（不是答案），如「句尾标点」「可数名词复数」；一题最多 1 条、≤128 字符。这是强制自查项的**唯一载体**（依据 `docs/ai-teacher.md` §11.6 终稿）；缺它则库内 `lesson_exercises.self_check` 恒空（历史 41 行即此症状）。
+     - `deploymentMode = backend`（**当前实况**，`GET /api/agent/snapshot` 实测）→ 经 `POST /lessons` 提交；批改与反馈回填走 `PUT /lessons/:id`。
+     - `deploymentMode = markdown`（**历史阶段**，仅在快照实测为该值时才走）→ 落盘 `records/lesson-NN.record.json`，待后端就绪后提交。
    - **md 与 `LessonRecord` 的关系**：md 是 `LessonRecord` 的**人类可读落地形式**（两者内容须一致）；**真相源是 `LessonRecord`**（口径见 `docs/skills.md` §7.2）。**md 不再作为任何导入管线的输入**。
 9. 生成当日阅读：看 `read\YYYY-MM-DD-read.md`（当天日期）是否存在——
    - 不存在：按当前级别生成 1—3 篇，写进这个文件。
@@ -155,13 +156,16 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 ```text
 1. 出题顺序：wrongCount≥3 每课至少 1 题 → N-1/N-3/N-7 各 1 题 → streak==1 优先 → 其余按 wrongCount 降序。
 2. 判对错：答对 streak+1（≥2 判过关）；答错 wrongCount+1 且 streak=0。
-3. 判重键：去标点、去空格、统一小写后的 wrongText；命中只累加，不新建条目。
+3. 判重键：剥全角括号批注「（…）」→ 折叠空白 → 转小写后的 wrongText（实现＝backend/src/utils/mistakeKey.js 的 normKey）；命中只累加，不新建条目。标点参与判重——「Do you like coffee.」与「Do you like coffee?」是两条，不得合并。
 4. errorType 由 Amy 人工判定（三步判定见 §11.5）；判不出归 other 并标「待人工复核」。
 5. 批改完成必须同时产出 records/lesson-NN.grading.json（作业）与 lesson-NN.backfill.json（补漏块）。
+6. 上送错词时「本次课号」＝本次上课的课号（POST /mistakes 的 items[].courseNo，省略则由顶层 lessonNo 兜底）；绝不能填错词本「课号」列的值——那是首次课号、已冻结，填了会让 last_lesson_id 永远不前进。
 说明：错词本「错误点」列只写错误形式本身，批注写进「错因」列。
 ```
 
-出题顺序用**教学排序**，不是服务端 `priority` 展示排序，两者允许不同（见 `docs/ai-teacher.md` §11.9）；断更补课的题量上浮档依赖后端 `lastIncomplete`（G4，未实现），**未落地前一律按常规 5 题**。
+错词的「课号」有**两列、语义不同**（依据 `docs/ai-teacher.md` §11.11）：**首次课号**（`first_lesson_id`，＝错词本「课号」列，人工填、**命中时冻结不回改**）与**最近一次课号**（`last_lesson_id`，由系统按 `max(现有, 本次课号)` **单调刷新**，供批改写「上次在第 k 课」）。错词本 md **不加列** —— 最近课号是派生值，硬写会造出「人工值 vs 派生值」两套来源。
+
+出题顺序用**教学排序**，不是服务端 `priority` 展示排序，两者允许不同（见 `docs/ai-teacher.md` §11.9）；断更补课的题量上浮档依据快照 `lastIncomplete`（**缺口 G4 已落地**，`GET /api/agent/snapshot` 实测已有值）—— **有值时**按 `docs/ai-teacher.md` §11.2 第 5 条走补课上浮档，**无值时才**按常规 5 题。
 
 表头固定 8 列，列名、顺序、写法都不得改动：
 
@@ -205,7 +209,7 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 ### 与 `records/*.json` 的关系
 
 - `records/*.json` 的 `mistakeCandidates[]` 是「判错证据」，**候选 ≠ 入册行**：是否进错词本由人工决定。课前复习与诊断测试不在 records 覆盖范围内，其错词只出现在错词本里。
-- 两处的文本**必须一致**（records 侧判重用「去标点、去空格、统一小写」后的比较），但**数量可以不等**。以错词本为准：`类型` 与 `累计犯错` 两列的权威值只在这里。
+- 两处的文本**必须一致**（records 侧判重用 `normKey`：剥全角括号批注 → 折叠空白 → 转小写；**标点参与判重、不得去标点**），但**数量可以不等**。以错词本为准：`类型` 与 `累计犯错` 两列的权威值只在这里。
 
 ---
 
@@ -225,11 +229,13 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 - [ ] 复习题取自 N-1 / N-3 / N-7 或错词本，不是临时编的新内容
 - [ ] 作业已批改，错误类型、正确句、解释三项齐全
 - [ ] 已产出 `records/lesson-NN.grading.json`（本课有补漏块时另有 `lesson-NN.backfill.json`）
-- [ ] 已产出 `LessonRecord`（按 `docs/schemas/lesson-record.schema.json`）：写接口就绪（`deploymentMode = backend`）时已成功提交，否则已落盘 `records/lesson-NN.record.json`
+- [ ] 已产出 `LessonRecord`（按 `docs/schemas/lesson-record.schema.json`）并已成功提交（`deploymentMode = backend` 走 `POST /lessons`；仅当快照实测为 `markdown` 时才落盘 `records/lesson-NN.record.json`）
+- [ ] `LessonRecord.exercises[]` 里已给 **1—2 道题**填 `selfCheck`（**规则**、≤128 字符、一题≤1 条）
 - [ ] `wrong-words.md` 的 `错误点` 只写错误形式、无括号批注，`类型` / `累计犯错` 已填且为人工判定值
 - [ ] 笔记小节齐全、课号连续、只在文件末尾追加
 - [ ] 笔记里没有「今日阅读」小节，阅读只写在 read 目录的当天文件里
 - [ ] 当天阅读文件已生成（或当天已存在而跳过），每篇都有级别、来源、生词注释、理解题
+- [ ] 每篇理解题**题数 ≥2 且每题答案非空**（不达标该篇整体重写，不产 `null` / 空串）
 - [ ] 已收到难度反馈并写入 progress.md
 - [ ] 本课笔记已按模板归档（目录与摘要由后端数据更新，本 Skill 不产出这两个文件）
 - [ ] 已读 `digest.md` 而非 notes 全文（除核对单课原文外）

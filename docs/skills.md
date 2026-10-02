@@ -104,7 +104,7 @@ Skill 只与后端 API 交互；前端（静态页 / 未来 Vue）从同一批�
 
 | # | Skill | 层 | 触发 | 当前落地物 | 状态 |
 |---|---|---|---|---|---|
-| 1 | `daily-lesson` | 独立 | 上课 / 开始今天的英语课 / 今天学英语 / 下一课 / 继续 / 英语每日课 / 上次学到哪了 | `skills/english-daily/` v2.6.0（受控源；运行副本 `.workbuddy/skills/english-daily/`） | ✅ 运行中（6 课实证） |
+| 1 | `daily-lesson` | 独立 | 上课 / 开始今天的英语课 / 今天学英语 / 下一课 / 继续 / 英语每日课 / 上次学到哪了 | `skills/english-daily/` v2.8.0（受控源；运行副本 `.workbuddy/skills/english-daily/`） | ✅ 运行中（7 课实证） |
 | 2 | `lesson-review` | 独立 | 复习 / 复习错词 / 今天先复习 / 考考我 | 内嵌于 daily-lesson 第 3—4 步 | ⚠️ 内嵌可用，未独立可触发 |
 | 3 | `grammar-teaching` | 内嵌 | —（daily-lesson 第 5 步） | 内嵌于 daily-lesson | ✅ 内嵌运行中 |
 | 4 | `vocabulary-teaching` | 内嵌 | —（daily-lesson 第 5 步） | 内嵌于 daily-lesson | ✅ 内嵌运行中 |
@@ -257,7 +257,7 @@ ALTER TABLE lesson_sections
 ### 3.1 daily-lesson
 
 #### Skill 名称
-`daily-lesson`（英语每日课）· 独立 Skill · 当前受控源为 `skills/english-daily/` v2.6.0（运行副本 `.workbuddy/skills/english-daily/`，单向同步）。
+`daily-lesson`（英语每日课）· 独立 Skill · 当前受控源为 `skills/english-daily/` v2.8.0（运行副本 `.workbuddy/skills/english-daily/`，单向同步）。
 
 #### 功能
 编排一次完整上课。把 `AgentSnapshot` 与 `LessonPlan` 变成 11 步可执行的教学动作，结束时产出可归档的 `LessonRecord` 与当日 `ReadingSet`。它是唯一在课内调用其他六个能力的编排层。
@@ -291,9 +291,9 @@ ALTER TABLE lesson_sections
 | `snapshot.recentLessons` | `lessons` + `study_records(grade)` | 出复习题、判断加速 |
 | `snapshot.pendingMistakes` | `v_pending_mistakes` | 复习取词池 |
 | `snapshot.readingCatalog` | `readings` | 判断当天阅读是否已存在 |
-| `snapshot.errorTrend` | `study_records(grade)` 聚合 | 教学规则 R3（缺口 G1） |
+| `snapshot.errorTrend` | `study_records(grade)` 聚合 | 教学规则 R3（**G1 已闭环**，2026-10-01） |
 | `snapshot.backlog` | `knowledge_points.is_backlog` | 补漏块、规则 R2（缺口 G3） |
-| `snapshot.lastIncomplete` | `study_records(feedback).payload` | 断更补课（缺口 G4） |
+| `snapshot.lastIncomplete` | `study_records(feedback).payload` | 断更补课（**G4 已闭环**，实测已有值） |
 
 #### 执行流程
 
@@ -428,7 +428,7 @@ R3 判定演示：最近三课错误数为 6 → 2 → 5，**不满足「持续�
 | 来源必须可追溯 | 每题必须带 `sourceTag`；**不得出现临时编造的新内容** |
 | 过关门槛 | 连续答对 2 次即过关，之后不再进入每日复习队列 |
 | 答错处理 | `wrongCount+1` 且 `streak` 归零，回到队列高位 |
-| 题目数量 | 3—5 题。少于 3 题说明取词池不足，此时只用旧课补足。**常规 5 题；断更补课时的题量上浮档依赖后端 `lastIncomplete`（G4，未实现），未落地前一律按常规 5 题**（依据 `docs/ai-teacher.md` §11.2 第 5 条 / §11.9） |
+| 题目数量 | 3—5 题。少于 3 题说明取词池不足，此时只用旧课补足。**常规 5 题；断更补课时按上浮档 —— 依据快照 `lastIncomplete`（G4 已闭环、实测已有值），有值走上浮档、无值走常规 5 题**（依据 `docs/ai-teacher.md` §11.2 第 5 条 / §11.9） |
 | 不引入新知识 | 复习阶段不出现学生没学过的语法点或词汇 |
 
 #### 异常情况
@@ -866,6 +866,8 @@ R3 判定演示：最近三课错误数为 6 → 2 → 5，**不满足「持续�
 
 > **上送口径（R3「只喂原始条目」，2026-10-01 负责人照准；Step 2b 已实现 = `05` #30）**：落库走 `POST /api/mistakes`，**只送原始条目** —— 错词本一行 8 列（`wrongText` / `correctText` / `errorType` / `wrongCount` / `errorReason` / `streak` / `status` / `courseNo`）+ 顶层 `lessonNo`，`items` 1—200 条。本契约的 `before/after`、`patternHits`、`recurrenceWarnings` 属**分析产物：不上送、不落库**，只用于教学呈现与下一课 `selfChecks`。判重与累加由**服务端**按规范化 `wrongText` 判定（命中 → 更新 7 个内容列，`wrong_count` 以人工判定值覆盖 + 差异逐条告警；`POST /:id/review` 只 `+1` 增量）；**Skill 侧不得自行累加落库**。另：`wrongText` 含全角括号批注 → 服务端 **400**（DQ1 守卫）、批内同键 → **400**。
 
+> **上送「本次课号」口径（`docs/ai-teacher.md` §11.11，2026-10-01 Amy 裁定；后端已实现并实测）**：错词的「课号」有**两列、语义不同** —— **首次课号**（`first_lesson_id`，即错词本「课号」列，人工填、**命中时冻结不回改**；被快照 `recentLessons[].mistakeCount` 消费＝本课**新引入**错词数）与**最近一次课号**（`last_lesson_id`，由服务端按 `max(现有, 本次课号)` **单调刷新**，供批改写「第 N 次犯（上次在第 k 课）」）。**上送时的「本次课号」＝ `items[].courseNo`（省略则由顶层 `lessonNo` 兜底），绝不能填错词本「课号」列的值** —— 那是首次课号、已冻结，填了会让 `last_lesson_id` 永远不前进。错词本 md **不加列**（最近课号是派生值，硬写会造出「人工值 vs 派生值」两套来源）；**历史行不回填**（复发课只在 `错因` 散文里）。REST 侧命名 `firstLessonNo` / `lastLessonNo`、快照侧 `firstCourseNo` / `lastCourseNo` —— **两个命名空间，非缺陷**。
+
 #### 依赖数据
 
 | 契约字段 | 后端表 | 用途 |
@@ -965,7 +967,7 @@ R3 判定演示：最近三课错误数为 6 → 2 → 5，**不满足「持续�
 | 契约字段 | 后端表 | 用途 |
 |---|---|---|
 | `snapshot.progress` | `progress` | 当前级别与连击 |
-| `snapshot.errorTrend.byLesson` | `study_records(grade)` 聚合 | 错误趋势（缺口 G1） |
+| `snapshot.errorTrend.byLesson` | `study_records(grade)` 聚合 | 错误趋势（**G1 已闭环**） |
 | `snapshot.pendingMistakes` | `mistakes` | 复发项与分布 |
 | `snapshot.recentLessons[].feedback` | `progress_feedback` | 难度反馈序列 |
 | `snapshot.backlog` | `knowledge_points` | 欠账（缺口 G3） |
@@ -1065,8 +1067,8 @@ R3 判定演示：最近三课错误数为 6 → 2 → 5，**不满足「持续�
 | `snapshot.courseCatalog` | `lessons` | 定课号 |
 | `snapshot.backlog.backfillQueue` | `knowledge_points.is_backlog` | 取补漏块（缺口 G3） |
 | `snapshot.pendingMistakes` | `mistakes` | 复习来源与强制自查项 |
-| `snapshot.errorTrend` | `study_records(grade)` | R3 加速判断（缺口 G1） |
-| `snapshot.lastIncomplete` | `study_records(feedback)` | 断更后接续（缺口 G4） |
+| `snapshot.errorTrend` | `study_records(grade)` | R3 加速判断（**G1 已闭环**，2026-10-01） |
+| `snapshot.lastIncomplete` | `study_records(feedback)` | 断更后接续（**G4 已闭环**、实测已有值） |
 
 #### 执行流程
 
@@ -1162,6 +1164,9 @@ R3 判定演示：最近三课错误数为 6 → 2 → 5，**不满足「持续�
 | G3 | 无待补知识点 / 补漏队列 | `backlog.pendingKnowledgePoints`、`backlog.backfillQueue` | `next-lesson-planning`、`grammar-teaching` | 本课不排补漏块 |
 | G4 | 无「上次未完成的教学动作」 | `lastIncomplete` | `daily-lesson`、`next-lesson-planning` | 中断后从头开始，需学生确认 |
 | G5 | 学习时长 `study_minutes` 由谁填未定（**当前无落库列**：`courses` 表已废弃、`lessons` 表亦无此列） | `LessonRecord.studyMinutes` | `daily-lesson` | 留空，不做时长统计 |
+
+> **闭环状态（2026-10-01 实测复核，权威表见 `docs/ai-teacher.md` §9.3）**：**G1（`errorTrend`）、G4（`lastIncomplete`）已关闭** —— `GET /api/agent/snapshot` 实测 200 且 `lastIncomplete` 已有值（`{lessonNo:7, nextRecommendation:"第 8 课…"}`）；**G3 仍降级**：`snapshot.backlog` **键已存在**、值 `null` 并列入 `degradation.affected` → 本课不排补漏块（待 `knowledge_points` 建表，教学侧暂不建）；**G5 维持降级**：实测为**省略键**式降级（响应里没有该键），按快照服务约定「`null` / `[]` / 省略键」均可，**不得用 0 冒充「没数据」**。
+> ⚠️ 本表只登记 **G1—G5**；权威 `docs/ai-teacher.md` §9.3 另含 **G6（无聚合快照接口）** 与 **G7（无写接口）**，**两者均已关闭**（G7 仅余 `POST /api/skill-runs` 未实现）。本表是否补登 G6/G7 属结构调整，待拍板，**本轮不擅自补**。
 
 **本设计新增的两项请求（不在 G1—G5 内）**：
 
@@ -1264,6 +1269,8 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 ### 6.3 实测状态（截至 2026-09-29）
 
+> ⚠️ **本节是 2026-09-29 的时点快照，多行已失效，请勿据它判断现状；时点记录保留不改（属历史证据）。** 已知失效项（**2026-10-01 实测**）：① 「与后端接口的读写联调 ❌ 未执行」—— 后端已实现 **30 个接口**（含 6 条写链路 + 聚合快照）并已实测；② 「`daily-lesson` 已实跑 6 课、阅读 11 篇、词卡 52 条、错词 23 条」—— 现为 **7 课**（`lessons=7`）、阅读 **5 天/14 篇/28 题**、词卡 **62 条**（`lesson_vocabulary=62`）、错词本 **26 条**；③ `errorType` 走查行的「现有 19 条」已过时。**现状以 `backend/docs/05-api-reference.md` 与 `docs/ai-teacher.md` §9.3 / §9.4 为准。**
+
 | 项 | 状态 | 证据 |
 |---|---|---|
 | 12 个契约文件的 JSON 合法性 | ✅ **已实测** | `.workbuddy/build/check_schemas.py` 输出 `SCHEMA_CHECK files=12 refs=85 objects=535` → `SCHEMA_OK` |
@@ -1299,7 +1306,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 |---|---|---|
 | B1 | 后端实现 `GET /agent/snapshot` 与各写接口 | — |
 | B2 | `deploymentMode` 从 `markdown` 切到 `backend` | **零改动** |
-| B3 | 契约缺口 G1—G5 由后端补齐 | **零改动**（字段为可选，补上后自动启用增强能力） |
+| B3 | 契约缺口 G1—G5 由后端补齐（**2026-10-01 实况**：G1/G2/G4 **已关闭**；G3 **键已存在、值降级**；G5 维持**省略键**式降级） | **零改动**（字段为可选，补上后自动启用增强能力） |
 | B4 | 前端从静态 `review/*.html` 迁到 Vue | **零改动** |
 
 切换点验证方式：同一课在 A、B 两阶段产出的 `LessonRecord` 应逐字段一致；不一致即为设计缺陷。
@@ -1319,7 +1326,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 ### 7.3 现有 `english-daily` 的处置
 
-现有实现 `english-daily`（受控源 v2.7.0）即 `daily-lesson` 的当前形态。**本轮不改动其能力边界**，后续演进建议：
+现有实现 `english-daily`（受控源 v2.8.0）即 `daily-lesson` 的当前形态。**本轮不改动其能力边界**，后续演进建议：
 
 | 项 | 现状 | 目标 |
 |---|---|---|
@@ -1348,7 +1355,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 版本 **2.2.2 → 2.2.3 → 2.3.0**（本次为 MINOR：能力移除 + 依赖清单结构变更，即上文原先预留的那次）。清理后 Skill 内已无 `build_board` / `BOARD_OK` / `BOARD_FAIL` 任何引用，受控源与运行副本 `diff -r` 完全一致。
 
-> **后续版本**：**2.3.0 → 2.4.0**（错词本 8 列规范 + `records/` 产物 + 初始化模板 6→8 列，见附录 A 第四轮）、**2.4.0 → 2.5.0**（§11.2—§11.5 镜像 + 运行时最小条文，见第五轮）、**2.5.0 → 2.6.0**（阅读理解题答案必填，缺则重写该篇，见第六轮）。
+> **后续版本**：**2.3.0 → 2.4.0**（错词本 8 列规范 + `records/` 产物 + 初始化模板 6→8 列，见附录 A 第四轮）、**2.4.0 → 2.5.0**（§11.2—§11.5 镜像 + 运行时最小条文，见第五轮）、**2.5.0 → 2.6.0**（阅读理解题答案必填，缺则重写该篇，见第六轮）、**2.6.0 → 2.7.0**（归档步产出 `LessonRecord`，见第八轮）、**2.7.0 → 2.8.0**（判重键 `normKey` / §11.11 课号两列 / `selfCheck` 载体 / G4 已落地 —— 同步运行时副本滞后，见第十一轮）。
 
 ### 7.4 Skill 源码入库（已完成）
 
@@ -1397,7 +1404,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 | 角色 | 待办 |
 |---|---|
 | **Skill 设计师** | 阶段 A 的 A2—A5；`daily-lesson` 改名与触发测试；守护「受控 `skills/` ⇒ 运行时 `.workbuddy/skills/`」单向同步不漂移（7.4）；✅ 已按 7.3 完成 `build_board.py` 与 `skill-dependencies.json` 清理（v2.3.0） |
-| **后端工程师** | ✅ 本轮已完成：`readings` 三表 + 回填（4 天/11 篇/22 题）、`GET /api/readings{,/stats,/:date}`、**`POST /api/readings` 已开放**（单事务幂等、同日 409、`force=true` 重出；并补 `reading_pieces.source_url` 修 `sourceUrl` 静默丢弃）、`readingCatalog` 退出 degradation、`lesson_exercises` 34 条与 `study_records.byType` 回填、`errorTrend.byType` 真实化。**仍未实现**：`backlog`（待 `knowledge_points` 建表）、`lastIncomplete`（待教学侧写 `nextRecommendation`）；`lesson_exercises.error_type` 全 NULL 待 amy 对账；`mistakes` 库内 19 vs 错词本 23 待 amy 定夺 |
+| **后端工程师** | ✅ 本轮已完成：`readings` 三表 + 回填（4 天/11 篇/22 题）、`GET /api/readings{,/stats,/:date}`、**`POST /api/readings` 已开放**（单事务幂等、同日 409、`force=true` 重出；并补 `reading_pieces.source_url` 修 `sourceUrl` 静默丢弃）、`readingCatalog` 退出 degradation、`lesson_exercises` 34 条与 `study_records.byType` 回填、`errorTrend.byType` 真实化。**仍未实现**：`backlog`（**键已存在、值降级** → 待 `knowledge_points` 建表，教学侧暂不建）。**2026-10-01 实测后订正**：`lastIncomplete` **已实现并有实测值**（`{lessonNo:7, nextRecommendation:"第 8 课…"}`，G4 已关闭 —— 旧记「待教学侧写」失效）；`lesson_exercises.error_type` **非空 12 条**（不再「全 NULL」）；`mistakes` 已由 `db:sync-mistakes` 同步至 **26 条**并与错词本逐字一致（旧记「库内 19 vs 错词本 23」已消） |
 | **前端工程师** | R1 阅读统计**已接入**：`reading.html` 已改为 `GET /api/readings` + `/readings/:date` **同页目录**（按 amy 裁定）；首页阅读篇数取 `/readings/stats.pieceCount`。`readIndex.html` 自本轮起成**孤儿页**（无页面引用），保留或删除为结构决策（见 `frontend-plan.md §11.4`） |
 | **Amy** | 教学规则变更时按 `docs/ai-teacher.md` 10.2 的流程走：先落 `progress.md` → 更新 `ai-teacher.md` → 交 Skill 设计师改流程 → 交后端评估契约 |
 | **Git 工程师** | `docs/skills.md` 与 `docs/schemas/` 的更新需记录到 `docs/changelog.md`；`skills/` 入库已完成（7.4），后续 Skill 变更按受控源提交 |
@@ -1405,6 +1412,39 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 ---
 
 ## 附录 A：契约与文件清单
+
+### 第十一轮（v2.8.0：运行时副本滞后审计与同步 + 镜像缺口标记订正）
+
+> **背景**：有人问「`E:\English\skills\english-daily` 的内容是不是没更新」。**第一步先证否同步问题**：`diff -r skills/english-daily .workbuddy/skills/english-daily` **无差异**、两侧 `version:` 均为 `2.7.0` → 受控源 ↔ 运行副本**一致，不是漂移事故**。**第二步按 mtime 定位滞后窗口**（`SKILL.md` 17:36 后有 14 个提交），再对表三处权威（`docs/ai-teacher.md` §11.3 / §11.6 / §11.11）与实现（`backend/src/utils/mistakeKey.js` 源码）→ 查出运行时副本内容**滞后 7 处（A—G）**：权威与镜像早改了，**运行时漏改**——这是「订正必须先源后镜」之外的一种新型修反方向（源头+镜像改了、第三层漏改）。经负责人拍板 **全改 7 处 + 镜像，升 v2.8.0**（MINOR：口径/能力变更，非纯文案）。
+
+| # | 位置（`skills/english-daily/SKILL.md`） | 滞后内容 | 改为 |
+|---|---|---|---|
+| A | 第七章「运行时必做」#3 | 判重键写「**去标点**」后的 `wrongText` | `normKey` 三步（剥全角括号批注 → 折叠空白 → 转小写；实现＝`backend/src/utils/mistakeKey.js`），并明写**标点参与判重**（`Do you like coffee.` ≠ `Do you like coffee?`，不得合并） |
+| B | 第七章 records 侧（批改归档） | 同上「去标点」 | 同上：`normKey`，**不得去标点** |
+| C | 第 8 步归档 · `deploymentMode` | 写 `markdown`（未标注阶段） | `backend`（**当前实况**）／`markdown`（**历史阶段**）——真相源已按约定切换 |
+| D | 第 8 步归档 | 缺 `exercises[].selfCheck` 载体 | 新增子条：**`exercises[].selfCheck` 必带**（1—2 道、写规则非答案、≤128 字符）——§11.6 终稿裁定的**主通道**，`POST /api/lessons` **早已支持**，第 8 课起零后端改动 |
+| E | 第七章 | 缺「上送课号」口径 | 新增 #6：**「本次课号」＝ `items[].courseNo`（省略由顶层 `lessonNo` 兜底），绝不能填错词本「课号」列**；并新增整段「错词的『课号』有**两列、语义不同**」（§11.11：首次课号冻结 / 最近课号单调刷新、md 不加列、历史不回填） |
+| F | 第七章「出题顺序」段 | 断更题量写「缺口 G4，未落地前按常规 5 题」 | **缺口 G4 已落地**（`GET /api/agent/snapshot` 实测已有值）→ **有值时**走上浮档、**无值时才**按常规 5 题（§11.2 第 5 条） |
+| G | 第九章自查清单 | 无阅读答案自检 | 新增 **「每篇理解题题数 ≥2 且每题答案非空」**；`LessonRecord` 一条改写为「三件产出」口径 |
+| — | `:4` frontmatter | `version: 2.7.0` | **`2.8.0`** |
+
+**镜像（`docs/skills.md` 同步，同轮）**
+
+| 位置 | 动作 | 说明 |
+|---|---|---|
+| §3.8 `:968` / §3.9 `:1068` / `:1069` | 改 | 缺口标记由「（缺口 G1）」/「（缺口 G4）」→ **「（G1 已闭环）」/「（G4 已闭环、实测已有值）」**；**G3 两处（§3.1 `:295`、§3.8 `:971`、§3.9 `:1066`）保持「缺口 G3」不动** —— G3 **未闭合**，不得误标 |
+| §3.7 输出后 | 加 | 新增「**上送『本次课号』口径**」段（§11.11 镜像：两列语义、`items[].courseNo`、`first`/`last` 命名空间差异） |
+| §4.2 缺口表后 | 加 | 新增**闭环状态注**（权威见 `ai-teacher.md` §9.3）：G1/G4 已关闭、G3 键已存在值降级、G5 省略键式降级；并注明本表只登 G1—G5、权威另含 **G6（聚合快照）/G7（写接口）** 且均已关闭（是否补登待拍板） |
+| §7.2 B3 行 | 改 | 补 2026-10-01 实况（G1/G2/G4 已关闭；G3 值降级；G5 省略键式降级） |
+| §8.2 后端工程师行 | 改 | 订正 3 处过期断言：`lastIncomplete` **已实现并有实测值**（旧记「待教学侧写」失效）；`error_type` **非空 12 条**（不再「全 NULL」）；`mistakes` 已同步 **26 条**（旧记「19 vs 23」已消） |
+| §1.2 `:107` / §3.1 `:260` / §7.3 `:1322` | 改 | 版本号 `v2.6.0` / `v2.7.0` → **`v2.8.0`**；`:107` 「6 课实证」→ **「7 课实证」**；§7.3 「后续版本」链补 **2.6.0→2.7.0**、**2.7.0→2.8.0** 两条 |
+| §6.3 实测状态 | 加 | 加**到期提示**（本节为 2026-09-29 时点快照，列 3 处已知失效项、指向 `05` 与 `ai-teacher.md` §9.3/§9.4）；**行内时点记录不改** |
+
+**本轮新增发现（超出「7 处 + 镜像」清单，已登记未擅自扩改）**：§6.3 是**明确标注日期**的时点快照，除已加提示的 3 项外，其中「Level 4—5 新闻取材 未验证」等行亦待复核；§4.2 缺口表**只登 G1—G5** 而权威含 G1—G7（补登属结构调整）。两项均记入 `docs/Work Alignment/SKILL-DESIGNER-STATUS.md`，**待拍板**。
+
+**备份**：`.workbuddy/skill-backups/english-daily-v2.7.0-20261001/{controlled,runtime}/`（实测 `version: 2.7.0`）。**逐处回滚**：`git checkout -- skills/english-daily docs/skills.md`。
+
+**验收【已实测】**：`diff -r skills/english-daily .workbuddy/skills/english-daily` **无输出**；两侧 `version: 2.8.0`；`docs/schemas/check_schemas.py` → `SCHEMA_OK`（本轮未动 schema，三数应与 HEAD 一致）。
 
 ### 第十轮（2026-10-01：`POST /mistakes` 载荷口径同步 R3 + 判重键订正，**纯文档、无版本变更**）
 
