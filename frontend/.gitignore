@@ -1,0 +1,6 @@
+# 依赖与构建产物不入库（对应 docs/plans/git-plan.md G3：dist/ 规则）
+node_modules/
+dist/
+*.local
+.env.local
+.vite/
