@@ -60,6 +60,11 @@
 >   ⇒ A19 的「判错刷 `last`」在真实链路上曾是**死代码**（MW21—MW24b 每条都显式传了课号 ⇒「测试绿 ≠ 链路活」）。
 >   前端**不改**；`correct` 仍不刷；`max` 单调守卫与幂等语义均不变。
 >   `test:write` 134 → **138 项**（新增 MW25—MW27，**夹具刻意不传 `lessonNo`**，与真实前端逐字一致）。
+> - 2026-10-02 · 第十一批 · **§15 口径定稿：消解「`clientEventId` 必须 vs 选填」表述冲突**（回应 skill-designer 第十二轮 **V** 项，决策+执行均在 be-dev）——
+>   原抬头写「**必须**用 `clientEventId` 幂等」、参数表却写「**选填**」，两处不自洽。
+>   定稿为**两层口径**：**字段级 = 选填**（不传不报错，实测 `mistake.service.js:148` 为 `if (clientEventId)`）；
+>   **调用方级 = 应带**（**Skill 侧一律必带**、**前端已带** `review/wrong.html:191/194`）。
+>   并写明「不传的代价」＝无幂等、重复提交重复累加。**仅改文档措辞，零代码变更、零 DDL。**
 
 ---
 
@@ -310,7 +315,15 @@
 单条错词。**Error**：404 `错词不存在：id=<id>`
 
 ### 15. POST `/api/mistakes/:id/review` ★
-复习结果回写。**这是学生打卡的写路径**，重复提交会污染过关判定，故必须用 `clientEventId` 幂等。
+复习结果回写。**这是学生打卡的写路径**，重复提交会污染过关判定，故**建议使用 `clientEventId` 实现幂等；Skill 侧调用方必须带**。
+
+> **「必须 vs 选填」口径（2026-10-02 定稿，回应 skill-designer 第十二轮 V 项）**
+> ——**字段级 = 选填**，**调用方级 = 应带**，二者不矛盾：
+> - **本接口字段**：选填，不传**不报错**（见下方 Body 参数表）。
+> - **Skill 侧调用方**：**一律必带**（`docs/skills.md` §4.4 / `SKILL.md` v2.8.1 第 4 步）。
+> - **前端调用方**：**已带**（`review/wrong.html:191` 生成 `cid` → `:194` 随载荷提交）。
+> - **不传的代价**：无幂等保护 ⇒ 同一动作重复提交会**重复累加** `wrong_count` / `streak`
+>   （后端 `if (clientEventId)` 分支不进，`mistake_events.client_event_id` 落 `NULL`）。
 
 **Body**
 ```json
@@ -321,7 +334,8 @@
   （A20；与 `GET /api/progress` 的 `currentLessonNo` 同源）。**故前端只传 `result` 即可**，
   真实调用方（`review/wrong.html:187`）就是这么打的。该课不存在时不报错，仅不建关联。
 - `answeredAt`（选填）：ISO 或 `YYYY-MM-DD HH:MM:SS`；缺省 = 服务端当前时间
-- `clientEventId`（选填）：客户端事件唯一 id；**同一 id 重复提交返回首次结果，不再累加**
+- `clientEventId`（**选填**，但**调用方应带**）：客户端事件唯一 id；**同一 id 重复提交返回首次结果，不再累加**。
+  不传 ⇒ **无幂等**（重复提交会重复累加）；Skill 侧必带、前端已带，详见本节开头口径说明。
 
 **服务端规则**（搬运 `wrong-words.md`，不重设计）
 - `wrong` → `wrongCount+1`、`streak=0`、`status='pending'`

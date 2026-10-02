@@ -1006,6 +1006,142 @@ const effectiveLessonNo = await resolveLessonNo(studentId, lessonNo);
 
 ---
 
+## §6.17 回执 skill-designer §4.1「责任表」（2026-10-02 18:25）—— **V/W/S 三项已落笔**
+
+> 来源：`docs/Work Alignment/SKILL-DESIGNER-STATUS.md` §4.1（经负责人转达）。口径：**决策人＝定口径方**、**执行人＝落笔方**。
+> 原则：**先取证、再动手**；只碰**自己主责文件**；跨域只给立场、不落笔。
+
+### 1. **V** `05 §15`「`clientEventId` 必须 vs 选填」不自洽 —— ✅ 决策+执行均在 be-dev，**已修**
+
+**取证**：§15 抬头原写「故**必须**用 `clientEventId` 幂等」，Body 参数表却写「`clientEventId`（**选填**）」→ 确不自洽。
+代码侧：`mistake.service.js:148` 为 `if (clientEventId)` ⇒ **字段级确为选填**（不传不报错，`client_event_id` 落 `NULL`）。
+
+⚠️ **更正对方一处事实**：对方称「真实前端确实**不传** `clientEventId`」——**不成立**。
+`review/wrong.html:191` 生成 `cid`、`:194` 随载荷提交 ⇒ **前端是传的**；**不传的是 `lessonNo`**（那是 A20 的事）。
+
+**定稿（两层口径，零代码改动）**：**字段级＝选填**、**调用方级＝应带**；并写明 **Skill 侧一律必带**（`docs/skills.md` §4.4 / `SKILL.md` v2.8.1）、**前端已带**、**不传的代价**（无幂等 ⇒ 重复累加）。
+`05` 变更记录新增**第十一批**。
+
+### 2. **W** `项目书.md` 当前版本引用 —— ✅ 决策+执行均在 be-dev，**已修并顺带刷新**
+
+- **W 本体**：6 处「当前版本」`v2.8.0` → **`v2.8.1`**（§2.10 数据来源/状态/关键约定、§5 架构图、目录树、§七#2、附录）；`SKILL.md` 字节 `23765 → 25074`。
+- **🔴 顺带发现并修**：`项目书.md` 生成于 **13:45**，而**第 9 课于 18:13 入库**（`7c6288a`）⇒ 全文数据量已陈旧，**一并刷新至第 9 课口径**：
+
+| 表 | 旧 | 新 | | 表 | 旧 | 新 |
+|---|---|---|---|---|---|---|
+| lessons | 8 | **9** | | mistakes | 33 | **39** |
+| lesson_sections | 68 | **77** | | mistake_events | 3 | **5** |
+| vocabulary | 71 | **80** | | study_records | 24 | **27** |
+| lesson_vocabulary | 72 | **82** | | readings | 5 | **6** |
+| lesson_exercises | 45 | **52** | | pieces / questions | 14 / 28 | **17 / 34** |
+
+另：`error_type` 非空 **16 → 19**（grammar 11 / punctuation 4 / word_choice 2 / capitalization 2）；`lessons.grammar_point` 第 8、9 课**均 NULL**；第 9 课**新增 `backfill` 小节**（9 类）、练习 7 题（homework 4 + backfill 3）。
+刷新由**独立工具反向印证**：`db:compare` 输出 `error_type 已填 19/52`、`readings 6`、`pieces 17`、`questions 34` —— 与库内一致。
+
+### 3. **S** `export_md_to_json.py` 的 `norm_key` 去标点 —— ✅ 已统一（`A24 ⑦` 已裁「交 be-dev」）
+
+**取证**：`norm_key` **仅**用于 `:610/:615` 的**对账比对**（md 错词本 vs `records` 错词候选 → 只产**告警**，**不落库**）；Node 侧 `src/utils/mistakeKey.js:normKey` 为三步（**标点参与判重**）。
+**已改**：Python `norm_key` 收敛为与 Node **逐字一致**的三步（去全角括号批注 → 折叠空白 → 去首尾 → 小写）。
+
+| 验证项 | 结果 |
+|---|---|
+| `py_compile` | ✅ `PY_COMPILE_OK` |
+| 改动前后 `M2_EXPORT_OK` 摘要 | ✅ **逐字一致**（`candNotInBook=0 warnings=3`，计数全同）⇒ **当前数据下零回归** |
+| Node ↔ Python 差分（8 例，含 `Tom plays.` / `Tom plays?` / 括号批注 / 大小写/空白） | ✅ **8/8 一致**（明证「标点不再并条」） |
+| `db:compare` / `db:summary --check` | ✅ **15 / 0 / 0** / **`stale=0`** |
+
+### 4. 需他人一句话的四项 —— **be-dev 立场**（我不决策，只给技术意见 + 依据）
+
+| 项 | 我方立场 | 依据 |
+|---|---|---|
+| **O** `check_schemas.py` 双副本 | **建议「保留 + 注明」**（**不删**）：`.workbuddy/build/` **未被 git 跟踪**，删它只省本地噪声；**真正的债**是 `docs/plans/skill-plan.md:261/:639` **引用 build 版** ⇒ 应改指受控版（属 skill-designer） | 引用点 7 处（对方实测）；`schemas/README.md:97` 已指对 |
+| **R②** `skills.md §4.2` 补 G6/G7 | **建议补**：权威 `ai-teacher.md` §9.3 为 **G1—G7**，镜像只登 G1—G5 ⇒ **契约不对称** | 缺口表 `docs/skills.md:1162+` |
+| **T** `lesson-NN.study-record.json` 进「产出清单」 | **建议补为「四件」**：`teach:sync` **靠它**写 `progress` 7 列与 `study_records`（实测 **27 行** = attend/grade/feedback 各 9）；漏登 ⇒ 清单与实际不符 | `A24 T` 已倾向四件 |
+| **U** 学习记录机制以谁为准 | **以 `records/*.study-record.json` + `teach:sync` 为准**（**现状唯一真实写作路径**）；`POST /api/study-records` **退为「已实现、无真实调用方」的备用路径**（调用方**仅测试脚本**，`review/**` 零命中）。另：`docs/skills.md:1213` 的 `POST /study-records` **缺 `/api` 前缀**，应一并订正 | 我方 §7 裁定 + 实测 |
+
+### 5. 本轮改动清单（**3 文件**；**零 DDL / 零 DML / 零业务逻辑变更**）
+
+| 文件 | 改动 | 属我 |
+|---|---|---|
+| `backend/docs/05-api-reference.md` | §15 两层口径（**V**）+ 变更记录**第十一批** | ✅ |
+| `backend/db/migration/export_md_to_json.py` | `norm_key` 统一为 `normKey` 三步（**S**） | ✅ |
+| `项目书.md` | 数据刷新至第 9 课 + `v2.8.1`（**W**） | ✅ |
+
+> 📌 **提交边界**：三份改动 + 本状态文档**均未提交**（工作区 ` M`）。`项目书.md` 已由 git-manager 入库（`c5e05ec`），本轮为**增量修改**。按纪律**不代提交**、**禁 `git add -A`**、只用**显式路径**。
+
+---
+
+## §6.18 复核 fe-dev 对 `backend/scripts/` 三脚本的跨域改动（2026-10-02 19:30—19:40）—— ✅ **通过（实跑验证）**
+
+> 背景：fe-dev 完成 Vue 3 框架化并**退役原生站 `review/`（14 文件物理删除）**，随之改动 `backend/scripts/` 下**三个脚本**（经 be-dev 显式授权跨域）。fe-dev 请 be-dev **复核**。
+> 复核原则：**实跑 > 读码**；先取证「谁在飞、服务在不在」，再**不动他人实例**地跑。
+
+### 1. 改动范围（实测）
+
+| 文件 | 改动 | mtime |
+|---|---|---|
+| `backend/scripts/verify-frontend-pages.js` | **476 → 61 行**（原 61 条断言 → **转为入口别名**，转发 `frontend/scripts/verify-vue.cjs`，透传退出码） | 10-02 19:17 |
+| `backend/scripts/verify-frontend-shared.js` | 由 `review/assets/*` → `frontend/src/*`（ESM 模块导入）；退役 8 条组件字符串断言 | 10-02 19:18 |
+| `backend/scripts/integration-check.js` | **jsdom → playwright**（Vue 是 ESM，jsdom 不支持） | 10-02 19:24 |
+
+合计 `+324 / −794`。**同时 `review/` 14 个文件删除**、新增未跟踪 `frontend/`。
+
+### 2. 复核方式：**三脚本全部实跑通过**
+
+| 脚本 | 运行环境 | 结果 |
+|---|---|---|
+| `integration-check.js` | **BASE=8080**（Vue **dist 生产构建**） | ✅ **18 / 18**，EXIT=0 |
+| `verify-frontend-pages.js`（→ `verify-vue.cjs`） | **BASE=8080** | ✅ **64 / 64**，EXIT=0 |
+| `verify-frontend-shared.js` | **BASE=5173（dev）** —— 按源码 `/src/*` 导入，**必须 dev** | ✅ **18 / 18**，EXIT=0 |
+
+**关键实证**（DOM === 接口值双向不变量）：`statLessons 9 = /lessons.total 9`、`statVocab 80 = /vocabulary/stats.total 80`、`statMistakes 32 = /mistakes/stats.pending 32`、目录项 9 = total 9。
+
+### 3. 复核通过的要点（值得记的）
+
+- ✅ **`integration-check.js` C 段拦「全部 `**/api/**`」**，并在注释里写明「只拦 `/lessons/all` 会被 `lessonIndex` 的回退容错**静默兜住** ⇒ 横幅不出现」——**与我方成文铁律（假阴性）同源**，修复正确。
+- ✅ **不伪装通过**：`verify-frontend-shared.js` 把随 `ui.js` 退役的 **8 条组件断言**以「迁移说明」打印、**不计入通过率**，并给出对应的 `verify-vue.cjs` 覆盖点。
+- ✅ **不写死常数**：课数/词数/错词数均**从后端现取**再与 DOM 比（`lessons=9 vocab=80 readings=6`）；`lessonNo↔id` 映射只校验「全量 + 含 `grammarPoint`」，不硬编码。
+- ✅ 转发别名 `argv[2]`/`BASE` 双入口可用；退出码 0/1/2 透传；`NODE_PATH` 经 `env` 继承给子进程。
+
+### 4. 两处小瑕疵（**不阻塞**，归 fe-dev）
+
+| # | 位置 | 问题 |
+|---|---|---|
+| 1 | `integration-check.js:29` | `const SITE_NAME = 'http://localhost:5173';` **死变量**（全文仅出现 1 次＝其声明本身），且与可覆盖的 `SITE`/`BASE` 并列，易误导 ⇒ 建议删或改用 `SITE` |
+| 2 | `verify-frontend-shared.js` 头注 | 写「`renderMarkdown` **3 条**」，实际 markdown 仅 **2 条** `ok()`（表格/引用/列表 + 死循环回归）⇒ 注释与代码不符（纯注释笔误） |
+
+> 我**未改这两个文件** —— 它们已归 fe-dev 所有、且 19:24 仍在写（在飞）；避免双向编辑冲突，仅报告。
+
+### 5. 另一项：**G3 早已闭合**（fe-dev 信息陈旧）
+
+fe-dev 转达「仓级 `.gitignore` 补 `dist/`（G3）仍待 git-manager」——**不成立**，实测：
+
+- 根 `.gitignore` **第 32 行已有 `dist/`**（与 `build/` 同块，注释「# 前端构建产物」），由 **`1aca69c`（2026-09-29「chore(git): .gitignore 补 9 项忽略缺口」）** 引入，**已在 HEAD**；
+- `git status --porcelain -- .gitignore` **为空**（未被改动）；
+- 另有 `frontend/.gitignore` 二次覆盖 `dist/` + `node_modules/`（双保险）。`check-ignore -v frontend/dist/index.html` → `frontend/.gitignore:3:dist/`，`exit=0`。
+
+⇒ **G3 无需 git-manager 动作**，fe-dev 该条可撤。
+
+### 6. 端口与环境纪律
+
+`:4000` 后端＝**他人实例**（PID 3124）、`:8080` dist＝**他人实例**（PID 42396）——**全程只读、未起未停**。
+`:5173` dev＝**我自起自停**（vite，PID **23012**，经 `tasklist` 确认 `node.exe` 后 `taskkill /F`）→ **已释放**，4000/8080 未受影响。
+
+---
+
+## §6.19 跨职责登记（fe-dev → be-dev，依 P5；2026-10-02 19:50）
+
+> 依 P5「跨职责改动须在对方状态文档登记一行」。**本块由 fe-dev 追加，未改动你方 §6.17 / §6.18 任何一行**；若与你方后续编辑冲突，以你方为准。
+
+| # | 事项 | 状态 |
+|---|---|---|
+| 1 | **`backend/scripts/*` 三脚本由 fe-dev 随原生版退役代改**（`verify-frontend-pages.js`／`verify-frontend-shared.js`／`integration-check.js`）——**经用户显式授权**跨入 be-dev 职责域 | ✅ 已随 **`a03d306`** 入库；你方 §6.18 已实跑复核通过 |
+| 2 | **`review/` 已删**（14 文件物理删除，Vue 版全面替代；`2e91345` + `4543984`）⇒ 你方文档中一切 `review/*` 引用**均已失效、不可复核**，待订正：`backend/docs/05-api-reference.md` `:59/:66/:324/:335`（**接口唯一权威**，锚 `review/wrong.html:187/:191/:194`）、`backend/src/services/mistake.service.js:110`、`backend/scripts/write-api-check.js:915`、`backend/docs/01-architecture.md:12/:178`、`02-data-model.md:50`、`03-api-contract.md:165/:228-231`、`04-migration-and-roadmap.md:9`、`06-api-requirements-amy.md:185`。⚠️ `backend/db/schema.sql:307`（**权威 schema** 的视图注释）若改须按 DDL 规程（单独 commit + 回滚 SQL）。建议口径：改指 `frontend/src/views/{WrongView,HomeView,…}.vue`，或加注「原引用已随 2026-10-02 原生版退役」 | ⏳ 待你方订正（非阻塞） |
+| 3 | 你方 §6.18「两处小瑕疵」→ **fe-dev 已修**：删 `integration-check.js` 死变量 `SITE_NAME`；`verify-frontend-shared.js` 头注「`renderMarkdown` 3 条」→「**2 条**」。修后 `node --check` 双绿、`grep` 清零、重跑 **@8080 18/18 无回归** | ✅ 已修（随 `a03d306` 入库） |
+| 4 | 你方 §6.18 §5 **G3 撤条已采纳**：fe-dev **独立复验**四证据一致（`.gitignore:32` = `dist/` ／ `1aca69c` 引入 ／ `status -- .gitignore` 空 ／ `check-ignore` 命中 `frontend/.gitignore:3`）⇒ 我方 `frontend-plan.md` §12 与 `前端工程师-工作状态.md` 已加更正注，G3 撤除 | ✅ 已撤 |
+
+---
+
 ## 附：常用验证命令（均在 `backend/` 下）
 
 ```bash

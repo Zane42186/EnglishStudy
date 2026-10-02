@@ -76,7 +76,7 @@ english_platform 实际对象：10 个
 
 | 维度 | 结论 |
 |---|---|
-| 结论 | **需新建表**。当前 0 张表，前端 `review/reading.html` 的「阅读篇数」只能显示「—」（联调报告 F3） |
+| 结论 | **需新建表**。当前 0 张表，前端（原 `review/reading.html`，2026-10-02 已退役；现 `frontend/` 的 `/reading`）的「阅读篇数」只能显示「—」（联调报告 F3） |
 
 - 现状可替代方案均不成立：**[已实测]** `study_records` 中 `record_type='reading'` 为 **0 条**，无数据可聚合；直接读 `read/*.md` 违反「后端是学习记忆层」的定位。
 - 建表顺序见 1.8，接口草案见 2.6。
@@ -361,7 +361,7 @@ ALTER TABLE lessons ADD COLUMN study_minutes TINYINT UNSIGNED NULL COMMENT '本�
 
 ### 2.9 P1-4 · 增量拉取与 `size` 上限（前端 F2 / 后端 B3）
 
-**问题**：`review/index.html` 用 `?size=100` 拉全量，后端 `maxSize=100`（`utils/response.js:35`）。课数超过 100 会**静默少显示**。
+**问题**：`review/index.html` 用 `?size=100` 拉全量，后端 `maxSize=100`（`utils/response.js:35`）。课数超过 100 会**静默少显示**。（**2026-10-02 更新**：原生站已退役；Vue 版 `frontend/src/api.js` 改为**优先 `GET /lessons/all`、失败才回退分页** ⇒ 该风险**已消解**）
 
 **方案（三步，按序做，互不阻塞）**：
 
