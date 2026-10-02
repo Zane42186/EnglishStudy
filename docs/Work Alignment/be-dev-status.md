@@ -769,6 +769,243 @@ def norm_key(text: str) -> str:
 
 ---
 
+### 6.14 A19 落地：`review` 判错也刷 `last_lesson_id`（2026-10-01 22:45，**已实现并实测**）+ `lessonNoAligned` 口径订正
+
+**触发**：Amy 回报 A19 缺口现场实证 —— 「本次 review 已回写 `streak`/`wrongCount`，但
+`Tom play soccer` 的 `last_lesson_id` 仍停在 2（`first=2`/`last=2`）」，并拍板落地。
+
+#### 先做的实证（确证缺口，非听述）
+
+直连只读 SQL：
+
+```
+mistake_events: id=186  mistake_id=4  lesson_id=79(=第 8 课!)  result=wrong  rev-20261001-l8-003  22:31:47
+mistakes id=4: wrong_text='Tom play soccer'  first_lesson_id=2  last_lesson_id=2  wrong_count=2  streak=0
+```
+
+⇒ 缺口**确证**：事件里 `lesson_id=79` **已经**写明「本次复发发生在第 8 课」，但 `last_lesson_id` 未推进。
+
+**关键发现**：`reviewMistake` **早已**把 `lessonId` 解析好（它同时要写 `mistake_events.lesson_id`）
+⇒ 刷 `last` **不需要任何新增查询/映射**，成本比 §6.13 报的 ≈12 行还低。
+
+#### 实现（三条写入路径共用一份定则）
+
+- `src/utils/mistakeLesson.js` 重构为 **1 个核心 + 2 个适配器**（防三条路径漂移）：
+  - `shouldAdvanceLast({firstLessonNo, lastLessonNo, currentLessonNo})` —— **课号口径核心**（唯一实现）。
+  - `resolveNextLastLessonId(...)` —— 适配器 A（写接口：入参是 id，需 `idByNo/noById` 映射）。
+  - `resolveNextLastLessonIdByNo(...)` —— 适配器 B（review：行内课号已由 `BASE_SELECT` 子查询解析、本次课 id 也已在手 ⇒ **零映射零查询**）。
+- `mistake.service.js::reviewMistake`：**仅 `result === 'wrong'`** 时调适配器 B 并
+  `refreshLastLessonOn`；`first` 冻结、`max` 单调守卫照旧；`correct` 整条不进该分支。
+- 幂等：该分支位于 `clientEventId` 幂等早返回**之后** ⇒ 重放不重复刷（MW24b 锚定）。
+- 响应形状**未改**（不新增字段）⇒ 现有 A1—A7 断言零影响。
+
+#### ⚠️ 与 Amy 原文字面的一处差异（**已上报，非擅自改口径**）
+
+§11.11 末段写「课号取 `progress.current_lesson_no`」；我实现为**取请求的 `lessonNo`**。理由：
+① 与写入 `mistake_events.lesson_id` 是**同一次解析** ⇒ 两处永不打架；
+② 调用方显式决定，本函数不必再读 `progress`（少一次查询、少一处耦合）；
+③ 实测她的调用本就在传 `lessonNo`（事件 `lesson_id=79` 即证）。
+⇒ 若教学侧要「未传 `lessonNo` 时回退 `progress.current_lesson_no`」，我加回退（+1 查询 +2 测试），**请一句话**。
+
+#### `lessonNoAligned` 口径 —— 已查清并订正文档（**非缺陷**）
+
+**结论**：实现 `Math.max(progress.current_lesson_no, max(lessons.lesson_no)) === progress.current_lesson_no`
+**恒等于** `progress.current_lesson_no >= max(lessons.lesson_no)` ⇒
+它的含义是「**进度表是否已跟上实际最大课号**」，**不是**「两个数字相等」，**不是**数据缺陷。
+
+- Amy 看到的组合**完全可解释**：`currentLessonNo` 取的是 `max`（以课程为准），
+  所以进度表落后时会**同时**返回「`currentLessonNo: 8`（看似已对齐）」+「`lessonNoAligned: false`」——
+  前者是**已替你修正的展示值**，后者报告**进度表原值落后**。**二者不矛盾**。
+- **现场证据**：`progress.updated_at = 22:33:32`，**晚于**她的 review（22:31:47）；
+  我于 22:45 两次实测（4000 与 4100 两实例）均返回 **`lessonNoAligned: true`**（`currentLessonNo: 8`）
+  ⇒ 已自动回到对齐，**无需任何修正**。
+- **引入历史**：`git log -L 35,40:backend/src/services/progress.service.js` ⇒ 自 **`4c29813`（backend foundation）** 引入，**从未改动** ⇒ 非本次改动引入（与 Amy 的判断一致）。
+- **影响面**：前端**未消费**（`review/` 全量 grep 零命中）；仅教学侧文档引用 ⇒ 属**P2 措辞/命名**问题。
+- **已做**：订正 `05 §19` 的措辞（原「不一致说明需要修正」会被读成功能缺陷），补上「正常中间态」与误读组合的说明。
+
+#### 🔴 另发现一处**教学侧待办**（非我域，只报不改）
+
+`db:compare` 由 **15/0/0 → 5/9/1**、`db:sync-mistakes --dry-run` 由 **0/26 → 3/23**。
+**归因已核实：与本次改动无关**，系「第 8 课已入库、但 md 尚未登记」+「Amy 的 3 次 review 已写库、md 未同步」：
+
+| 差异 | md | 库 | 成因 |
+|---|---|---|---|
+| `lessons` | 7 | **8** | 第 8 课已归档，md 未登记 |
+| `mistakes` | 26 | **33** | 第 8 课新增 7 条（`went the park`/`a apple`/`He got to school`/`went a shop`/`vergertable`/`supermark`/`homeworks`）未登记 |
+| `vocabulary` / `lesson_vocabulary` | 61 / 62 | **71 / 72** | 同上 |
+| `lesson_sections` / `lesson_exercises` | 60 / 41 | **68 / 45** | 同上 |
+| `status` | pending 20 | **pending 27** | 同上 |
+| `sync` 差异 3 处 | — | — | `id=4` `wrong_count 1→2`（**她的 wrong**）、`id=8`/`id=12` `streak 0→1`（**她的 correct**）—— 与 22:31 的三条 `mistake_events` **逐条吻合** |
+
+⇒ **处置**：教学侧登记第 8 课的 md（错词本 +7、`notes/day-08-14.md`）→ 跑 `db:export` 重生成
+`_snapshot.json` → `db:compare` 即回一致。**我不动 md**（那是教学真相源，且属 Amy 域）。
+
+#### 实测（**非声明**）
+
+| 项 | 结果 |
+|---|---|
+| `test:write` | **134 / 134**（129 → 134，新增 **MW21—MW24b 共 5 条**） |
+| `test:api` | **49 / 49** |
+| 新增断言 | MW21 前置形态（`first=last`）· MW22 **判错 → `last` 前进** · MW23 课号更小**不回退** · MW24 **判对（哪怕课号更大）→ 不刷**（隔离「只有复发才刷」）· MW24b 同 `clientEventId` 重放**幂等** |
+| F2 零影响 | 13 表逐项一致（清理前后） |
+| 端口纪律 | ⚠️ **4000 被他人实例占用**（PID 34784，22:03:57 启，`node src/server.js`）→ **按纪律未动它**，我方另起 **4100**（PID 19096）跑完全部验证后**已释放**；4000 保持原状继续运行 |
+| 库内真实数据 | **1 行未改**；仅临时学生（自建自清） |
+
+#### 仍待
+
+1. ~~**Amy 拍板**：`review` 未传 `lessonNo` 时是否回退 `progress.current_lesson_no`。~~
+   → **已裁定「应回退」（A20）、已落地并实测，见 §6.16**。
+2. ~~**Amy / 教学侧**：第 8 课 md 登记（使 `db:compare` 回 15/0/0）。~~ → **已关闭**，见 §6.15。
+3. ~~**Amy 拍板**：`Tom play soccer`(id=4) 是否**定点回填** `last`。~~
+   → **裁定 A22②：暂不回填** —— 先修 A20；修好后机制自会前进，且「历史行不回填」是既定原则。
+4. ~~**Amy 拍板**：`db:sync-mistakes` 是否新增「本次课号」源。~~
+   → **裁定 A22③：不新增** —— 写路径已切 API（第 8 课起），让 md 补课号列会造出**第二来源**
+   （违反单向铁律）；维持 **no-op + 显式告警**。
+5. **skill-designer**：`docs/skills.md:190` 载荷口径同步 + `export_md_to_json.py:91-95` 的 `norm_key` 去标点（§6.13 已报）。
+
+---
+
+## §6.15 收尾复核（2026-10-01 22:45—22:52）：`db:compare` 闭合 + A17 闭环实证
+
+**触发**：接手时工作区较上轮多出**教学侧第 8 课全量登记**（`notes/day-08-14.md`、`records/lesson-08.{record,grading,study-record}.json`、
+错词本 +7、`records/exercise-error-types.json` 补第 8 课 4 题），HEAD 前进至 `61f3d14`。
+
+### 1. A17 缺口**闭环实证**（不再只是「可行性推断」）
+
+直接解析 `records/lesson-08.record.json`：
+
+| 项 | 实测 |
+|---|---|
+| 顶层键 | `lessonNo, lessonDate, levelCode, summary, studyMinutes, sourceFile, status, sections, vocabulary, exercises, knowledgePoints, feedback, gradeSummary, nextRecommendation` |
+| `exercises` 数 | 4 |
+| `selfCheck` **非空** | **2** |
+| `selfCheck` 显式 `null` | 2 |
+| **缺键** | **0** |
+
+⇒ v2.8.0「第 8 步必带 `exercises[].selfCheck`」**已真实落地**，主通道（`LessonRecord.exercises[].selfCheck` → `POST /api/lessons`）
+**端到端可用、零后端改动**。§6.13 的 A17 结论由「可行性」升格为「**已实测**」。
+
+### 2. `db:compare` 5/9/1 → **14/1/0**（缺口 0）
+
+根因确认＝并非数据错，而是 **`_snapshot.json` 陈旧**：文件停在 **15:32:42**，而教学侧三件套在 **22:27—22:28** 收尾。
+
+```bash
+npm run db:export      # M2_EXPORT_OK lessons=8 exercises=45(matched=45 mdOnly=0 recordsOnly=0) mistakes=33 readings=5(pieces=14) errorTypes=16 warnings=2
+npm run db:compare     # 一致 14 · 差异 1 · 缺口 0   ← 原 5/9/1
+npm run db:summary --check   # SUMMARY_CHECK_OK stale=0
+```
+
+- `_snapshot.json` **未跟踪**（`git ls-files` 为空）⇒ 重生成**零 git 副作用**、**未触碰任何真实数据**。
+- 导出 2 条 warning＝`lesson-07/08.study-record.json`「文件名不符合规范，已跳过」—— **预期**，该文件由 `teach:sync` 消费，非快照来源。
+
+### 3. 唯一余项：`lesson_exercises.error_type`（**待授权**）
+
+对账现为「md 期望 16/45 vs 库内 12/45」，逐题不一致 4 处，全部是**第 8 课 homework #1—#4**（库内 `null`）。
+
+```bash
+npm run db:apply-error-types -- --dry-run
+#  ∅ → grammar　(L8 homework#1, id=758, is_correct=0)
+#  ∅ → grammar　(L8 homework#2, id=759, is_correct=0)
+#  ∅ → word_choice　(L8 homework#3, id=760, is_correct=0)
+#  ∅ → grammar　(L8 homework#4, id=761, is_correct=0)
+# 回填统计：更新 4 · 未变 41 · 定位不到 0 · 判定冲突 0
+# ERROR_TYPES_DRYRUN rows=45 updated=4 unchanged=41 missing=0 warnings=0
+```
+
+来源＝Amy `records/exercise-error-types.json`（`generatedAt 2026-10-01T22:30:00+08:00`，`purpose` 明写「供 `lesson_exercises.error_type` 回填」）。
+改动面**只有 4 行**、冲突 0、幂等、有第 1—7 课先例 —— 但**写的是真实学生数据** ⇒ 依铁律 12（**「有据可依」≠「可以动手」**）
+**我不擅自执行**，只出预演证据。**一条命令即闭合**：
+
+```bash
+cd backend && npm run db:apply-error-types      # 预期 ERROR_TYPES_OK updated=4 → db:compare 转 15/0/0
+```
+
+### 4. 本轮**未改任何真实数据 / 未提交**
+
+| 项 | 结果 |
+|---|---|
+| 库内真实数据 | **1 行未改** |
+| 端口 | 未起服务（复用他人 4000 只做 `GET /api/health` 只读探活，**未打业务写接口**） |
+| 提交 | **无**（工作区含 Amy / skill-designer / 我方三方未提交改动，按铁律 10 不代提交） |
+
+---
+
+## §6.16 A20 落地：`review` 未传 `lessonNo` 时回退 `progress.current_lesson_no`（2026-10-02，**已实现并实测**）
+
+**裁定来源**：Amy 四项裁定（用户全部拍板采纳）、Amy 的 A20 阻塞级发现 + 授权执行 `db:apply-error-types`。
+
+### 1. 问题（Amy 的 A20）
+
+A19 的「复习判错刷 `last`」在**真实链路**上是 **no-op**：
+
+| 环节 | 事实 |
+|---|---|
+| 全前端唯一调用方 | `review/wrong.html:187` → `API.post('/mistakes/'+m.id+'/review', { result, clientEventId })` —— **不传 `lessonNo`** |
+| 后端 | `if (Number.isInteger(lessonNo))` 恒 false ⇒ `lessonId = null` |
+| 定则 | `shouldAdvanceLast` 首查 `currentLessonNo == null → false` ⇒ **不刷** |
+| 测试 | MW21—MW24b **每条都显式传了 `lessonNo`** ⇒ 测试绿，但链路永不触发 |
+
+⇒ 典型「**夹具与真实调用面脱节**」（正是铁律「涉唯一入参的断言不能只靠自造载荷」的用例）。也解释了库内 `Tom play soccer`(id=4) 至今 `first=2/last=2`。
+
+### 2. 实现（后端兜底，**前端不改**）
+
+`src/services/mistake.service.js`：
+
+```js
+/** 本次课课号：显式入参优先；未传时回退 progress.current_lesson_no（A20） */
+async function resolveLessonNo(studentId, lessonNo) {
+  if (Number.isInteger(lessonNo)) return lessonNo;
+  const progress = await progressRepository.findByStudentId(studentId);
+  const no = progress ? progress.current_lesson_no : null;
+  return Number.isInteger(no) ? no : null;
+}
+// reviewMistake 内：一次解析、两处消费 ⇒ 事件流水与两列课号**永久同源**
+const effectiveLessonNo = await resolveLessonNo(studentId, lessonNo);
+```
+
+- **同源回退**：同一 `lessonId` 既喂「刷 `last_lesson_id`」又喂「写 `mistake_events.lesson_id`」。
+- 回归 `ai-teacher.md` §11.11 原文口径（A19 当时实现成「取请求值」，差异已上报 → 现已收口）。
+- **覆盖所有未来调用方**，无需前端配合。
+- **未变**：`correct` 不刷、`max` 单调守卫、`first` 冻结、幂等早返回在刷之前、**响应形状不变**（A1—A7 零影响）。
+- 新增依赖 `progress.repository.findByStudentId`（**只读、事务外**，与既有 `lessonRepository.findByNo` 同层同范式）。
+
+### 3. 测试：`test:write` 134 → **138 项全通过**
+
+新增 **MW25—MW27**，夹具**刻意不传 `lessonNo`**（与真实前端逐字一致）：
+
+| 用例 | 断言 | 实测 |
+|---|---|---|
+| **MW25** | progress→probeNoC，不传 `lessonNo` ⇒ `last` 前进、`first` 冻结 | ✅ `first=89 last=91 want=91`、status 200 |
+| **MW26** | 事件 `lesson_id` 与 `last_lesson_id` **同源**（不再留 NULL） | ✅ `[91, true]` |
+| **MW26b** | 回退课号**更小** ⇒ 单调守卫仍生效（回退不能绕过 `max`） | ✅ `last` 停在 103 课 |
+| **MW27** | 回退课号在 `lessons` 中**无对应课** ⇒ 200、不刷、事件课号留空（不报错、不静默乱刷） | ✅ `evLesson=null` |
+
+> 课号全部**从库内现取**（`probeNo* = MAX(lesson_no)+10/11/12`、`lessonIdOfNo()`）—— 不写死常数。
+
+**其余验证**：`test:api` **49/49** · F2 **13 表计数零漂移** · **真实数据 1 行未改**。
+
+### 4. 复核 Amy 的执行结果（**独立直查库，不依赖脚本自报**）
+
+| 项 | 实测 |
+|---|---|
+| `db:compare` | ✅ **15 / 0 / 0**（缺口 0，全库首次全绿） |
+| `lesson_exercises.error_type` | ✅ **45 题 / 填 16** = grammar 9 / punctuation 3 / word_choice 2 / capitalization 2 |
+| L8 homework #1—#4 | ✅ `grammar / grammar / word_choice / grammar`，`is_correct` **全 0**（硬校验 `error_type != null ⟺ is_correct = 0` 通过） |
+
+### 5. 其余三项裁定的处置
+
+- **A22②** `Tom play soccer`(id=4) `last` **暂不回填** —— 机制已活，下次判错自会前进；不碰历史行。
+- **A22③** `db:sync-mistakes` **不新增**课号源 —— 维持 no-op + 显式告警（避免第二来源）。
+- **A（授权写库）** 由 Amy 执行，我方已独立复核（见上）。
+
+### 6. 环境备注
+
+`backend/node_modules` 下**没有 npm** ⇒ 全程直调脚本：`node src/server.js`（`PORT=4100`）与
+`node scripts/write-api-check.js http://localhost:4100`。**4000 非我方实例**，全程未起未停未抢。
+验证跑完**已释放** 4100。
+
+---
+
 ## 附：常用验证命令（均在 `backend/` 下）
 
 ```bash
@@ -781,7 +1018,7 @@ npm run teach:sync           # records/*.study-record.json → study_records + p
 npm run db:migrate-dedupe-key # study_records.dedupe_key 迁移（幂等，--dry-run / --rollback）
 npm run db:summary           # 生成 INDEX.md / digest.md（--check / --dry-run）
 npm run test:api             # 49 项
-npm run test:write           # 129 项（Step 2a 的 LW1—LW33 + Step 2b 的 MW1—MW16 + §11.11 的 MW17—MW20）
+npm run test:write           # 138 项（STEP 2a 的 LW1—LW33 + Step 2b 的 MW1—MW16 + §11.11 的 MW17—MW20 + A19 的 MW21—MW24b + A20 的 MW25—MW27）
 ```
 
 > `test:*` 与 `integration-check` / `verify-frontend-*` 需要后端服务在线；

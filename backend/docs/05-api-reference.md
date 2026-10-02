@@ -2,7 +2,7 @@
 
 > 状态：**已实现并实测**（2026-09-29）。本文档描述的是**可运行的真实接口**，非设计稿。
 > 服务地址：`http://localhost:4000`　接口前缀：`/api`
-> 冒烟测试：`npm run test:api`（**49 项全部通过**）；写接口正向验证：`npm run test:write`（**129 项全部通过**）
+> 冒烟测试：`npm run test:api`（**49 项全部通过**）；写接口正向验证：`npm run test:write`（**138 项全部通过**）
 >
 > 变更记录：
 > - 2026-09-29 · 第一批写接口与聚合快照落地：`GET /api/lessons/all`、`POST /api/mistakes/:id/review`、
@@ -45,6 +45,21 @@
 >   ⚠️ **`db:sync-mistakes` 侧为「形式一致 + 语义安全」而非实质刷新**：错词本 md 只带**首次**课号，
 >   拿不到「本次课号」，故该路径以 `firstLessonNo` 作下界（对已有行等价于不刷新），
 >   `--dry-run` 实测行为仍不变。真正推进 `last` 的是本接口；`review` 是否同刷待 Amy 拍板。
+> - 2026-10-01 · 第九批 · **A19：`review` 判错也刷 `last_lesson_id`**（Amy 拍板落地）——
+>   §15 新增规则：`result='wrong'`（＝复发）时按同一 `max` 单调守卫推进「最近一次出错课」；
+>   **`correct` 不刷**；未传 `lessonNo` 不刷；幂等命中整条跳过。定则与 `POST /api/mistakes`
+>   共用 `src/utils/mistakeLesson.js`（新增 `shouldAdvanceLast` 核心 + 两个适配器）。
+>   `test:write` 129 → **134 项**（新增 MW21—MW24b）。
+>   另：**订正 §19 `lessonNoAligned` 的措辞**（实现自 `4c29813` 起未变，非本次引入）——
+>   其准确含义是「**进度表是否已跟上实际最大课号**」（`progress.current_lesson_no >= max(lessons.lesson_no)`），
+>   而非「两个数字相等」；`false` 是「新课已归档、进度表待回写」的**正常中间态**。
+> - 2026-10-02 · 第十批 · **A20：`review` 未传 `lessonNo` 时回退 `progress.current_lesson_no`**（回应 Amy A20 裁定）——
+>   §15 的课号解析规则修订为「**显式入参优先 → 未传时回退 `progress.current_lesson_no`**」，
+>   并让 `mistake_events.lesson_id` 与 `mistakes.last_lesson_id` **同源**（同一次解析、两处消费）。
+>   动因：全前端**唯一**调用方 `review/wrong.html:187` 只发 `{result, clientEventId}`、**不传 `lessonNo`**
+>   ⇒ A19 的「判错刷 `last`」在真实链路上曾是**死代码**（MW21—MW24b 每条都显式传了课号 ⇒「测试绿 ≠ 链路活」）。
+>   前端**不改**；`correct` 仍不刷；`max` 单调守卫与幂等语义均不变。
+>   `test:write` 134 → **138 项**（新增 MW25—MW27，**夹具刻意不传 `lessonNo`**，与真实前端逐字一致）。
 
 ---
 
@@ -302,14 +317,27 @@
 { "result": "correct", "lessonNo": 7, "answeredAt": "2026-09-30T10:20:00+08:00", "clientEventId": "rev-20260930-001" }
 ```
 - `result`（必填）：`correct` / `wrong`
-- `lessonNo`（选填）：用于关联复习发生的课；该课不存在时不报错，仅不建关联
+- `lessonNo`（**选填，可不传**）：本次复习发生的课。**未传时服务端回退 `progress.current_lesson_no`**
+  （A20；与 `GET /api/progress` 的 `currentLessonNo` 同源）。**故前端只传 `result` 即可**，
+  真实调用方（`review/wrong.html:187`）就是这么打的。该课不存在时不报错，仅不建关联。
 - `answeredAt`（选填）：ISO 或 `YYYY-MM-DD HH:MM:SS`；缺省 = 服务端当前时间
 - `clientEventId`（选填）：客户端事件唯一 id；**同一 id 重复提交返回首次结果，不再累加**
 
 **服务端规则**（搬运 `wrong-words.md`，不重设计）
 - `wrong` → `wrongCount+1`、`streak=0`、`status='pending'`
 - `correct` → `streak+1`；`streak>=2` → `status='passed'`
-- 两者都写 `lastReviewedAt`，并在 `mistake_events` 留一条复习流水（`client_event_id` 即幂等键）
+- 两者都写 `lastReviewedAt`，并在 `mistake_events` 留一条复习流水（`client_event_id` 即幂等键）。
+  流水的 `lesson_id` 与下方 `last_lesson_id` **同源**（**同一次课号解析**、两处消费 ⇒ 永不打架）。
+- **课号解析（A20）**：`lessonNo` 显式传入优先；**未传时回退 `progress.current_lesson_no`**。
+  进度表缺失 / 课号非整数 ⇒ 视为「课号不可知」（**不报错**）：不刷 `last`、事件课号留空。
+  进度表课号在 `lessons` 中无对应课 ⇒ 同样不刷（不静默乱刷）。
+- **`wrong` 时另刷 `last_lesson_id`**（`docs/ai-teacher.md` §11.11 / A19）：
+  **复习答错就是复发** ⇒ 把「最近一次出错课」推进到本次课。
+  同样走 `max(现有课号, 本次课号)` **单调守卫**（不回退）；`first_lesson_id` **冻结不动**；
+  `first_lesson_id` 为 `NULL` 的行（「诊断」来源）**不补填**。
+  ⚠️ **`correct` 不刷**（答对不是复发）。
+  幂等命中（同 `clientEventId`）时**整条跳过**，故不会重复刷。
+  定则与 `POST /api/mistakes` 共用 `src/utils/mistakeLesson.js`。
 
 **实测响应**
 ```json
@@ -374,7 +402,19 @@
   "lessonNoAligned": true } }
 ```
 - `currentLessonNo` 取「进度表值与实际最大课号」的较大者，**以实际课程为准**（断更不断号）。
-- `lessonNoAligned`：进度表课号与课程记录是否一致（不一致说明需要修正）。
+- ⚠️ **`lessonNoAligned` 的准确口径（2026-10-01 订正措辞，回应 Amy 待核项）**：
+  实现是 `Math.max(progress.current_lesson_no, max(lessons.lesson_no)) === progress.current_lesson_no`
+  —— 该式**恒等于** `progress.current_lesson_no >= max(lessons.lesson_no)`。
+  ⇒ 它的含义是「**进度表课号是否已跟上实际最大课号**」，**不是**「两个数字是否相等」，更**不是**数据缺陷。
+  - `false` ⟺ **进度表落后于课程记录**（例：第 8 课的 `lessons` 行已落库，但
+    `progress.current_lesson_no` 还停在 7 —— 这是「新课已归档、进度表尚未被
+    反馈/同步回写」的**正常中间态**，回写后自动变 `true`）。
+  - ⚠️ **容易被误读的组合**：因为 `currentLessonNo` 取的是 `max`（以课程为准），
+    所以进度表落后时响应会**同时**给出「`currentLessonNo: 8`（看似已对齐）」**与**
+    「`lessonNoAligned: false`」—— 二者并不矛盾：前者是**已替你修正后的展示值**，
+    后者报告的是**进度表原值落后**。判断「课号是否可用」请以 `currentLessonNo` 为准。
+  - 自 `4c29813`（backend foundation）引入以来**从未改动**（非写接口改动引入）。
+  - 前端**未消费**该字段（`review/` 全量 grep 零命中）；当前仅教学侧文档引用。
 
 ### 20. POST `/api/progress/feedback` ★
 难度反馈，触发级别升降。
@@ -831,7 +871,11 @@
      `max` 守卫是必须的：两条写入路径都可能**重放旧批次**，无守卫会让 `last` **倒退**。
    - 本次课号不大于现有值时定则返回「不改」→ 该行仍计 `unchanged`（**课号刷新同样幂等**）。
    - `first_lesson_id` 为 `NULL` 的行（「诊断」来源）后续命中**也不补填**。
-   - 定则唯一实现：`src/utils/mistakeLesson.js`（本接口与 `db:sync-mistakes` 共用）。
+   - 定则唯一实现：`src/utils/mistakeLesson.js` —— **三条写入路径共用**（本接口 /
+     `POST /api/mistakes/:id/review` 的判错分支 / `db:sync-mistakes`）。
+     ⚠️ 各路径的「本次课号」**来源不同**：本接口取 `items[].courseNo` → 顶层 `lessonNo`；
+     `review` 取 `lessonNo` → **未传时回退 `progress.current_lesson_no`**（A20，见 §15）；
+     `db:sync-mistakes` 侧无此信息 ⇒ 恒为 no-op（以 `firstLessonNo` 作下界）。
 
 **响应 200**
 
