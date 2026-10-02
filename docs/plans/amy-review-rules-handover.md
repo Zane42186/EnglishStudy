@@ -66,7 +66,8 @@
 错词与批改（权威规则见 docs/ai-teacher.md §11，本处只列运行时必做）：
 1. 出题顺序：wrongCount≥3 每课至少 1 题 → N-1/N-3/N-7 各 1 题 → streak==1 优先 → 其余按 wrongCount 降序。
 2. 判对错：答对 streak+1（≥2 判过关）；答错 wrongCount+1 且 streak=0。
-3. 判重键：去标点、去空格、统一小写后的 wrongText；命中只累加，不新建条目。
+3. 判重键：去全角括号批注（…） → 折叠空白 → 转小写后的 wrongText；命中只累加，不新建条目。
+   （不是「去标点」——标点参与判重：Do you like coffee. 与 Do you like coffee? 是两条；依据 docs/ai-teacher.md §11.3）
 4. errorType 由 Amy 人工判定（三步判定见 §11.5）；判不出归 other 并标「待人工复核」。
 5. 批改完成必须同时产出 records/lesson-NN.grading.json（作业）与 lesson-NN.backfill.json（补漏块）。
 说明：错词本「错误点」列只写错误形式本身，批注写进「错因」列。
