@@ -6,43 +6,145 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>英语复习看板</title>
   <link rel="stylesheet" href="assets/board.css">
+  <style>
+    /* ===== 首页布局（2026-10-02 改版，负责人需求）=====
+     * ① 副标题一句话隐藏（HTML 注释，代码保留）
+     * ② 标题随版心加宽而左移（900 → 1200）
+     * ③ 统计卡缩小、左对齐、仍居标题下方
+     * ④ 阅读/词汇卡/错词本 → 升级为全站顶部导航（首页/阅读/词汇卡/错词本，横向、当前页蓝底高亮；
+     *   样式在共享层 board.css .site-nav，二轮改版替代最初「右侧纵向跳转栏」）
+     * ⑤ 「为什么今天学这个」「近 6 课错误趋势」→ 注释隐藏（代码保留）
+     * ⑥ 课程 → 阅读板块同构：左侧目录（可搜索）+ 中间单课完整正文 + 上一课/下一课 + 小节折叠/全部展开
+     *   本页样式仅作用于 index，共享样式进 board.css */
+    .wrap { max-width: 1200px; }
+
+    .board-top { display: flex; align-items: flex-start; gap: 16px; }
+    .board-main { flex: 1 1 auto; min-width: 0; }
+
+    /* ③ 统计卡：缩小面积、左对齐 */
+    .board-main .stats { gap: 8px; margin: 14px 0 0; }
+    .board-main .stat { min-width: 0; flex: 0 0 auto; padding: 8px 12px; border-radius: 8px; }
+    .board-main .stat b { font-size: 18px; }
+    .board-main .stat span { font-size: 11px; }
+
+    /* ④ 原「右侧纵向跳转栏 .entries-v」已升级为全站顶部导航（board.css .site-nav），本页样式已移除 */
+
+    /* ⑥ 课程区：左目录 + 中间正文（阅读板块同构） */
+    .lesson-layout { display: flex; gap: 14px; margin-top: 6px; align-items: flex-start; }
+    .lesson-toc { width: 216px; flex: 0 0 auto; }
+    .lesson-toc #q { width: 100%; box-sizing: border-box; margin: 0 0 8px; }
+    .ltoc-list { display: flex; flex-direction: column; gap: 6px; max-height: 560px; overflow: auto; padding-right: 2px; }
+    .ltoc-item { display: block; width: 100%; box-sizing: border-box; text-align: left; background: #fff;
+      border: 1px solid #e3e2dc; border-radius: 8px; padding: 7px 10px; cursor: pointer; font: inherit; }
+    .ltoc-item b { display: block; font-size: 13px; font-weight: 600; }
+    .ltoc-item span { display: block; color: #6b6b66; font-size: 11px; margin-top: 2px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ltoc-item:hover { border-color: #b9c8d8; }
+    .ltoc-item.on { border-color: #185fa5; background: #eef4fb; }
+    .ltoc-item.hide { display: none; }   /* F5 硬规则：带 display 的类必须显式补 .hide */
+    .lesson-stage { flex: 1 1 auto; min-width: 0; }
+    /* 覆盖共享层：board.css 的 .stage-body 是阅读板块的横向 flex（左箭头+正文+右箭头），
+       首页课程正文必须纵向堆叠，故用双类选择器显式改回 block（优先级高于单类） */
+    .lesson-stage .stage-body { display: block; }
+    .stage-head h3 { margin: 0; font-size: 17px; }
+    .stage-foot { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+
+    /* 内嵌课程小节（与 lesson.html 同构：可折叠 + 一键展开/折叠）——样式与 lesson.html 对齐 */
+    .sec { background: #fff; border: 1px solid #e3e2dc; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; }
+    .sec details { margin: 0; }
+    .sec summary { cursor: pointer; list-style: none; }
+    .sec summary::-webkit-details-marker { display: none; }
+    .sec summary h4 { display: inline-block; margin: 0; font-size: 14px; }
+    .sec summary::before { content: "\25B8 "; color: #88877f; font-size: 12px; }
+    .sec details[open] summary::before { content: "\25BE "; }
+    .sec .secbody { margin-top: 6px; font-size: 14px; overflow-x: auto; }
+    .sec .secbody table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .sec .secbody th, .sec .secbody td { border: 1px solid #e3e2dc; padding: 4px 8px; text-align: left; }
+    .sec.missing { border-style: dashed; background: #fbfbf9; }
+    .sec.missing .secbody { color: #88877f; font-size: 13px; margin: 6px 0 0; }
+    .selfcheck li { margin: 2px 0; }
+    .sec-tools { margin: 10px 0 6px; }
+    .stage-body .gp { color: #3d3d38; font-size: 14px; margin: 4px 0 8px; }
+    .stage-body h4 { margin: 18px 0 6px; font-size: 14px; }
+
+    @media (max-width: 860px) {
+      .lesson-layout { flex-direction: column; }
+      .lesson-toc { width: auto; }
+      .ltoc-list { max-height: 240px; }
+    }
+  </style>
 </head>
 
 <body>
   <div class="wrap">
-    <h1>英语复习看板</h1>
+    <div class="top-bar">
+      <h1>英语复习看板</h1>
+      <nav class="site-nav">
+        <a class="on" href="index.html">首页</a>
+        <a href="reading.html">阅读</a>
+        <a href="words.html">词汇卡</a>
+        <a href="wrong.html">错词本</a>
+      </nav>
+    </div>
+
+    <!-- 需求①（2026-10-02）：副标题一句话隐藏。恢复时取消本注释即可
     <p class="sub">数据由后端 API（localhost:4000）实时加载。首页只放总结，正文、阅读、词汇都在各自页面。</p>
+    -->
 
     <div id="apiError" class="api-error hide"><span id="apiErrorMsg"></span><button id="apiRetry"
         type="button">重试</button></div>
 
-    <div class="stats">
-      <div class="stat"><b id="statLessons" class="pending">…</b><span>已上课数</span></div>
-      <div class="stat"><b id="statLevel" class="pending">…</b><span>当前级别</span></div>
-      <div class="stat"><b id="statVocab" class="pending">…</b><span>累计生词</span></div>
-      <div class="stat"><b id="statReading" class="pending">…</b><span>阅读篇数</span></div>
-      <div class="stat"><b id="statMistakes" class="pending">…</b><span>未过关错词</span></div>
+    <div class="board-top">
+      <div class="board-main">
+        <div class="stats">
+          <div class="stat"><b id="statLessons" class="pending">…</b><span>已上课数</span></div>
+          <div class="stat"><b id="statLevel" class="pending">…</b><span>当前级别</span></div>
+          <div class="stat"><b id="statVocab" class="pending">…</b><span>累计生词</span></div>
+          <div class="stat"><b id="statReading" class="pending">…</b><span>阅读篇数</span></div>
+          <div class="stat"><b id="statMistakes" class="pending">…</b><span>未过关错词</span></div>
+        </div>
+
+        <!-- 需求⑤（2026-10-02）：「为什么今天学这个」注释隐藏，代码保留。恢复时取消本注释并放行 JS 里的 loadSnapshot()
+        <div id="whyBlock"></div>
+        -->
+      </div>
+
     </div>
 
-    <div class="entries">
-      <a class="entry" href="reading.html"><b>阅读</b><span>按天查看，点击看中文</span></a>
-      <a class="entry" href="words.html"><b>词汇卡</b><span>点击翻中文与例句</span></a>
-      <a class="entry" href="wrong.html"><b>错词本</b><span>已过关与待复习</span></a>
-    </div>
-
-    <div id="whyBlock"></div>
-
+    <!-- 需求⑤（2026-10-02）：「近 6 课错误趋势」注释隐藏，代码保留。恢复时取消本注释并放行 JS 里的 loadTrend()
     <h2>近 6 课错误趋势<span class="count">错误处数，目标带 2—4</span></h2>
     <div id="trendBox">
       <p class="state loading">正在加载趋势…</p>
     </div>
+    -->
 
     <h2>课程<span class="count" id="lessonCount"></span></h2>
-    <input id="q" placeholder="搜索课程总结与语法点，输入关键词即时过滤">
-    <div id="lessonList">
-      <p class="state loading">正在加载课程…</p>
+
+    <!-- 需求⑥：阅读板块同构 —— 左侧目录（可搜索）+ 中间单课完整正文 + 上一课/下一课；默认最新一课 -->
+    <div class="lesson-layout">
+      <aside class="lesson-toc">
+        <input id="q" placeholder="搜索课程总结与语法点">
+        <nav class="ltoc-list" id="lessonList">
+          <p class="state loading">正在加载课程…</p>
+        </nav>
+      </aside>
+      <section class="lesson-stage">
+        <div class="stage-head">
+          <h3 id="stageTitle"></h3>
+          <p class="stage-meta" id="stageMeta"></p>
+        </div>
+        <div class="stage-body" id="stageBody">
+          <p class="state loading">正在加载课程…</p>
+        </div>
+        <div class="stage-foot">
+          <button class="pager" id="lsPrev" type="button" disabled>← 上一课</button>
+          <span class="pager-count" id="footCount"></span>
+          <button class="pager" id="lsNext" type="button" disabled>下一课 →</button>
+        </div>
+      </section>
     </div>
-    <footer>提示：先看总结回想，再点「查看全文」核对。</footer>
+
+    <footer>提示：左侧切换课程（←/→ 同效），先回想再看正文核对。</footer>
   </div>
 
   <script src="assets/api.js"></script>
@@ -50,14 +152,33 @@
   <script>
     /* 首页 · API 驱动
      * 统计：/lessons（取 total）、/progress、/vocabulary/stats、/mistakes/stats、/readings/stats（R1）
-     * 趋势：/lessons/error-trend?limit=6（Amy F6）
-     * 课程：/lessons/all（含 grammarPoint，API.lessonIndex 优先用它、失败回退分页全量）
-     * 建议：/agent/snapshot 的 lastRecommendation（Amy：替代 progress.note 原文；无数据不显示） */
+     * 课程：/lessons/all（lessonIndex 优先用它、失败回退分页全量）→ 左侧目录；
+     *       单课正文 = /lessons/:id + /lessons/:id/exercises（selfCheck 一旦落库即自动出现）
+     * 布局（2026-10-02 负责人需求，二轮修订）：①副标题隐藏 ②标题随版心加宽左移 ③统计卡缩小左对齐
+     *   ④跳转块升级为全站顶部导航（board.css .site-nav，当前页高亮）⑤「为什么今天学这个」「错误趋势」注释隐藏
+     *   ⑥课程改阅读板块同构 + 小节折叠/「全部展开」按钮（与 lesson.html 一致）
+     * 需求⑤的 loadSnapshot / loadTrend 代码完整保留（见下方注释块），恢复时取消注释并在 loadAll 放行即可。 */
     (function () {
       'use strict';
       var el = UI.el;
       UI.onRetry(loadAll);
       var applyFilter = function () { };
+
+      /* ---- 课程浏览器状态 ---- */
+      var lessons = [];      // 按课号倒序（最新在前）
+      var curIdx = 0;
+      var cache = {};        // lessonNo -> 单课详情（来回切换不重复请求）
+      var ORDER = ['review', 'grammar', 'vocab_table', 'examples', 'homework', 'my_answer', 'grading', 'feedback'];
+      var HIDDEN_TYPES = ['expected_mistakes'];   // Amy：不展示
+      /* 折叠规则与 lesson.html 完全一致（负责人：「全部展开/隐藏功能跟以前一样」）：
+       * 桌面默认展开 语法/例句/作业/批改，移动端只默认展开 批改；支持 #sec-<type> 深链定位。 */
+      var DEFAULT_OPEN = ['grammar', 'examples', 'homework', 'grading'];
+      var isMobile = !!(window.matchMedia && window.matchMedia('(max-width: 720px)').matches);
+      function shouldOpen(type) {
+        if (location.hash === '#sec-' + type) { return true; }
+        if (isMobile) { return type === 'grading'; }
+        return DEFAULT_OPEN.indexOf(type) !== -1;
+      }
 
       /* ---- 统计卡（分区块降级：某卡失败只让该卡显示 —，不整页报错） ---- */
       function loadStats() {
@@ -70,7 +191,7 @@
             .catch(function (e) { UI.setUnknown('statVocab', '加载失败：' + e.message); UI.partError('累计生词', e); }),
           API.get('/mistakes/stats').then(function (d) { UI.setText('statMistakes', d.pending); })
             .catch(function (e) { UI.setUnknown('statMistakes', '加载失败：' + e.message); UI.partError('未过关错词', e); }),
-          /* 阅读篇数（R1 已可接）：pieceCount；tooltip 附带天数 / 最近阅读 / 连续天数
+          /* 阅读篇数（R1）：pieceCount；tooltip 附带天数 / 最近阅读 / 连续天数
            * 「今天有没有读」由前端比 lastReadDate === today 判断，接口不下结论 */
           API.get('/readings/stats').then(function (d) {
             UI.setText('statReading', d.pieceCount);
@@ -85,9 +206,13 @@
         return Promise.all(jobs);
       }
 
-      /* ---- 为什么今天学这个（Amy：用 lastRecommendation，不展示 progress.note 原文）
+      /* ===== 需求⑤：以下两块已按负责人指示注释隐藏（代码完整保留）=====
+       * 恢复步骤：① 取消上方 HTML 里 #whyBlock / #trendBox 的注释；
+       *           ② 取消本注释块；③ 在 loadAll() 里放行 loadTrend() 与 loadSnapshot()。
+       *
+       * ---- 为什么今天学这个（Amy：用 lastRecommendation，不展示 progress.note 原文）
        * 语义是「当时的建议」而非当前实时判断，故必须标注出自哪一课；
-       * 库内可能恒为 null —— 无数据时整块不渲染（不留空白框），请求失败同样静默降级。 */
+       * 库内可能恒为 null —— 无数据时整块不渲染（不留空白框），请求失败同样静默降级。
       function loadSnapshot() {
         return API.get('/agent/snapshot').then(function (d) {
           var rec = d && d.lastRecommendation;
@@ -102,7 +227,7 @@
         });
       }
 
-      /* ---- 错误趋势（F6） ---- */
+       * ---- 错误趋势（F6）
       function loadTrend() {
         return API.get('/lessons/error-trend?limit=6').then(function (d) {
           el('trendBox').innerHTML = UI.trendChart(d.byLesson);
@@ -111,28 +236,193 @@
           UI.partError('错误趋势', e);
         });
       }
+       * ===== 需求⑤ 注释块结束 ===== */
 
-      /* ---- 课程列表 ---- */
+      /* ---- ⑥ 课程目录（左侧，按课号倒序 = 最新在最上） ---- */
+      function tocItem(l) {
+        var title = '第 ' + l.lessonNo + ' 课' + (l.lessonDate ? ' · ' + l.lessonDate : '');
+        /* data-text 供 UI.bindFilter 搜索（与旧课程卡同一口径：标题+总结+语法点+级别） */
+        var searchText = [title, l.summary, l.grammarPoint, l.level].join('  ').toLowerCase();
+        return '<button class="ltoc-item lesson" type="button" data-no="' + l.lessonNo + '"'
+          + ' data-text="' + UI.esc(searchText) + '">'
+          + '<b>' + UI.esc(title) + '</b>'
+          + (l.grammarPoint ? '<span>' + UI.esc(l.grammarPoint) + '</span>' : '')
+          + '</button>';
+      }
+
       function loadLessons() {
         el('lessonList').innerHTML = UI.stateHTML('loading', '正在加载课程…');
         return API.lessonIndex().then(function (d) {
-          if (!d.list.length) {
+          lessons = (d.list || []).slice().sort(function (a, b) { return b.lessonNo - a.lessonNo; });
+          if (!lessons.length) {
             el('lessonList').innerHTML = UI.stateHTML('empty', '暂无课程记录');
+            el('stageBody').innerHTML = UI.stateHTML('empty', '暂无课程记录');
             el('lessonCount').textContent = '';
             return;
           }
-          el('lessonList').innerHTML = d.list.map(UI.lessonCard).join('');
-          el('lessonCount').textContent = '共 ' + d.list.length + ' 课';
+          el('lessonList').innerHTML = lessons.map(tocItem).join('');
+          el('lessonCount').textContent = '共 ' + lessons.length + ' 课';
           applyFilter();
+          return showLesson(lessons[0].lessonNo);   // 需求⑥：默认展示最新一课
         }).catch(function (e) {
           el('lessonList').innerHTML = UI.stateHTML('empty', '课程加载失败：' + e.message);
+          el('stageBody').innerHTML = UI.stateHTML('empty', '课程加载失败：' + e.message);
           UI.partError('课程列表', e);
         });
       }
 
+      /* ---- ⑥ 单课正文（完整：头 + 自查 + 8 小节 + 词汇表；不再「查看全文」跳转） ---- */
+      function fetchDetail(no) {
+        if (cache[no]) { return Promise.resolve(cache[no]); }
+        var hit = null;
+        for (var i = 0; i < lessons.length; i++) {
+          if (String(lessons[i].lessonNo) === String(no)) { hit = lessons[i]; break; }
+        }
+        if (!hit) { return Promise.reject(new Error('没有第 ' + no + ' 课的记录')); }
+        /* exercises：F4-a 自查项期望来自 exercises[].selfCheck（后端尚未落库 → 空 list 走占位，不伪造） */
+        return Promise.all([
+          API.get('/lessons/' + hit.id),
+          API.get('/lessons/' + hit.id + '/exercises').catch(function () { return null; })
+        ]).then(function (r) {
+          var lesson = r[0];
+          var ex = r[1] && r[1].list ? r[1].list : [];
+          if (ex.length) { lesson.exercises = ex; }
+          cache[no] = lesson;
+          return lesson;
+        });
+      }
+
+      /* 与 lesson.html 同构：可折叠小节（details/summary），默认展开规则见 shouldOpen */
+      function secBlock(type, html, missing) {
+        var open = shouldOpen(type);
+        return '<section class="sec' + (missing ? ' missing' : '') + '" data-type="' + UI.esc(type) + '" id="sec-' + UI.esc(type) + '">'
+          + '<details' + (open ? ' open' : '') + '>'
+          + '<summary><h4>' + UI.esc(UI.label('sectionType', type)) + '</h4></summary>'
+          + '<div class="secbody">' + html + '</div>'
+          + '</details></section>';
+      }
+
+      function renderSections(lesson) {
+        var byType = {};
+        (lesson.sections || []).forEach(function (s) { byType[s.sectionType] = s; });
+        var known = ORDER.filter(function (t) { return HIDDEN_TYPES.indexOf(t) === -1; }).map(function (t) {
+          if (byType[t]) { return secBlock(t, UI.renderMarkdown(byType[t].content), false); }
+          /* 首页内嵌场景：缺小节只显式标注，不给 lesson-N.html 兜底链（需求⑥「不再跳转」） */
+          return secBlock(t, '该小节正文未入库（后端缺口 G-2）。', true);
+        });
+        /* 未列出的新增 sectionType 也照常渲染（排除 Amy 裁定不展示的），避免硬编码吃掉新类型 */
+        var extra = (lesson.sections || []).filter(function (s) {
+          return ORDER.indexOf(s.sectionType) === -1 && HIDDEN_TYPES.indexOf(s.sectionType) === -1;
+        }).map(function (s) { return secBlock(s.sectionType, UI.renderMarkdown(s.content), false); });
+        return '<div class="sec-tools"><button class="btn" type="button" id="toggleAll">全部展开</button></div>'
+          + known.concat(extra).join('');
+      }
+
+      function renderSelfCheck(lesson) {
+        var checks = [];
+        if (lesson.exercises && lesson.exercises.length) {
+          lesson.exercises.forEach(function (e) { if (e.selfCheck) { checks.push(e.selfCheck); } });
+        } else if (lesson.selfChecks && lesson.selfChecks.length) {
+          checks = lesson.selfChecks;
+        }
+        if (!checks.length) {
+          return secBlock('selfcheck', '自查清单数据未入库（后端缺口：GET /api/lessons/:id 未返回 exercises[].selfCheck）。', true);
+        }
+        return secBlock('selfcheck',
+          '<ul class="selfcheck">' + checks.map(function (c) { return '<li>' + UI.esc(c) + '</li>'; }).join('') + '</ul>', false);
+      }
+
+      function renderVocab(list) {
+        if (!list || !list.length) { return '<p class="state">本课暂无词汇记录</p>'; }
+        return '<table><thead><tr><th>单词</th><th>音标</th><th>中文</th><th>例句</th></tr></thead><tbody>'
+          + list.map(function (v) {
+            return '<tr><td>' + UI.esc(v.word) + (v.isNew ? ' <span class="tag">新</span>' : '') + '</td>'
+              + '<td>' + UI.esc(v.phonetic || '') + '</td><td>' + UI.esc(v.meaning || '') + '</td>'
+              + '<td>' + UI.esc(v.example || '') + '</td></tr>';
+          }).join('') + '</tbody></table>';
+      }
+
+      function renderLesson(lesson) {
+        el('stageTitle').textContent = '第 ' + lesson.lessonNo + ' 课' + (lesson.lessonDate ? ' · ' + lesson.lessonDate : '');
+        el('stageBody').innerHTML =
+          '<p class="sum">' + UI.esc(lesson.summary || '') + '</p>'
+          + '<p class="gp">' + (lesson.grammarPoint ? '语法点：' + UI.esc(lesson.grammarPoint) : '') + '</p>'
+          + '<p class="meta">级别 ' + UI.esc(lesson.level || '—')
+          + '　生词 ' + (lesson.vocabCount || 0) + ' 个　作业 ' + (lesson.exerciseCount || 0)
+          + ' 项　错误 ' + (lesson.errorCount || 0) + ' 处</p>'
+          + renderSelfCheck(lesson)
+          + renderSections(lesson)
+          + '<h4>本课词汇<span class="count">' + (lesson.vocabCount || (lesson.vocabulary || []).length) + ' 个</span></h4>'
+          + renderVocab(lesson.vocabulary);
+        bindTools();
+      }
+
+      /* 一键全展开 / 全折叠（与 lesson.html 同构）＋ 按钮文案实时同步：
+       * 任意小节被手动折叠/展开（details 的 toggle 事件）都重算文案 —— 全开→「全部折叠」，否则→「全部展开」，
+       * 保证「点下去的动作」与「按钮上的名字」永远一致（2026-10-02 负责人报的 bug：
+       * 旧实现只在点击按钮时更新文案，手动折叠单节后文案残留、与动作相反）。 */
+      function bindTools() {
+        var btn = el('toggleAll');
+        if (!btn) { return; }
+        var all = el('stageBody').querySelectorAll('details');
+        var anyClosed = function () {
+          for (var i = 0; i < all.length; i++) { if (!all[i].open) { return true; } }
+          return false;
+        };
+        var sync = function () { btn.textContent = anyClosed() ? '全部展开' : '全部折叠'; };
+        btn.addEventListener('click', function () {
+          var open = anyClosed();
+          Array.prototype.forEach.call(all, function (d) { d.open = open; });
+          sync();
+        });
+        Array.prototype.forEach.call(all, function (d) { d.addEventListener('toggle', sync); });
+        sync();
+      }
+
+      function markToc(no) {
+        Array.prototype.forEach.call(el('lessonList').querySelectorAll('.ltoc-item'), function (b) {
+          b.classList.toggle('on', String(b.dataset.no) === String(no));
+        });
+      }
+
+      function showLesson(no) {
+        for (var i = 0; i < lessons.length; i++) {
+          if (String(lessons[i].lessonNo) === String(no)) { curIdx = i; break; }
+        }
+        markToc(no);
+        el('lsPrev').disabled = curIdx <= 0;
+        el('lsNext').disabled = curIdx >= lessons.length - 1;
+        el('footCount').textContent = '第 ' + (curIdx + 1) / 1 + ' / ' + lessons.length + ' 课';
+        el('stageBody').innerHTML = UI.stateHTML('loading', '正在加载课程…');
+        return fetchDetail(no).then(renderLesson).catch(function (e) {
+          el('stageBody').innerHTML = UI.stateHTML('empty', '课程加载失败：' + e.message);
+          UI.partError('课程详情', e);
+        });
+      }
+
+      function step(delta) {
+        var next = curIdx + delta;
+        if (next < 0 || next > lessons.length - 1) { return; }
+        showLesson(lessons[next].lessonNo);
+      }
+
+      /* ---- 交互 ---- */
+      el('lessonList').addEventListener('click', function (e) {
+        var btn = e.target && e.target.closest ? e.target.closest('.ltoc-item') : null;
+        if (btn && btn.dataset.no && !btn.classList.contains('hide')) { showLesson(btn.dataset.no); }
+      });
+      el('lsPrev').addEventListener('click', function () { step(-1); });
+      el('lsNext').addEventListener('click', function () { step(1); });
+      document.addEventListener('keydown', function (e) {
+        if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { return; }
+        if (e.key === 'ArrowLeft') { step(-1); }
+        if (e.key === 'ArrowRight') { step(1); }
+      });
+
       function loadAll() {
         UI.clearError();
-        return Promise.all([loadStats(), loadTrend(), loadLessons(), loadSnapshot()]);
+        /* 需求⑤：loadTrend() / loadSnapshot() 已随「为什么今天学这个」「错误趋势」一起注释隐藏 */
+        return Promise.all([loadStats(), loadLessons()]);
       }
 
       loadAll().then(function () {

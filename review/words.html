@@ -2,16 +2,53 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>词汇卡</title>
 <link rel="stylesheet" href="assets/board.css">
+<style>
+  /* 2026-10-02 负责人需求（词汇卡）：
+     ① 除顶部导航外内容整体左移（版心 900 → 1200，同首页模式）
+     ② 搜索框移到左栏、位于字母索引上方
+     ③ 字母索引两列网格、每块放大约 1.5 倍；左栏 sticky 跟随滚动
+     仅作用于本页，不进共享层。 */
+  .wrap { max-width: 1200px; }
+  .words-layout { display: flex; gap: 14px; align-items: flex-start; }
+  .words-side { width: 104px; flex: 0 0 auto; position: sticky; top: 12px; }
+  .words-side #q { padding: 7px 9px; font-size: 13px; margin-bottom: 10px; }
+  .idx-v { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;
+    max-height: calc(100vh - 60px); overflow: auto; padding-right: 2px; }
+  .idx-v a { display: block; text-align: center; background: #fff; border: 1px solid #d9d8d2;
+    border-radius: 8px; padding: 7px 0; font-size: 17px; text-decoration: none; color: inherit; }
+  .idx-v a:hover { border-color: #185fa5; }
+  .words-main { flex: 1 1 auto; min-width: 0; }
+  /* 首个字母组标题与左栏搜索框顶部对齐（抵消 board.css h2 的 24px 上边距，2026-10-02 负责人需求） */
+  .words-main #wordGroups > h2:first-child { margin-top: 0; }
+  @media (max-width: 720px) {
+    .words-layout { flex-direction: column; }
+    .words-side { position: static; width: auto; }
+    .idx-v { grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); max-height: none; }
+  }
+</style>
 </head><body><div class="wrap">
-<h1>词汇卡</h1>
-<p><a class="plain" href="index.html">← 返回看板</a></p>
+<div class="top-bar">
+  <h1>词汇卡</h1>
+  <nav class="site-nav">
+    <a href="index.html">首页</a>
+    <a href="reading.html">阅读</a>
+    <a class="on" href="words.html">词汇卡</a>
+    <a href="wrong.html">错词本</a>
+  </nav>
+</div>
 <p class="sub">按首字母分组，点击卡片翻出中文与例句。<span id="totalNote"></span></p>
 
 <div id="apiError" class="api-error hide"><span id="apiErrorMsg"></span><button id="apiRetry" type="button">重试</button></div>
 
-<div class="idx" id="letterNav"></div>
-<input id="q" placeholder="搜索单词、释义或例句，输入关键词即时过滤">
+<div class="words-layout">
+<aside class="words-side">
+<input id="q" placeholder="搜索单词/释义/例句">
+<div class="idx-v" id="letterNav"></div>
+</aside>
+<section class="words-main">
 <div id="wordGroups"><p class="state loading">正在加载词汇…</p></div>
+</section>
+</div>
 <footer>提示：先自己回忆中文，再点开核对；例句取自该词首次出现的课程。</footer>
 </div>
 

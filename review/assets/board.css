@@ -211,3 +211,13 @@ button.zhbtn:disabled { background: #f4f4f1; border-color: #e3e2dc; color: #a9a8
 .pager:hover:not(:disabled) { border-color: #185fa5; background: #eef4fb; }
 .pager:disabled { opacity: .35; cursor: default; }
 .pager-count { flex: 1 1 auto; text-align: center; color: #6b6b66; font-size: 13px; }
+
+/* ===== 全站顶部导航（2026-10-02 负责人需求）=====
+ * 首页/阅读/词汇卡/错词本，横向排列；当前所在模块蓝底高亮（与左侧目录选中态同色）。
+ * 各页静态写入（无 JS 注入，避免加载闪烁）；index / reading / words / wrong / lessons/lesson 五页共享。 */
+.top-bar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.site-nav { display: flex; gap: 8px; flex-wrap: wrap; }
+.site-nav a { display: block; padding: 7px 14px; background: #fff; border: 1px solid #e3e2dc;
+  border-radius: 8px; color: inherit; text-decoration: none; font-size: 13px; }
+.site-nav a:hover { border-color: #b9c8d8; }
+.site-nav a.on { border-color: #185fa5; background: #eef4fb; }

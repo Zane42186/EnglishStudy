@@ -15,8 +15,15 @@
 .review .feedback p { margin: 2px 0; font-size: 14px; }
 </style>
 </head><body><div class="wrap">
-<h1>错词本</h1>
-<p><a class="plain" href="index.html">← 返回看板</a></p>
+<div class="top-bar">
+  <h1>错词本</h1>
+  <nav class="site-nav">
+    <a href="index.html">首页</a>
+    <a href="reading.html">阅读</a>
+    <a href="words.html">词汇卡</a>
+    <a class="on" href="wrong.html">错词本</a>
+  </nav>
+</div>
 <p class="sub">每张卡列出四项硬指标：累计犯错次数、连续答对进度、优先级、错误类型，以及来源课号。</p>
 
 <div id="apiError" class="api-error hide"><span id="apiErrorMsg"></span><button id="apiRetry" type="button">重试</button></div>
