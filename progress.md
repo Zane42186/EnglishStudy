@@ -1,9 +1,9 @@
 # 学习进度
 
 - 当前级别：Level 2
-- 当前课号：8
-- 最近反馈：刚好（第 8 课，作业 8 处错、无补漏块；**不规则过去式零错误**，错误集中在介词 to / a-an / 名词数 / 拼写）
-- 上次上课：2026-10-01
+- 当前课号：9
+- 最近反馈：刚好（第 9 课，作业 4 处错、补漏块 5 零错；**did 结构全对**，错处全是老问题：标点 2 / 名词裸用 1 / did 后过去式 1）
+- 上次上课：2026-10-02
 - 太简单连击计数：0 / 2
 - 已学知识点：
   - 第 1 课（Level 1）主语 + 谓语 + 宾语
@@ -14,6 +14,7 @@
   - 第 6 课（Level 2）一般过去时 was / were（否定 was not / weren't、疑问 Was he…? 时间标志词 yesterday / last night / ago）
   - 第 7 课（Level 2）规则动词过去式 -ed（四条拼写规则；be 动词走 was/were、实义动词走 -ed，两套不并用）
   - 第 8 课（Level 2）常用不规则过去式（go-went / eat-ate / see-saw / have-had；不加 -ed，一个动词只有一种过去式）
+  - 第 9 课（Level 2）过去时的否定与疑问 did（didn't + 动词原形；Did + 主语 + 原形？；Yes, I did. / No, I didn't.；did 不随主语变、与过去式不并用）
 - 每课书写规范自查五条（疑问句结尾用问号）
 
 ## 升级记录
@@ -48,20 +49,22 @@ Level 1 尚未学到的知识点不回头单独讲，靠错词本复习和作业
 | 6 | 2026-09-29 | 刚好 | 维持 Level 2 |
 | 7 | 2026-10-01 | 刚好 | 维持 Level 2 |
 | 8 | 2026-10-01 | 刚好 | 维持 Level 2（连击计数 0/2） |
+| 9 | 2026-10-02 | 刚好 | 维持 Level 2（连击计数 0/2） |
 
 ## 待复习（错词本未过关）
 
-> 完整清单以 `wrong-words.md`（33 条：未过关 27 / 已过关 6）为准，本节只列复习时优先取用的项。
+> 完整清单以 `wrong-words.md`（39 条：未过关 32 / 已过关 7）为准，本节只列复习时优先取用的项。
 
-- **play games（可数名词单数不能裸用）｜累计 3 次；第 7 课作业达标、第 8 课复习答对 → 1/2，priority 最高**
-- **Do you like coffee?（疑问句结尾问号）｜第 8 课复习答对 → 1/2，priority 高**
+- **she is always busy（频度副词位置）｜累计 3 次；第 9 课复习答对 → 1/2，priority 最高**
+- **Do you like coffee?（疑问句结尾问号）｜1/2；⚠️ 第 9 课作业又犯同类（`Did you see him yesterday.`）→ 标点习惯**复发**、自查项恢复**
+- **第 9 课新增 6 条**（均 0/2）：`at night yesterday`（「昨晚」说 last night）、`They plays games`（复数主语不加 -s，与 `Tom play soccer` 同一根线）、`didn't went`（did 后用原形）、`Did you see him yesterday.`（问号）、`eat banana`（名词裸用）、`No, I didn't`（句号）
 - **第 8 课新增 7 条**（均 0/2）：`went the park`／`went a shop`（go to + 地点漏 to，本课 2 次）、`a apple`（元音前用 an）、`He got to school`（go→went 误用 got）、`vergertable`／`supermark`（拼写）、`homeworks`（不可数名词加 -s）
 - and I like my teacher（逗号连句）｜第 6 课答对 → 1/2
 - she is always busy（频度副词位置）｜1/2
 - I am reading a book（进行时漏 be 动词）｜1/2
 - We are busy（we 配 are）｜1/2
 - 句首字母大写（those are their bags）｜第 6 课答对 → 1/2
-- Tom plays soccer（第三人称单数 -s）｜第 8 课复习复发（写成 Tom play games）→ 0/2，累计 2
+- Tom plays soccer（第三人称单数 -s）｜第 8 课复习复发（写成 Tom play games）；**第 9 课又犯反方向**（They plays games，多加了 -s）→ 0/2，累计 2 —— 规则是「-s 只在主语是 he/she/it 时加」
 - my grandpa and I（并列主语用主格 I）｜0/2
 - What are you doing?（问「正在做什么」）｜0/2
 - Zane（人名首字母大写）｜0/2
@@ -70,7 +73,7 @@ Level 1 尚未学到的知识点不回头单独讲，靠错词本复习和作业
 - teach 的不规则过去式 taught｜0/2，第 6 课新
 - How were you yesterday?（问「怎么样」用 how，句尾问号）｜0/2，第 6 课新
 
-已出队：We watch movies、ask my teacher for help、TV 大小写（第 3 课）；An book on the table → there is / a（第 4 课补漏块 1）；this / that / these / those（第 5 课补漏块 2）；疑问词 what / who / where（第 6 课补漏块 3）。
+已出队：We watch movies、ask my teacher for help、TV 大小写（第 3 课）；An book on the table → there is / a（第 4 课补漏块 1）；this / that / these / those（第 5 课补漏块 2）；疑问词 what / who / where（第 6 课补漏块 3）；**play game（第 9 课复习答对 → 已过关，退出复习队列）**。
 
 ## 错误趋势（用于判断是否加速）
 
@@ -84,6 +87,7 @@ Level 1 尚未学到的知识点不回头单独讲，靠错词本复习和作业
 | 6 | 5 | 刚好 | 老问题复发 3 处 + 新点 2 类 |
 | 7 | 2（作业）+ 3（补漏块，单列） | 刚好 | **可数名词 P0 首次自主达标**；两处不规则动词（teached / getted） |
 | 8 | 8（作业） | 刚好 | 无补漏块；**不规则过去式零错误**（went/ate/met/bought/told 全对），错误全为老问题：介词 to×2、a/an、名词数、拼写×2；⚠️ 开放题写 5 句（要求 3 句）放大了基数 |
+| 9 | 4（作业）+ 0（补漏块 5） | 刚好 | **did 结构全对**（didn't eat / Did you see / Did you eat / No I didn't）；错处全是老问题：标点 2（问号、句号）、名词裸用 1（banana）、did 后过去式 1（didn't went，改错题照抄未改）；补漏块 5「a/an 与可数名词」**3 题全达标**；`play game` 过关出队 |
 
 **判断：暂停加速（不翻倍）。** 第 5、6 课错误没继续下降，且第 6 课老错误复发（play game 第 3 次、问号、拼写）。下一步优先做「巩固与纠错」，等连续 2 课错误 ≤2 处再谈加速。第 7 课起在作业里加一条强制要求：句尾标点与可数名词必须自查一遍。
 
@@ -135,3 +139,13 @@ Level 1 尚未学到的知识点不回头单独讲，靠错词本复习和作业
 - **新增错词 7 条**：`went the park`、`a apple`、`He got to school`、`went a shop`、`vergertable`、`supermark`、`homeworks`（`went the park` 与 `went a shop` 按判重键分列两条 —— 字符串不同）。
 - **复习变动**：`play game` 0→1、`Do you like coffee.` 0→1、`Tom play soccer` 连续答对 1→0 且累计 1→2。
 - **第 9 课计划**：过去时的否定与疑问（did）＋ **补漏块 5（a / an 与可数名词，3 题）**；仍写 `notes/day-08-14.md`。降载评估：本课 `E=8`，但第 9 课为新点首课，按 §7.4 D1 例外不降载，第 10 课再评估。
+
+## 第 9 课后状态更新（2026-10-02）
+
+- **本课语法点 · 过去时否定与疑问（did）：结构全对** —— `didn't eat` / `Did you see` / `Did you eat` / `No I didn't` 全部用对。唯一直接踩新点的是作业第 1 题 `didn't went`，且属「**改错题被原样抄回、没改**」的答题习惯问题，不是规则不会。
+- **可数名词自查项**：第 7 课达标 → 第 8 课未达标 → **第 9 课补漏块 3 题全达标**，且 `play game` 复习答对**过关出队** ⇒ 该 P0 **降级**；作业里仍有一处 `eat banana` 裸用，保留一条轻量自查。
+- **句尾标点自查项**：第 7、8 课连续无错后按 §11.6 降级，**本课复发 2 处**（`Did you see him yesterday.`、`No, I didn't`）→ **自查项恢复**。
+- **新增错词 6 条**：`at night yesterday`、`They plays games`（复习）+ `didn't went`、`Did you see him yesterday.`、`eat banana`、`No, I didn't`（作业）。
+- **已过关**：`play game`（第 4 课入册、累计 3 次，第 9 课复习答对 2/2 出队）。
+- **复习变动**：`she always is busy` 0→1。
+- **第 10 课计划**：Level 2 第 7 点「将来时 will 与 be going to」；并按 §7.4 复评降载（本课 E=4，较第 8 课 8 处回落；若第 10 课仍 ≤2 且反馈非「太难」，可考虑退出巩固期）。

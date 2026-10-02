@@ -1,9 +1,9 @@
 {
   "schemaVersion": "exercise-error-types/1.0",
-  "generatedAt": "2026-10-01T22:30:00+08:00",
+  "generatedAt": "2026-10-02T17:50:00+08:00",
   "generatedBy": "Amy",
   "targetField": "lesson_exercises.error_type",
-  "purpose": "本文件提供第 1—8 课 45 道题（作业 33 + 补漏块 12）的逐题错误类型，供 lesson_exercises.error_type 回填。第 1—6 课 34 题于 2026-09-30 回填（10 有值 / 24 NULL）；第 7 课 7 题于 2026-10-01 追加（2 有值 / 5 NULL）；第 8 课 4 题于 2026-10-01 追加（4 有值 / 0 NULL，本课无补漏块）。",
+  "purpose": "本文件提供第 1—8 课 45 道题（作业 33 + 补漏块 12）的逐题错误类型，供 lesson_exercises.error_type 回填。第 1—6 课 34 题于 2026-09-30 回填（10 有值 / 24 NULL）；第 7 课 7 题于 2026-10-01 追加（2 有值 / 5 NULL）；第 8 课 4 题于 2026-10-01 追加（4 有值 / 0 NULL，本课无补漏块）；第 9 课 7 题于 2026-10-02 追加（3 有值 / 4 NULL，含补漏块 5 的 3 题）。",
   "rule": {
     "whenNull": "verdict 为 correct / correct_with_note / blank 的题 → errorType = null（这些题没有产出错误）",
     "whenWrong": "verdict 为 wrong 的题 → errorType = 该题**处数最多**的错误类型",
@@ -371,19 +371,75 @@
       "verdict": "wrong",
       "errorType": "grammar",
       "derivation": "grammar 3 + spelling 2 → 取处数最多的 grammar"
+    },
+    {
+      "lessonNo": 9,
+      "kind": "homework",
+      "exerciseNo": 1,
+      "verdict": "wrong",
+      "errorType": "grammar",
+      "derivation": "grammar 1（didn't went → didn't go）"
+    },
+    {
+      "lessonNo": 9,
+      "kind": "homework",
+      "exerciseNo": 2,
+      "verdict": "wrong",
+      "errorType": "punctuation",
+      "derivation": "punctuation 1（疑问句结尾用句号代问号）"
+    },
+    {
+      "lessonNo": 9,
+      "kind": "homework",
+      "exerciseNo": 3,
+      "verdict": "correct",
+      "errorType": null,
+      "derivation": "无错误"
+    },
+    {
+      "lessonNo": 9,
+      "kind": "homework",
+      "exerciseNo": 4,
+      "verdict": "wrong",
+      "errorType": "grammar",
+      "derivation": "grammar 1（banana 裸用）+ punctuation 1（No, I didn't 缺句号）→ 并列取 grammar"
+    },
+    {
+      "lessonNo": 9,
+      "kind": "backfill",
+      "exerciseNo": 1,
+      "verdict": "correct",
+      "errorType": null,
+      "derivation": "无错误"
+    },
+    {
+      "lessonNo": 9,
+      "kind": "backfill",
+      "exerciseNo": 2,
+      "verdict": "correct_with_note",
+      "errorType": null,
+      "derivation": "无错误（正确但有更优表达：泛指宜用复数）"
+    },
+    {
+      "lessonNo": 9,
+      "kind": "backfill",
+      "exerciseNo": 3,
+      "verdict": "correct",
+      "errorType": null,
+      "derivation": "无错误"
     }
   ],
   "summary": {
-    "total": 45,
-    "notNull": 16,
+    "total": 52,
+    "notNull": 19,
     "byType": {
-      "grammar": 9,
-      "punctuation": 3,
+      "grammar": 11,
+      "punctuation": 4,
       "capitalization": 2,
       "word_choice": 2,
       "spelling": 0,
       "other": 0
     },
-    "note": "第 1—8 课 45 道题（作业 33 + 补漏块 12）的逐题 error_type；非 wrong 的 verdict 按口径保持 NULL。第 8 课 4 题全部 wrong：Ex1 grammar、Ex2 grammar、Ex3 word_choice、Ex4 grammar（grammar 3 + spelling 2 → 取处数最多的 grammar）"
+    "note": "第 1—9 课 52 道题（作业 37 + 补漏块 15）的逐题 error_type；非 wrong 的 verdict 按口径保持 NULL。第 9 课 7 题：作业 Ex1 grammar、Ex2 punctuation、Ex3 NULL（correct）、Ex4 grammar（grammar 1 + punctuation 1 → 并列取 grammar）；补漏块 5 的 3 题全部 NULL（correct / correct_with_note / correct）。"
   }
 }

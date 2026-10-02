@@ -1,0 +1,76 @@
+{
+  "lessonNo": 9,
+  "kind": "homework",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "wrong",
+      "userAnswer": "I didn't went to school yesterday.",
+      "correctText": "I didn't go to school yesterday.",
+      "errorNote": "语法：did / didn't 后面的动词必须用原形，不能再变过去式。该改错题被原样抄回、没有改正（答题习惯问题，非规则不会）。",
+      "targetPoint": "过去时否定 didn't + 动词原形"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "wrong",
+      "userAnswer": "Did you see him yesterday.",
+      "correctText": "Did you see him yesterday?",
+      "errorNote": "标点：疑问句结尾必须用问号。达标项：Did + you + see（原形）结构完全正确。",
+      "targetPoint": "过去时疑问 Did + 主语 + 原形？"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "correct",
+      "userAnswer": "She didn't eat breakfast yesterday.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "过去时否定 didn't + eat（不规则动词用原形）"
+    },
+    {
+      "exerciseNo": 4,
+      "verdict": "wrong",
+      "userAnswer": "I didn't eat fruit yesterday. Did you eat banana yesterday? No, I didn't",
+      "correctText": null,
+      "revisedAnswer": "I didn't eat fruit yesterday. Did you eat a banana yesterday? No, I didn't.",
+      "errorNote": "两处：①语法——banana 是可数名词单数、不能裸用 → Did you eat a banana yesterday?（泛指则用 bananas）；②标点——No, I didn't 句尾缺句号 → No, I didn't.。达标项：did / didn't + 原形在本课结构全部用对（didn't eat / Did you see / Did you eat / No I didn't）；I didn't eat fruit yesterday. 完全正确；三句任务（否定 / 疑问 / 回答）全部完成。",
+      "targetPoint": "过去时否定与疑问综合运用 + 可数名词数"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "didn't went",
+      "correctText": "didn't go",
+      "errorType": "grammar",
+      "errorReason": "did / didn't 后面的动词必须用原形，不能再变过去式（第 9 课作业第 1 题，改错题被原样抄回未改）",
+      "sourceExerciseNo": 1
+    },
+    {
+      "wrongText": "Did you see him yesterday.",
+      "correctText": "Did you see him yesterday?",
+      "errorType": "punctuation",
+      "errorReason": "疑问句结尾必须用问号（与 Do you like coffee. 同类；第 9 课作业第 2 题）",
+      "sourceExerciseNo": 2
+    },
+    {
+      "wrongText": "eat banana",
+      "correctText": "eat a banana",
+      "errorType": "grammar",
+      "errorReason": "可数名词单数不能裸用（与 play game 同源）；泛指「吃香蕉」用 eat bananas（第 9 课开放题）",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "No, I didn't",
+      "correctText": "No, I didn't.",
+      "errorType": "punctuation",
+      "errorReason": "句子结尾必须用句号（第 9 课开放题第 3 句）",
+      "sourceExerciseNo": 4
+    }
+  ],
+  "summary": {
+    "exerciseCount": 4,
+    "errorCount": 4,
+    "blankCount": 0,
+    "byType": { "grammar": 2, "punctuation": 2 },
+    "note": "错误处数按 §11.4「一处 = 一个可独立改正的点」：第 1 题 1 处（didn't went）、第 2 题 1 处（疑问句结尾用了句号）、第 3 题 0、第 4 题 2 处（banana 裸用、No, I didn't 缺句号）。本课语法点「过去时的否定与疑问（did）」结构全对 —— didn't eat / Did you see / Did you eat / No I didn't 全部用对；错处全部是老问题（标点 2、名词裸用 1、did 后过去式 1）。第 1 题属「改错题被原样抄回、没改」的答题习惯问题，非规则不会。"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "lessonNo": 9,
+  "lessonDate": "2026-10-02",
+  "level": "Level 2",
+  "studyMinutes": null,
+  "source": "由 Amy 在收完难度反馈后产出；对应 POST /api/study-records（recordType: attend / grade / feedback）",
+  "records": [
+    {
+      "recordType": "attend",
+      "payload": {
+        "lessonNo": 9,
+        "level": "Level 2",
+        "lessonDate": "2026-10-02"
+      }
+    },
+    {
+      "recordType": "grade",
+      "payload": {
+        "lessonNo": 9,
+        "exerciseCount": 4,
+        "errorCount": 4,
+        "blankCount": 0,
+        "byType": { "grammar": 2, "punctuation": 2 },
+        "newMistakes": 4,
+        "passedMistakes": 1,
+        "backfillExerciseCount": 3,
+        "backfillErrorCount": 0,
+        "note": "错误处数口径见 docs/ai-teacher.md §11.4。本课语法点「过去时的否定与疑问（did）」结构全对（didn't eat / Did you see / Did you eat / No I didn't）；错处全部是老问题：标点 2、名词裸用 1、did 后过去式 1。补漏块 5（a / an 与可数名词）3 题全达标、0 处错。newMistakes=4 指本课作业新增 4 条；另有复习新增 2 条（at night yesterday / They plays games），合计入库 6 条。passedMistakes=1 指 play game 复习答对满 2 次过关。"
+      }
+    },
+    {
+      "recordType": "feedback",
+      "payload": {
+        "lessonNo": 9,
+        "lessonDate": "2026-10-02",
+        "feedback": "just_right",
+        "levelBefore": "Level 2",
+        "levelAfter": "Level 2",
+        "easyStreak": 0,
+        "nextRecommendation": "第 10 课：Level 2 第 7 点「将来时 will 与 be going to」。复习优先：she always is busy（累计 3、1/2，再对一次过关）、句尾标点（第 9 课复发 2 处，自查项恢复；Do you like coffee. / Did you see him yesterday.）、可数名词裸用（eat banana）、did 后过去式（didn't went）、Tom play soccer（-s 规则，本课又出反方向 They plays games）。降载复评：本课 E=4（较第 8 课 8 处回落）、补漏块 0 错，若第 10 课仍 ≤2 且反馈非「太难」，可考虑退出巩固期。"
+      }
+    }
+  ],
+  "notes": {
+    "whySeparateFile": "grade / feedback 的 payload 是后端 `study_records` 与 `progress_feedback` 的落库依据，与逐题判定的 grading.json 分离，避免一份文件承载两种语义。",
+    "lastClassDate": "`/api/progress.lastClassDate` 靠本文件的 feedback 记录（带 lessonNo=9、lessonDate）更新。",
+    "newMistakesList": ["at night yesterday", "They plays games", "didn't went", "Did you see him yesterday.", "eat banana", "No, I didn't"],
+    "newMistakesNote": "前 2 条来自课前复习（不在 records/grading.json 覆盖范围内）、后 4 条来自作业与补漏块作业段。",
+    "passedMistakesList": ["play game"],
+    "studyMinutesNote": "G5 维持降级：lessons 表无 study_minutes 列，本字段按口径留 null（未新增列）。"
+  }
+}

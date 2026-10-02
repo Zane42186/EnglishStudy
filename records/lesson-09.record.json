@@ -1,0 +1,182 @@
+{
+  "lessonNo": 9,
+  "lessonDate": "2026-10-02",
+  "levelCode": "Level 2",
+  "summary": "学会过去时的否定与疑问 did，能写出 didn't go ／ Did you go…? 这类句子",
+  "studyMinutes": null,
+  "sourceFile": "day-08-14.md",
+  "status": "taught",
+  "sections": [
+    {
+      "sectionType": "review",
+      "orderIndex": 0,
+      "contentMd": "取题：第 8 课（N-1）、第 6 课（N-3）、第 2 课（N-7）各一题 + 错词本累计 3 次的两条（`play game`、`she always is busy`）。\n1. 第 8 课不规则过去式（翻译：我昨天在公园里遇见了我的朋友）：作答 `I met my friend in the park yesterday.` **正确**。\n2. 第 6 课 was / were（翻译：昨天晚上我很累）：作答 `I was tired at night yesterday.` —— `was` 用对；但 `at night yesterday` 不是英语的说法（「昨晚」说 **last night**），**答错** → 新增错词 `at night yesterday`。正确句：`I was very tired last night.`\n3. 第 2 课 be 动词（翻译：他们是我的朋友）：作答 `They are my friends.` **正确**。\n4. 错词 play game（翻译：他们玩游戏）：作答 `They plays games.` —— `games` 用对（错词 `play game` **答对**，连续答对 1 → 2 → **已过关、退出复习队列**）；但主语 `They` 是复数、动词多加了 -s，**答错** → 新增错词 `They plays games`。\n5. 错词频度副词位置（改错 `She always is busy.`）：作答 `She is always busy.` **正确** → 错词 `she always is busy` 连续答对 0 → 1。\n\n复习小结：5 题 3 对 2 错；`play game` 过关出队。"
+    },
+    {
+      "sectionType": "grammar",
+      "orderIndex": 1,
+      "contentMd": "第 7、8 课学了**肯定句**的过去式（worked / went）。今天学**怎么否定、怎么提问**。\n\n英语的办法是请一个「帮手」——**did**。**请了 did，后面的动词就回到原形**，不再变过去式。\n\n| 句式 | 结构 | 例子 |\n|---|---|---|\n| 肯定 | 主语 + 过去式 | I **went** to the park. |\n| 否定 | 主语 + **didn't** + **动词原形** | I **didn't go** to the park. |\n| 疑问 | **Did** + 主语 + **动词原形**? | **Did** you **go** to the park? |\n| 回答 | Yes, I **did**. ／ No, I **didn't**. | |\n\n三条要点：① **did 本身已经是过去式，动词就用原形**（`didn't went` ❌ → `didn't go` ✅）；② **did 不随主语变**（I did ／ He did ／ They did）；③ **两套别混**：肯定句用动词自己的过去式（went），否定 / 疑问用 did + 原形（didn't go），同一句里 did 与过去式不能同时出现。"
+    },
+    {
+      "sectionType": "vocab_table",
+      "orderIndex": 2,
+      "contentMd": "| 单词 | 音标 | 中文 | 例句 |\n|---|---|---|---|\n| finish | /ˈfɪnɪʃ/ | 完成、做完 | I didn't finish my homework. |\n| start | /stɑːt/ | 开始 | The movie started at eight. |\n| arrive | /əˈraɪv/ | 到达 | They arrived late. |\n| leave | /liːv/ | 离开 | She didn't leave early. |\n| stay | /steɪ/ | 停留、待着 | We stayed at home. |\n| call | /kɔːl/ | 打电话 | Did you call him? |\n| happen | /ˈhæpən/ | 发生 | What happened? |\n| weekend | /ˈwiːkend/ | 周末 | Did you have a good weekend? |\n| early | /ˈɜːli/ | 早 | He didn't get up early. |\n| later | /ˈleɪtə(r)/ | 后来、稍后 | I saw him later. |"
+    },
+    {
+      "sectionType": "examples",
+      "orderIndex": 3,
+      "contentMd": "1. I didn't go to work yesterday.\n2. She didn't eat breakfast this morning.\n3. Did you watch the movie last night? — Yes, I did.\n4. Where did you go last weekend?\n5. He didn't finish his homework, so he stayed at home."
+    },
+    {
+      "sectionType": "homework",
+      "orderIndex": 4,
+      "contentMd": "1. 改错：I didn't went to school yesterday.\n2. 翻译：你昨天看见他了吗？\n3. 翻译：她昨天没有吃早饭。\n4. 开放题：用 did 写 3 句 —— ① 一句否定（… didn't + 原形）② 一句疑问（Did … ?）③ 一句回答（Yes/No, … did/didn't）；其中至少 1 句用不规则动词（go / eat / see / have / do / get / buy / meet / tell / teach）。\n\n**本课强制自查项（P0）**：① did / didn't 后面的动词一律用**原形**（绝不能写 didn't went）② 可数名词单数不能裸用（用复数或 a / an / the / my）。"
+    },
+    {
+      "sectionType": "backfill",
+      "orderIndex": 5,
+      "contentMd": "### 补漏块 5 · a / an 与可数名词\n\n1. 改错：She is a English teacher.\n2. 改错：I like apple.\n3. 翻译：我昨天买了一些蔬菜。"
+    },
+    {
+      "sectionType": "my_answer",
+      "orderIndex": 6,
+      "contentMd": "补漏块 5：\n1. She is an English teacher.\n2. I like an apple.\n3. I bought some vegetables yesterday.\n\n作业：\n1. I didn't went to school yesterday.\n2. Did you see him yesterday.\n3. She didn't eat breakfast yesterday.\n4. I didn't eat fruit yesterday. Did you eat banana yesterday? No, I didn't"
+    },
+    {
+      "sectionType": "grading",
+      "orderIndex": 7,
+      "contentMd": "补漏块 5：\n1. 正确。English 以元音音素 /ɪ/ 开头，用 `an`。\n2. 达标（附一条建议）。学生把「裸用」改掉了（apple 前加了冠词），本块要点达成。建议：泛指「喜欢苹果」这一类水果英语习惯用**复数** → `I like apples.`；`an apple` 会被理解成「喜欢某一只苹果」。\n3. 正确。`some + 复数` ✅，且 `vegetables` 拼写对了。\n\n作业：\n1. **一处错**。原句被原样抄回、**没有改正**。`did / didn't` 后面必须用动词原形。正确句：`I didn't go to school yesterday.`\n2. **一处错**。`Did + you + see（原形）` 结构完全正确；但这是疑问句，结尾要用**问号**。正确句：`Did you see him yesterday?`\n3. **正确**。`didn't + eat（原形）` 标准答案。\n4. **两处错 + 多项达标**。① 语法：`banana` 是可数名词单数、不能裸用 → `Did you eat a banana yesterday?`（泛指用 `bananas`）；② 标点：`No, I didn't` 句尾缺句号 → `No, I didn't.` ✅ 达标项：`did / didn't + 原形` 在本课结构全部用对（didn't eat、Did you see、Did you eat、No I didn't）；`I didn't eat fruit yesterday.` 完全正确。\n\n完整改后版：`I didn't eat fruit yesterday. Did you eat a banana yesterday? No, I didn't.`"
+    },
+    {
+      "sectionType": "feedback",
+      "orderIndex": 8,
+      "contentMd": "刚好"
+    }
+  ],
+  "vocabulary": [
+    { "word": "finish", "phonetic": "/ˈfɪnɪʃ/", "meaning": "完成、做完", "example": "I didn't finish my homework.", "isNew": true, "orderIndex": 0 },
+    { "word": "start", "phonetic": "/stɑːt/", "meaning": "开始", "example": "The movie started at eight.", "isNew": true, "orderIndex": 1 },
+    { "word": "arrive", "phonetic": "/əˈraɪv/", "meaning": "到达", "example": "They arrived late.", "isNew": true, "orderIndex": 2 },
+    { "word": "leave", "phonetic": "/liːv/", "meaning": "离开", "example": "She didn't leave early.", "isNew": true, "orderIndex": 3 },
+    { "word": "stay", "phonetic": "/steɪ/", "meaning": "停留、待着", "example": "We stayed at home.", "isNew": true, "orderIndex": 4 },
+    { "word": "call", "phonetic": "/kɔːl/", "meaning": "打电话", "example": "Did you call him?", "isNew": true, "orderIndex": 5 },
+    { "word": "happen", "phonetic": "/ˈhæpən/", "meaning": "发生", "example": "What happened?", "isNew": true, "orderIndex": 6 },
+    { "word": "weekend", "phonetic": "/ˈwiːkend/", "meaning": "周末", "example": "Did you have a good weekend?", "isNew": true, "orderIndex": 7 },
+    { "word": "early", "phonetic": "/ˈɜːli/", "meaning": "早", "example": "He didn't get up early.", "isNew": true, "orderIndex": 8 },
+    { "word": "later", "phonetic": "/ˈleɪtə(r)/", "meaning": "后来、稍后", "example": "I saw him later.", "isNew": true, "orderIndex": 9 }
+  ],
+  "exercises": [
+    {
+      "exerciseNo": 1,
+      "blockKind": "homework",
+      "exerciseType": "error_correction",
+      "prompt": "改错：I didn't went to school yesterday.",
+      "selfCheck": "did / didn't 后面的动词用原形，不能再变过去式",
+      "referenceAnswer": "I didn't go to school yesterday.",
+      "userAnswer": "I didn't went to school yesterday.",
+      "isCorrect": false,
+      "revisedAnswer": null,
+      "errorNote": "语法：did / didn't 后面的动词必须用原形，不能再变过去式。该改错题被原样抄回、没有改正（答题习惯问题，非规则不会）。",
+      "targetPoint": "过去时否定 didn't + 动词原形"
+    },
+    {
+      "exerciseNo": 2,
+      "blockKind": "homework",
+      "exerciseType": "translate",
+      "prompt": "翻译：你昨天看见他了吗？",
+      "selfCheck": null,
+      "referenceAnswer": "Did you see him yesterday?",
+      "userAnswer": "Did you see him yesterday.",
+      "isCorrect": false,
+      "revisedAnswer": null,
+      "errorNote": "标点：疑问句结尾必须用问号。达标项：Did + you + see（原形）结构完全正确。",
+      "targetPoint": "过去时疑问 Did + 主语 + 原形？"
+    },
+    {
+      "exerciseNo": 3,
+      "blockKind": "homework",
+      "exerciseType": "translate",
+      "prompt": "翻译：她昨天没有吃早饭。",
+      "selfCheck": null,
+      "referenceAnswer": "She didn't eat breakfast yesterday.",
+      "userAnswer": "She didn't eat breakfast yesterday.",
+      "isCorrect": true,
+      "revisedAnswer": null,
+      "errorNote": null,
+      "targetPoint": "过去时否定 didn't + eat（不规则动词用原形）"
+    },
+    {
+      "exerciseNo": 4,
+      "blockKind": "homework",
+      "exerciseType": "open",
+      "prompt": "用 did 写 3 句 —— ① 一句否定（… didn't + 原形）② 一句疑问（Did … ?）③ 一句回答（Yes/No, … did/didn't）；其中至少 1 句用不规则动词。",
+      "selfCheck": "可数名词单数不能裸用：用复数或 a / an / the / my",
+      "referenceAnswer": null,
+      "userAnswer": "I didn't eat fruit yesterday. Did you eat banana yesterday? No, I didn't",
+      "isCorrect": false,
+      "revisedAnswer": "I didn't eat fruit yesterday. Did you eat a banana yesterday? No, I didn't.",
+      "errorNote": "两处：①语法——banana 是可数名词单数、不能裸用，→ Did you eat a banana yesterday?（泛指则用 bananas）；②标点——No, I didn't 句尾缺句号。达标项：did / didn't + 原形在本课结构全部用对（didn't eat / Did you see / Did you eat / No I didn't）；三句任务（否定 / 疑问 / 回答）全部完成。",
+      "targetPoint": "过去时否定与疑问综合运用 + 可数名词数"
+    },
+    {
+      "exerciseNo": 1,
+      "blockKind": "backfill",
+      "blockNo": 5,
+      "exerciseType": "error_correction",
+      "prompt": "改错：She is a English teacher.",
+      "selfCheck": null,
+      "referenceAnswer": "She is an English teacher.",
+      "userAnswer": "She is an English teacher.",
+      "isCorrect": true,
+      "revisedAnswer": null,
+      "errorNote": null,
+      "targetPoint": "冠词 a / an（元音音素前用 an）"
+    },
+    {
+      "exerciseNo": 2,
+      "blockKind": "backfill",
+      "blockNo": 5,
+      "exerciseType": "error_correction",
+      "prompt": "改错：I like apple.",
+      "selfCheck": null,
+      "referenceAnswer": "I like apples.",
+      "userAnswer": "I like an apple.",
+      "isCorrect": true,
+      "revisedAnswer": null,
+      "errorNote": "达标：学生把「可数名词裸用」改掉了（apple 前加冠词），本块要点达成，按口径「正确但有更优表达」不计错。建议：泛指「喜欢苹果」这一类水果时英语习惯用复数 → I like apples.。",
+      "targetPoint": "可数名词泛指用复数（名词单复数）"
+    },
+    {
+      "exerciseNo": 3,
+      "blockKind": "backfill",
+      "blockNo": 5,
+      "exerciseType": "translate",
+      "prompt": "翻译：我昨天买了一些蔬菜。",
+      "selfCheck": null,
+      "referenceAnswer": "I bought some vegetables yesterday.",
+      "userAnswer": "I bought some vegetables yesterday.",
+      "isCorrect": true,
+      "revisedAnswer": null,
+      "errorNote": null,
+      "targetPoint": "some + 可数名词复数"
+    }
+  ],
+  "knowledgePoints": [
+    { "code": "L2-06", "role": "new" }
+  ],
+  "feedback": {
+    "feedback": "just_right",
+    "levelBefore": "Level 2",
+    "levelAfter": "Level 2",
+    "easyStreak": 0,
+    "note": "反馈「刚好」，维持 Level 2；太简单连击计数保持 0/2。可数名词自查项：补漏块 5 三题全达标 + play game 过关 ⇒ 降级；句尾标点自查项：第 7、8 课连续无错后本课复发 2 处 ⇒ 恢复。"
+  },
+  "gradeSummary": {
+    "exerciseCount": 4,
+    "errorCount": 4,
+    "byType": { "grammar": 2, "punctuation": 2 },
+    "newMistakes": 4,
+    "passedMistakes": 1
+  },
+  "nextRecommendation": "第 10 课：Level 2 第 7 点「将来时 will 与 be going to」。复习优先：she always is busy（累计 3、1/2，再对一次过关）、句尾标点（第 9 课复发 2 处，自查项恢复；Do you like coffee. / Did you see him yesterday.）、可数名词裸用（eat banana）、did 后过去式（didn't went）、Tom play soccer（-s 规则，本课又出反方向 They plays games）。降载复评：本课 E=4（较第 8 课 8 处回落）、补漏块 0 错，若第 10 课仍 ≤2 且反馈非「太难」，可考虑退出巩固期。"
+}

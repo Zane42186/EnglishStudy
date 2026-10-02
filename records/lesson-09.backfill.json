@@ -1,0 +1,38 @@
+{
+  "lessonNo": 9,
+  "kind": "backfill",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "correct",
+      "userAnswer": "She is an English teacher.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "冠词 a / an（元音音素前用 an）"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "correct_with_note",
+      "userAnswer": "I like an apple.",
+      "correctText": "I like apples.",
+      "errorNote": "达标：学生把「可数名词裸用」改掉了（apple 前加冠词），本块要点达成，按口径「正确但有更优表达」不计错。建议：泛指「喜欢苹果」这一类水果时英语习惯用复数 → I like apples.；写 an apple 会被理解成「喜欢某一只苹果」。",
+      "targetPoint": "可数名词泛指用复数（名词单复数）"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "correct",
+      "userAnswer": "I bought some vegetables yesterday.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "some + 可数名词复数"
+    }
+  ],
+  "mistakeCandidates": [],
+  "summary": {
+    "exerciseCount": 3,
+    "errorCount": 0,
+    "backfillErrorCount": 0,
+    "byType": {},
+    "note": "补漏块 5（a / an 与可数名词）3 题全部达标、0 处错 ⇒ 该 P0 自查项降级。第 3 题的 vegetables 拼写正确（第 8 课曾写成 vergertable）。补漏块错误独立计数，不计入第 9 课作业 errorCount（作业为 4）。"
+  }
+}
