@@ -1,0 +1,49 @@
+{
+  "lessonNo": 8,
+  "lessonDate": "2026-10-01",
+  "level": "Level 2",
+  "studyMinutes": null,
+  "source": "由 Amy 在收完难度反馈后产出；对应 POST /api/study-records（recordType: attend / grade / feedback）",
+  "records": [
+    {
+      "recordType": "attend",
+      "payload": {
+        "lessonNo": 8,
+        "level": "Level 2",
+        "lessonDate": "2026-10-01"
+      }
+    },
+    {
+      "recordType": "grade",
+      "payload": {
+        "lessonNo": 8,
+        "exerciseCount": 4,
+        "errorCount": 8,
+        "blankCount": 0,
+        "byType": { "grammar": 5, "spelling": 2, "word_choice": 1 },
+        "newMistakes": 7,
+        "passedMistakes": 0,
+        "note": "错误处数口径见 docs/ai-teacher.md §11.4；本课无补漏块（补漏块队列为空），故无 backfill* 字段。⚠️ 开放题学生写了 5 句（要求 3 句），错误基数被句数放大（8 处中 5 处在该题），E=8 用于降载判定时需注意。本课语法点「不规则过去式」零错误。"
+      }
+    },
+    {
+      "recordType": "feedback",
+      "payload": {
+        "lessonNo": 8,
+        "lessonDate": "2026-10-01",
+        "feedback": "just_right",
+        "levelBefore": "Level 2",
+        "levelAfter": "Level 2",
+        "easyStreak": 0,
+        "nextRecommendation": "第 9 课：过去时的否定与疑问（didn't / Did you…?）＋新增补漏块 5（a / an 与可数名词，3 题）。复习优先：可数名词（play game 累计 3 次、本课开放题再次违规）、Tom play soccer（第 8 课复发，累计 2）、句尾问号（Do you like coffee. 1/2）、went the park / went a shop（go to + 地点，本课 2 次）。注意：本课 E=8（开放题写 5 句放大了基数）；第 9 课为新点首课，按 §7.4 D1 例外不降载，第 10 课再评估。"
+      }
+    }
+  ],
+  "notes": {
+    "whySeparateFile": "grade / feedback 的 payload 是后端 `study_records` 与 `progress_feedback` 的落库依据，与逐题判定的 grading.json 分离，避免一份文件承载两种语义。",
+    "lastClassDate": "`/api/progress.lastClassDate` 靠本文件的 feedback 记录（带 lessonNo=8、lessonDate）更新 —— 写接口可用后写入即可自动刷新。",
+    "newMistakesList": ["went the park", "a apple", "He got to school", "went a shop", "vergertable", "supermark", "homeworks"],
+    "passedMistakesList": [],
+    "studyMinutesNote": "G5 维持降级：lessons 表无 study_minutes 列，本字段按口径留 null（未新增列）。"
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "lessonNo": 8,
+  "kind": "homework",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "wrong",
+      "userAnswer": "I went the park yesterday.",
+      "correctText": "I went to the park yesterday.",
+      "errorNote": "语法：go 到某地要说 go to + 地点，漏了介词 to。达标项：went 用对了 go 的不规则过去式（没有写 goed）。",
+      "targetPoint": "不规则过去式 go→went + go to + 地点"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "wrong",
+      "userAnswer": "She ate a apple yesterday.",
+      "correctText": "She ate an apple yesterday.",
+      "errorNote": "语法：apple 以元音音素 /æ/ 开头，前面要用 an 不用 a。达标项：ate 用对了 eat 的不规则过去式。",
+      "targetPoint": "冠词 a / an（元音音素前用 an）"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "wrong",
+      "userAnswer": "He got to school yesterday.",
+      "correctText": "He went to school yesterday.",
+      "errorNote": "用词：改错改错了动词。goed 要改成 went；got 是 get 的过去式（「得到／到达」），换词后意思从「去学校」变成「到达学校」，原题的错误没有被修正。",
+      "targetPoint": "不规则过去式 go→went（勿与 get→got 混淆）"
+    },
+    {
+      "exerciseNo": 4,
+      "verdict": "wrong",
+      "userAnswer": "I went a shop yesterday. I bought some vergertable. I met my classmates in the supermark yesterday. I told them homeworks. We ate bananas yesterday.",
+      "correctText": null,
+      "revisedAnswer": "I went to a shop yesterday. I bought some vegetables. I met my classmates in the supermarket yesterday. I told them about our homework. We ate bananas yesterday.",
+      "errorNote": "五处：①语法——I went a shop 漏介词 to（与第 1 题同一错误，本课第 2 次）；②拼写——vergertable → vegetables；③语法——some 后面可数名词必须用复数，vegetable → vegetables；④拼写——supermark → supermarket；⑤语法——homework 是不可数名词、不能加 -s，homeworks → homework。达标项：went / bought / met / told / ate 五个不规则过去式全部用对（未出现 goed / eated 类错误）；in the supermarket 的 the 用对；classmates 复数用对；时间标志词 yesterday 到位；写了 5 句（要求 3 句，超额）。",
+      "targetPoint": "不规则过去式（达标）+ 名词数／拼写（待补）"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "went the park",
+      "correctText": "went to the park",
+      "errorType": "grammar",
+      "errorReason": "go 到某地要用 go to + 地点，漏了介词 to（本课第 1 题）",
+      "sourceExerciseNo": 1
+    },
+    {
+      "wrongText": "a apple",
+      "correctText": "an apple",
+      "errorType": "grammar",
+      "errorReason": "apple 以元音音素 /æ/ 开头，前面要用 an 不用 a（本课第 2 题）",
+      "sourceExerciseNo": 2
+    },
+    {
+      "wrongText": "He got to school",
+      "correctText": "He went to school",
+      "errorType": "word_choice",
+      "errorReason": "改错改错了动词：go 的过去式是 went，不是 got（got 是 get 的过去式）（本课第 3 题）",
+      "sourceExerciseNo": 3
+    },
+    {
+      "wrongText": "went a shop",
+      "correctText": "went to a shop",
+      "errorType": "grammar",
+      "errorReason": "同「went the park」：go 到某地漏介词 to（开放题，本课第 2 次）",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "vergertable",
+      "correctText": "vegetables",
+      "errorType": "spelling",
+      "errorReason": "拼写：vegetable（蔬菜），拼作 veg-e-ta-ble；且 some 后面可数名词要用复数",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "supermark",
+      "correctText": "supermarket",
+      "errorType": "spelling",
+      "errorReason": "拼写：supermarket（超市），结尾是 -market",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "homeworks",
+      "correctText": "homework",
+      "errorType": "grammar",
+      "errorReason": "homework 是不可数名词，不能加 -s",
+      "sourceExerciseNo": 4
+    }
+  ],
+  "summary": {
+    "exerciseCount": 4,
+    "errorCount": 8,
+    "blankCount": 0,
+    "byType": { "grammar": 5, "word_choice": 1, "spelling": 2 },
+    "note": "错误处数按 §11.4「一处 = 一个可独立改正的点」：第 1 题 1 处、第 2 题 1 处、第 3 题 1 处、第 4 题（开放题）5 处（went a shop 缺 to 1、vergertable 拼写 1、some + 单数名词 1、supermark 拼写 1、homeworks 不可数 1）。⚠️ 开放题学生写了 5 句（要求 3 句），错误基数被句数放大，E=8 用于降载判定时需注意这一点。本课语法点（不规则过去式）零错误：went / ate / met / bought / told 全部用对，错误集中在介词 to、冠词 a/an、名词数、拼写——均为老问题。"
+  }
+}

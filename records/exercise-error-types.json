@@ -1,9 +1,9 @@
 {
   "schemaVersion": "exercise-error-types/1.0",
-  "generatedAt": "2026-10-01T21:30:00+08:00",
+  "generatedAt": "2026-10-01T22:30:00+08:00",
   "generatedBy": "Amy",
   "targetField": "lesson_exercises.error_type",
-  "purpose": "本文件提供第 1—7 课 41 道题（作业 29 + 补漏块 12）的逐题错误类型，供 lesson_exercises.error_type 回填。第 1—6 课 34 题于 2026-09-30 回填（10 有值 / 24 NULL）；第 7 课 7 题于 2026-10-01 追加（2 有值 / 5 NULL）。",
+  "purpose": "本文件提供第 1—8 课 45 道题（作业 33 + 补漏块 12）的逐题错误类型，供 lesson_exercises.error_type 回填。第 1—6 课 34 题于 2026-09-30 回填（10 有值 / 24 NULL）；第 7 课 7 题于 2026-10-01 追加（2 有值 / 5 NULL）；第 8 课 4 题于 2026-10-01 追加（4 有值 / 0 NULL，本课无补漏块）。",
   "rule": {
     "whenNull": "verdict 为 correct / correct_with_note / blank 的题 → errorType = null（这些题没有产出错误）",
     "whenWrong": "verdict 为 wrong 的题 → errorType = 该题**处数最多**的错误类型",
@@ -339,19 +339,51 @@
       "verdict": "wrong",
       "errorType": "grammar",
       "derivation": "grammar 3（in office 缺限定词、on last 介词冗余、Sundays 单复数）"
+    },
+    {
+      "lessonNo": 8,
+      "kind": "homework",
+      "exerciseNo": 1,
+      "verdict": "wrong",
+      "errorType": "grammar",
+      "derivation": "grammar 1（went the park 漏介词 to）"
+    },
+    {
+      "lessonNo": 8,
+      "kind": "homework",
+      "exerciseNo": 2,
+      "verdict": "wrong",
+      "errorType": "grammar",
+      "derivation": "grammar 1（a apple → an apple）"
+    },
+    {
+      "lessonNo": 8,
+      "kind": "homework",
+      "exerciseNo": 3,
+      "verdict": "wrong",
+      "errorType": "word_choice",
+      "derivation": "word_choice 1（got 误代 went）"
+    },
+    {
+      "lessonNo": 8,
+      "kind": "homework",
+      "exerciseNo": 4,
+      "verdict": "wrong",
+      "errorType": "grammar",
+      "derivation": "grammar 3 + spelling 2 → 取处数最多的 grammar"
     }
   ],
   "summary": {
-    "total": 41,
-    "notNull": 12,
+    "total": 45,
+    "notNull": 16,
     "byType": {
-      "grammar": 6,
+      "grammar": 9,
       "punctuation": 3,
       "capitalization": 2,
-      "word_choice": 1,
+      "word_choice": 2,
       "spelling": 0,
       "other": 0
     },
-    "note": "第 1—7 课 41 道题（作业 29 + 补漏块 12）的逐题 error_type；非 wrong 的 verdict 按口径保持 NULL"
+    "note": "第 1—8 课 45 道题（作业 33 + 补漏块 12）的逐题 error_type；非 wrong 的 verdict 按口径保持 NULL。第 8 课 4 题全部 wrong：Ex1 grammar、Ex2 grammar、Ex3 word_choice、Ex4 grammar（grammar 3 + spelling 2 → 取处数最多的 grammar）"
   }
 }

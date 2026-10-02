@@ -1,8 +1,8 @@
 # 学习进度
 
 - 当前级别：Level 2
-- 当前课号：7
-- 最近反馈：刚好（第 7 课，作业 2 处错 + 补漏块 3 处错；可数名词 P0 首次自主达标）
+- 当前课号：8
+- 最近反馈：刚好（第 8 课，作业 8 处错、无补漏块；**不规则过去式零错误**，错误集中在介词 to / a-an / 名词数 / 拼写）
 - 上次上课：2026-10-01
 - 太简单连击计数：0 / 2
 - 已学知识点：
@@ -13,6 +13,7 @@
   - 第 5 课（Level 2）一般现在时与现在进行时的区别（标志词判断法 + 状态动词不用进行时）
   - 第 6 课（Level 2）一般过去时 was / were（否定 was not / weren't、疑问 Was he…? 时间标志词 yesterday / last night / ago）
   - 第 7 课（Level 2）规则动词过去式 -ed（四条拼写规则；be 动词走 was/were、实义动词走 -ed，两套不并用）
+  - 第 8 课（Level 2）常用不规则过去式（go-went / eat-ate / see-saw / have-had；不加 -ed，一个动词只有一种过去式）
 - 每课书写规范自查五条（疑问句结尾用问号）
 
 ## 升级记录
@@ -46,17 +47,21 @@ Level 1 尚未学到的知识点不回头单独讲，靠错词本复习和作业
 | 5 | 2026-09-28 | 刚好 | 维持 Level 2 |
 | 6 | 2026-09-29 | 刚好 | 维持 Level 2 |
 | 7 | 2026-10-01 | 刚好 | 维持 Level 2 |
+| 8 | 2026-10-01 | 刚好 | 维持 Level 2（连击计数 0/2） |
 
 ## 待复习（错词本未过关）
 
-- **play games（可数名词单数不能裸用）｜第 3 次犯了，计数清零，priority 最高**
-- **Do you like coffee?（疑问句结尾问号）｜复发多轮，0/2，priority 高**
+> 完整清单以 `wrong-words.md`（33 条：未过关 27 / 已过关 6）为准，本节只列复习时优先取用的项。
+
+- **play games（可数名词单数不能裸用）｜累计 3 次；第 7 课作业达标、第 8 课复习答对 → 1/2，priority 最高**
+- **Do you like coffee?（疑问句结尾问号）｜第 8 课复习答对 → 1/2，priority 高**
+- **第 8 课新增 7 条**（均 0/2）：`went the park`／`went a shop`（go to + 地点漏 to，本课 2 次）、`a apple`（元音前用 an）、`He got to school`（go→went 误用 got）、`vergertable`／`supermark`（拼写）、`homeworks`（不可数名词加 -s）
 - and I like my teacher（逗号连句）｜第 6 课答对 → 1/2
 - she is always busy（频度副词位置）｜1/2
 - I am reading a book（进行时漏 be 动词）｜1/2
 - We are busy（we 配 are）｜1/2
 - 句首字母大写（those are their bags）｜第 6 课答对 → 1/2
-- Tom plays soccer（第三人称单数 -s）｜1/2
+- Tom plays soccer（第三人称单数 -s）｜第 8 课复习复发（写成 Tom play games）→ 0/2，累计 2
 - my grandpa and I（并列主语用主格 I）｜0/2
 - What are you doing?（问「正在做什么」）｜0/2
 - Zane（人名首字母大写）｜0/2
@@ -78,8 +83,11 @@ Level 1 尚未学到的知识点不回头单独讲，靠错词本复习和作业
 | 5 | 2 | 刚好 | |
 | 6 | 5 | 刚好 | 老问题复发 3 处 + 新点 2 类 |
 | 7 | 2（作业）+ 3（补漏块，单列） | 刚好 | **可数名词 P0 首次自主达标**；两处不规则动词（teached / getted） |
+| 8 | 8（作业） | 刚好 | 无补漏块；**不规则过去式零错误**（went/ate/met/bought/told 全对），错误全为老问题：介词 to×2、a/an、名词数、拼写×2；⚠️ 开放题写 5 句（要求 3 句）放大了基数 |
 
 **判断：暂停加速（不翻倍）。** 第 5、6 课错误没继续下降，且第 6 课老错误复发（play game 第 3 次、问号、拼写）。下一步优先做「巩固与纠错」，等连续 2 课错误 ≤2 处再谈加速。第 7 课起在作业里加一条强制要求：句尾标点与可数名词必须自查一遍。
+
+**第 8 课更新：仍暂停加速。** 第 7 课 2 处 → 第 8 课 8 处，但其中 **5 处在开放题**（该题学生写了 5 句、要求 3 句，基数被句数放大）。**结构上是个好信号**：本课新语法点「不规则过去式」**零错误**，8 处**全部是老问题**（介词 to×2、a/an、名词数、拼写×2）→ 结论是「新点吸收快、基础细节欠账」，第 9 课用**补漏块 5（a/an 与可数名词）**专项补，不满堂灌。
 
 ## Level 1 待补点诊断结果（2026-09-27，10 题）
 
@@ -105,6 +113,7 @@ Level 1 尚未学到的知识点不回头单独讲，靠错词本复习和作业
   2. ~~this / that / these / those~~ 第 5 课完成，已出队
   3. ~~疑问词 what / who / where~~ 第 6 课完成，已出队
   4. ~~介词 on / at~~ 第 7 课完成（补漏块 4）
+  5. **a / an 与可数名词**（第 8 课新开；触发：`a apple`、`some vergertable`、`homeworks` 三处集中在冠词 / 名词数）→ **第 9 课执行**
 - 阅读长度：30—60 词 → 提到 60—90 词。
 - 复议条件：连续 2—3 课每课错误 ≤ 2 处且仍反馈「简单」，再考虑正式每课 2 个知识点。当前状态：**暂停加速** —— 第 5、6 课错误未继续下降（2 → 5），且出现老错误复发，先做巩固纠错。
 - 第 6 课数据记录：作业 5 处错（play games 第 3 次、at yesterday 两次、teached、What were you yesterday 缺问号、否定句漏写）。第 7 课计划：Level 2 第 4 个点 —— 规则动词过去式（-ed）+ 补漏块 4（介词 on / at）；第 7 课同时是 day-01-07.md 的最后一课，做完需开 day-08-14.md。
@@ -117,3 +126,12 @@ Level 1 尚未学到的知识点不回头单独讲，靠错词本复习和作业
 - **复发**：`I teached my friend to use AI` 累计 2 次；`she always is busy` 累计 3 次（streak 归零）。
 - **已出队**（第 7 课复习）：`now,liked my teacher`（逗号连句）、`I reading a book.`（进行时漏 be 动词）。
 - 第 8 课计划：常用不规则过去式 go-went / eat-ate / see-saw / have-had，写入 `notes/day-08-14.md`（第 1—7 课文件到此结束）。
+
+## 第 8 课后状态更新（2026-10-01）
+
+- **本课语法点 · 不规则过去式：零错误** —— went / ate / met / bought / told 全部用对，未出现 goed / eated。第 6、7 课的两条不规则错词（`teached`、`getted`）本课未复发。
+- **可数名词自查项**：第 7 课达标、**第 8 课未达标**（`some vergertable` 单复数、`homeworks` 不可数加 -s）→ **继续保留**自查。
+- **句尾标点自查项**：第 7、8 课连续两课无该错 → 按 §11.6 退出条件**降级**（但错词 `Do you like coffee.` 仍在复习队列，1/2）。
+- **新增错词 7 条**：`went the park`、`a apple`、`He got to school`、`went a shop`、`vergertable`、`supermark`、`homeworks`（`went the park` 与 `went a shop` 按判重键分列两条 —— 字符串不同）。
+- **复习变动**：`play game` 0→1、`Do you like coffee.` 0→1、`Tom play soccer` 连续答对 1→0 且累计 1→2。
+- **第 9 课计划**：过去时的否定与疑问（did）＋ **补漏块 5（a / an 与可数名词，3 题）**；仍写 `notes/day-08-14.md`。降载评估：本课 `E=8`，但第 9 课为新点首课，按 §7.4 D1 例外不降载，第 10 课再评估。

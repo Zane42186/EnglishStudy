@@ -1,0 +1,135 @@
+{
+  "lessonNo": 8,
+  "lessonDate": "2026-10-01",
+  "levelCode": "Level 2",
+  "summary": "学会 go / eat / see / have 等高频动词的不规则过去式，能写出 5 句「昨天做了什么」",
+  "studyMinutes": null,
+  "sourceFile": "day-08-14.md",
+  "status": "archived",
+  "sections": [
+    {
+      "sectionType": "review",
+      "orderIndex": 0,
+      "contentMd": "1. 第 7 课规则动词过去式（翻译：我上周看了电视）：作答 `I watched TV last week`。内容全对；句尾漏句号，属书写规范提醒、不计错。\n2. 第 5 课现在进行时（翻译：看，她正在跑）：作答 `Look, she is running`。内容全对；句尾同漏句号，不计错。\n3. 第 1 课主谓宾（翻译：我喜欢音乐）：作答 `I like music.` 正确。\n4. 错词 play game（翻译：Tom 每天打游戏）：作答 `Tom play games every day.` —— `games` 用对（错词 `play game` 答对，连续答对 0 → 1）；但第三人称单数漏 -s，答错 → 错词 `Tom play soccer` 连续答对 1 → 0、累计犯错 1 → 2。\n5. 错词句尾问号（改错 `Do you like coffee.`）：作答 `Do you like coffee?` 答对 → 错词 `Do you like coffee.` 连续答对 0 → 1。"
+    },
+    {
+      "sectionType": "grammar",
+      "orderIndex": 1,
+      "contentMd": "第 7 课学了**规则**动词：加 **-ed**（work → worked）。但英语里**最高频的一批动词不守这个规矩**，过去式要**单独记**，加 -ed 反而错：go → went、eat → ate、see → saw、have → had、do → did。\n\n三条要点：① **不加 -ed**（看到 goed / eated 就是没查表）；② **一个动词只有一种过去式**，不因主语变（I went / She went / They went）；③ **怎么记**：先记最高频的一批，其余不确定就查。\n\n与第 6 课的分工不变：be 动词走 was / were、实义动词走自己的过去式，两套不并用。否定与疑问（didn't go / Did you go…?）是 Level 2 第 6 点，**第 9 课正式讲**。"
+    },
+    {
+      "sectionType": "vocab_table",
+      "orderIndex": 2,
+      "contentMd": "| 单词 | 音标 | 中文 | 例句 |\n|---|---|---|---|\n| went | /went/ | 去（go 的过去式） | I went to the park yesterday. |\n| ate | /eɪt/ | 吃（eat 的过去式） | She ate breakfast at home. |\n| saw | /sɔː/ | 看见（see 的过去式） | I saw a bird last week. |\n| had | /hæd/ | 有／吃（have 的过去式） | We had lunch at home. |\n| did | /dɪd/ | 做（do 的过去式） | He did his homework. |\n| got | /ɡɒt/ | 得到（get 的过去式） | I got a gift from my friend. |\n| taught | /tɔːt/ | 教（teach 的过去式） | She taught me English. |\n| bought | /bɔːt/ | 买（buy 的过去式） | I bought a book yesterday. |\n| met | /met/ | 遇见（meet 的过去式） | I met my friend in the park. |\n| told | /təʊld/ | 告诉（tell 的过去式） | He told me a story. |"
+    },
+    {
+      "sectionType": "examples",
+      "orderIndex": 3,
+      "contentMd": "1. I went to the park yesterday.\n2. She ate breakfast at home.\n3. We watched a movie last night.（watch 是规则动词，顺手复习第 7 课）\n4. I had a good time.\n5. He taught me English last month."
+    },
+    {
+      "sectionType": "homework",
+      "orderIndex": 4,
+      "contentMd": "1. 翻译：我昨天去了公园。\n2. 翻译：她昨天吃了一个苹果。\n3. 改错：He goed to school yesterday.\n4. 开放题：用过去式写 3 句关于你昨天做的事，至少用 2 个不规则动词（went / ate / saw / had / did / got / bought / met / told / taught）。\n\n**本课强制自查项（P0）**：① 不规则动词别加 -ed（go → went、eat → ate，不确定就查词汇表）② 可数名词单数不能裸用（用复数或 a / an / the / my）。"
+    },
+    {
+      "sectionType": "my_answer",
+      "orderIndex": 5,
+      "contentMd": "1. I went the park yesterday.\n2. She ate a apple yesterday.\n3. He got to school yesterday.\n4. I went a shop yesterday. I bought some vergertable. I met my classmates in the supermark yesterday. I told them homeworks. We ate bananas yesterday."
+    },
+    {
+      "sectionType": "grading",
+      "orderIndex": 6,
+      "contentMd": "1. 一处错。**语法**：go 到某地要说 `go to` + 地点，漏了介词 to。正确句：`I went to the park yesterday.` ✅ 达标项：went 用对（没有写 goed）。\n2. 一处错。**语法**：apple 以元音音素 /æ/ 开头，前面要用 `an` 不用 `a`。正确句：`She ate an apple yesterday.` ✅ 达标项：ate 用对。\n3. 一处错。**用词**：改错改错了动词 —— goed 要改成 went；`got` 是 get 的过去式（「得到／到达」），换词后意思从「去学校」变成「到达学校」，原错误没有被修正。正确句：`He went to school yesterday.`\n4. 五处错 + 多项达标。① 语法：`I went a shop` 漏介词 to（与第 1 题同一错误，本课第 2 次）→ `I went to a shop`；② 拼写：`vergertable` → `vegetables`；③ 语法：`some` 后面可数名词必须用复数 → `some vegetables`；④ 拼写：`supermark` → `supermarket`；⑤ 语法：homework 是不可数名词、不能加 -s → `homeworks` 应为 `homework`。✅ 达标项：went / bought / met / told / ate 五个不规则过去式全部用对；`in the supermarket` 的 the 用对；`classmates` 复数用对；时间标志词 yesterday 到位；写了 5 句（要求 3 句，超额）。\n\n完整改后版：`I went to a shop yesterday. I bought some vegetables. I met my classmates in the supermarket yesterday. I told them about our homework. We ate bananas yesterday.`"
+    },
+    {
+      "sectionType": "feedback",
+      "orderIndex": 7,
+      "contentMd": "刚好"
+    }
+  ],
+  "vocabulary": [
+    { "word": "went", "phonetic": "/went/", "meaning": "去（go 的过去式）", "example": "I went to the park yesterday.", "isNew": true, "orderIndex": 0 },
+    { "word": "ate", "phonetic": "/eɪt/", "meaning": "吃（eat 的过去式）", "example": "She ate breakfast at home.", "isNew": true, "orderIndex": 1 },
+    { "word": "saw", "phonetic": "/sɔː/", "meaning": "看见（see 的过去式）", "example": "I saw a bird last week.", "isNew": true, "orderIndex": 2 },
+    { "word": "had", "phonetic": "/hæd/", "meaning": "有／吃（have 的过去式）", "example": "We had lunch at home.", "isNew": true, "orderIndex": 3 },
+    { "word": "did", "phonetic": "/dɪd/", "meaning": "做（do 的过去式）", "example": "He did his homework.", "isNew": true, "orderIndex": 4 },
+    { "word": "got", "phonetic": "/ɡɒt/", "meaning": "得到（get 的过去式）", "example": "I got a gift from my friend.", "isNew": true, "orderIndex": 5 },
+    { "word": "taught", "phonetic": "/tɔːt/", "meaning": "教（teach 的过去式）", "example": "She taught me English.", "isNew": true, "orderIndex": 6 },
+    { "word": "bought", "phonetic": "/bɔːt/", "meaning": "买（buy 的过去式）", "example": "I bought a book yesterday.", "isNew": true, "orderIndex": 7 },
+    { "word": "met", "phonetic": "/met/", "meaning": "遇见（meet 的过去式）", "example": "I met my friend in the park.", "isNew": true, "orderIndex": 8 },
+    { "word": "told", "phonetic": "/təʊld/", "meaning": "告诉（tell 的过去式）", "example": "He told me a story.", "isNew": true, "orderIndex": 9 }
+  ],
+  "exercises": [
+    {
+      "exerciseNo": 1,
+      "blockKind": "homework",
+      "exerciseType": "translate",
+      "prompt": "翻译：我昨天去了公园。",
+      "selfCheck": "不规则动词别加 -ed：go→went、eat→ate，不确定就查词汇表",
+      "referenceAnswer": "I went to the park yesterday.",
+      "userAnswer": "I went the park yesterday.",
+      "isCorrect": false,
+      "revisedAnswer": null,
+      "errorNote": "语法：go 到某地要说 go to + 地点，漏了介词 to。达标项：went 用对了 go 的不规则过去式（没有写 goed）。",
+      "targetPoint": "不规则过去式 go→went + go to + 地点"
+    },
+    {
+      "exerciseNo": 2,
+      "blockKind": "homework",
+      "exerciseType": "translate",
+      "prompt": "翻译：她昨天吃了一个苹果。",
+      "selfCheck": null,
+      "referenceAnswer": "She ate an apple yesterday.",
+      "userAnswer": "She ate a apple yesterday.",
+      "isCorrect": false,
+      "revisedAnswer": null,
+      "errorNote": "语法：apple 以元音音素 /æ/ 开头，前面要用 an 不用 a。达标项：ate 用对了 eat 的不规则过去式。",
+      "targetPoint": "冠词 a / an（元音音素前用 an）"
+    },
+    {
+      "exerciseNo": 3,
+      "blockKind": "homework",
+      "exerciseType": "error_correction",
+      "prompt": "改错：He goed to school yesterday.",
+      "selfCheck": null,
+      "referenceAnswer": "He went to school yesterday.",
+      "userAnswer": "He got to school yesterday.",
+      "isCorrect": false,
+      "revisedAnswer": null,
+      "errorNote": "用词：改错改错了动词。goed 要改成 went；got 是 get 的过去式（「得到／到达」），换词后意思从「去学校」变成「到达学校」，原题的错误没有被修正。",
+      "targetPoint": "不规则过去式 go→went（勿与 get→got 混淆）"
+    },
+    {
+      "exerciseNo": 4,
+      "blockKind": "homework",
+      "exerciseType": "open",
+      "prompt": "用过去式写 3 句关于你昨天做的事，至少用 2 个不规则动词（went / ate / saw / had / did / got / bought / met / told / taught）。",
+      "selfCheck": "可数名词单数不能裸用：用复数或 a / an / the / my",
+      "referenceAnswer": null,
+      "userAnswer": "I went a shop yesterday. I bought some vergertable. I met my classmates in the supermark yesterday. I told them homeworks. We ate bananas yesterday.",
+      "isCorrect": false,
+      "revisedAnswer": "I went to a shop yesterday. I bought some vegetables. I met my classmates in the supermarket yesterday. I told them about our homework. We ate bananas yesterday.",
+      "errorNote": "五处：①语法——I went a shop 漏介词 to（与第 1 题同一错误，本课第 2 次）；②拼写——vergertable → vegetables；③语法——some 后面可数名词必须用复数，vegetable → vegetables；④拼写——supermark → supermarket；⑤语法——homework 是不可数名词、不能加 -s，homeworks → homework。达标项：went / bought / met / told / ate 五个不规则过去式全部用对（未出现 goed / eated 类错误）；in the supermarket 的 the 用对；classmates 复数用对；时间标志词 yesterday 到位；写了 5 句（要求 3 句，超额）。",
+      "targetPoint": "不规则过去式（达标）+ 名词数／拼写（待补）"
+    }
+  ],
+  "knowledgePoints": [
+    { "code": "past-simple-irregular", "role": "new" }
+  ],
+  "feedback": {
+    "feedback": "just_right",
+    "levelBefore": "Level 2",
+    "levelAfter": "Level 2",
+    "easyStreak": 0,
+    "note": "反馈「刚好」，维持 Level 2；太简单连击计数保持 0/2。可数名词自查项本课未达标（some vergertable、homeworks），继续保留；句尾标点连续 2 课（第 7、8 课）无错，按退出条件降级。"
+  },
+  "gradeSummary": {
+    "exerciseCount": 4,
+    "errorCount": 8,
+    "byType": { "grammar": 5, "spelling": 2, "word_choice": 1 },
+    "newMistakes": 7,
+    "passedMistakes": 0
+  },
+  "nextRecommendation": "第 9 课：过去时的否定与疑问（didn't / Did you…?）＋新增补漏块 5（a / an 与可数名词，3 题）。复习优先：可数名词（play game 累计 3 次、本课开放题再次违规）、Tom play soccer（第 8 课复发，累计 2）、句尾问号（Do you like coffee. 1/2）、went the park / went a shop（go to + 地点，本课 2 次）。注意：本课 E=8（开放题写 5 句放大了基数）；第 9 课为新点首课，按 §7.4 D1 例外不降载，第 10 课再评估。"
+}
