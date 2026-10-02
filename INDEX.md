@@ -2,10 +2,10 @@
 
 > 由 backend/scripts/build-summary.js 从库内数据生成，手工修改会在下次重建时被覆盖。
 
-- 课程总数：8
+- 课程总数：9
 - 当前级别：Level 2
-- 阅读文件：5 天，共 14 篇
-- 最近一课：第 8 课（2026-10-01） 学会 go / eat / see / have 等高频动词的不规则过去式，能写出 5 句「昨天做了什么」
+- 阅读文件：6 天，共 17 篇
+- 最近一课：第 9 课（2026-10-02） 学会过去时的否定与疑问 did，能写出 didn't go ／ Did you go…? 这类句子
 
 ## 第 1-8 课（day-01-07.md）
 
@@ -19,16 +19,18 @@
 第 6 课 · 2026-09-29：学会过去时 was / were，能说清「昨天怎么样」
 第 7 课 · 2026-10-01：学会规则动词过去式 -ed，能写出 5 句「上周做了什么」
 
-## 第 8-9 课（day-08-14.md）
+## 第 8-10 课（day-08-14.md）
 
 ————————————
 
 第 8 课 · 2026-10-01：学会 go / eat / see / have 等高频动词的不规则过去式，能写出 5 句「昨天做了什么」
+第 9 课 · 2026-10-02：学会过去时的否定与疑问 did，能写出 didn't go ／ Did you go…? 这类句子
 
 ## 阅读文件
 
 ————————————
 
+2026-10-02：3 篇（A Busy Weekend、Why Was Amy Late?、The Monday Question） → read\2026-10-02-read.md
 2026-10-01：3 篇（My Last Weekend、Amy Worked Late、Tom's Busy Day） → read\2026-10-01-read.md
 2026-09-29：3 篇（Yesterday、Tom's Bad Day、Where Were You?） → read\2026-09-29-read.md
 2026-09-28：3 篇（My Day, My Way、Amy Is Busy、Weekend and Now） → read\2026-09-28-read.md
