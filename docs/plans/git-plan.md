@@ -67,13 +67,15 @@ git status --short --untracked-files=all
 |---|---|---|---|
 | G1 | `.env.local`、`.env.*.local` | 当前 `.env` 只匹配**文件名恰为 `.env`** 的文件；`backend/.env.local` 实测 **未被忽略**，一旦创建会带着数据库口令直接入库 | **高** |
 | G2 | `__pycache__/`、`*.pyc` | `.workbuddy/skills/english-daily/scripts/__pycache__/` 已存在；Skill 源码入库（7.4）时会把字节码带进仓库 | **高** |
-| G3 | `dist/`、`build/`（顶层，排除 `.workbuddy/build` 之外的场景） | 前端迁移到 Vue 后 `vite build` 产物默认落在 `dist/`；当前无任何规则覆盖 | 中 |
+| G3 | `dist/`、`build/`（顶层，排除 `.workbuddy/build` 之外的场景） | 前端迁移到 Vue 后 `vite build` 产物默认落在 `dist/`；当时无任何规则覆盖 | 中（✅ 已闭环，见下注） |
 | G4 | `*.log`、`logs/`、`npm-debug.log*` | 后端运行日志必然出现（现 `backend/README.md` 未约束日志落盘位置） | 中 |
 | G5 | `backend/db/*.sqlite`、`*.sqlite3`、`*.db` | 若后端切换 SQLite 或导出数据文件，会被误提交 | 中 |
 | G6 | `.DS_Store`、`Thumbs.db` | Windows/macOS 混用场景常见污染 | 低 |
 | G7 | `.idea/`、`.vscode/`（可选） | 编辑器配置是否共享需用户决策；若共享则**不要**加 | 低（待决策） |
 | G8 | `*.bak`、`*.orig`、`*.rej` | 手工备份与冲突残留文件 | 低 |
 | G9 | `docs/testdata/**/*.tmp`、`docs/testdata/**/*.actual.json` | 黄金样本入库后，测试运行产生的临时/实际产出不应入库（见 6.7） | 中（Skill 建 testdata 后生效） |
+
+> 🔄 **状态更新（2026-10-02，git-manager）**：上表为当时（分析时点）快照。截至今日，根 `.gitignore` 已落地 **G1—G6、G8、G9**：`.env.local`/`.env.*.local`（G1，L24—25）、`__pycache__/`+`*.pyc`（G2，L28—29）、**`dist/`+`build/`（G3，于 `1aca69c` 2026-09-29 已加，L32—33 —— 七轮挂账正式闭环）**、`*.log`/`logs/`/`npm-debug.log*`（G4，L36—38）、`*.sqlite`/`*.sqlite3`（G5 **部分**，`*.db` 未加）、`.DS_Store`/`Thumbs.db`（G6，L45—46）、`*.bak`/`*.orig`/`*.rej`（G8，L47—49）、`docs/testdata/**/*.tmp`+`*.actual.json`（G9，L52—53）。**G7**（`.idea/`/`.vscode/`）按 Q7 决策**不加**。⚠️ 现存唯一缺口：G5 的 `*.db`。
 
 补充提示：`*.zip` 是**全局**规则，将来若需要把发布包纳入版本管理（不推荐）会被误伤；现阶段利大于弊，建议保留。
 
