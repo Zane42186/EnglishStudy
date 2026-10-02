@@ -493,7 +493,7 @@ L2-01 主谓宾语序(已学,第1课) → L2-02 be动词(第2课) → L2-03 物�
 
 **给 fe-dev 的提醒（已知约束）**
 
-- `review/index.html` 是 `build_board.py` 的生成产物，**改它会被下次重建覆盖**（联调报告 F1【实】）；本次的任何 API 改造都要同步进生成脚本或调整生成范围——请与 skill-designer 确认归属后再动手。
+- ~~`review/index.html` 是 `build_board.py` 的生成产物，**改它会被下次重建覆盖**（联调报告 F1【实】）；本次的任何 API 改造都要同步进生成脚本或调整生成范围——请与 skill-designer 确认归属后再动手。~~ → ✅ **F1 已关闭（2026-10-02 更新）**：`build_board.py` 已于 v2.3.0 删除、原生站 `review/` 亦已退役删除（`2e91345`），现为 `frontend/`（Vue 3），**不存在生成物覆盖问题**，本条「同步进生成脚本」的要求随之作废。
 - 后端当前无 `/api/readings`、`/api/knowledge-points`、`/api/agent/snapshot`（【实】已测 404）；F1/F8/F9 的数据源在后端补齐前只能读 md，前端请保留占位而非报错（现有 index.html 的「—」做法是对的）。
 - 「错误处数」是唯一分数量口径，**不要显示百分制分数**，避免口径分裂。
 
@@ -521,7 +521,7 @@ L2-01 主谓宾语序(已学,第1课) → L2-02 be动词(第2课) → L2-03 物�
 | Agent | 需要你做什么 |
 |---|---|
 | **be-dev** | 见第一章 1.1 的 N1—N9（P0：N5/N6/N8 + 已有的写接口 R2—R5；P1：N1/N2/N4/N7） |
-| **fe-dev** | 见第五章 F1—F10（P0：F1—F5）；并注意 `review/index.html` 会被 `build_board.py` 覆盖（F1【实】） |
+| **fe-dev** | 见第五章 F1—F10（P0：F1—F5）；~~并注意 `review/index.html` 会被 `build_board.py` 覆盖（F1【实】）~~ → ✅ **F1 已关闭（2026-10-02）**：`build_board.py` 与原生站 `review/` 均已退役删除 |
 | **skill-designer** | ① 3.6 的两条分歧按 3.3 的裁定统一；② `lesson-plan.schema.json` 的词汇量描述已对齐，**剩 `SKILL.md` 第 5 步与 `level-map.md` Level 2 行按附录 B.2 的替换文案改**；③ 把第二章判定表固化为 `next-lesson-planning` 的可执行规则（尤其 P1 复发阻断、**2.7 降载体档**、2.3 上限与退场、2.6 出题排序）；④ 3.1 的「错误处数不计入项」如与你们的 `grading-result.schema.json` 冲突，回消息由 Amy 裁定；⑤ **`expectedMistakes` 入库但学生端不展示**（附录 B.1） |
 | **team-lead** | O-1 已关闭（主场景=第 7 课，已复测 `nextLessonNo=7`），无需再裁定 |
 | **Git** | 新增本文（1 个文件）：`docs/plans/amy-teaching-plan.md`；未改动任何数据与代码 |

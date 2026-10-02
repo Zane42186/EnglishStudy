@@ -307,10 +307,73 @@
 - 🟡 **本轮第 9 课落库实测暴露一个隐含前提**：A20 的回退值取决于 `teach:sync` 是否已跑。而 `teach:sync`（更新 `progress.current_lesson_no`）在**归档之后**，`review` 在 `skills.md` §3.1 **第 3—4 步** ⇒ **新课首课**（`current_lesson_no` 仍是 N-1）时，复习流水会被**挂到上一课**。
   - 实证：第 9 课 2 条复习流水初写为 `mistake_events.lesson_id=79`（第 8 课），应为 `92`（第 9 课）。已按授权修正（见下）。
   - **不受影响的项**：`last_lesson_id` 不受影响 —— 本轮两次复习均为 `correct`，按 §15「`correct` 不刷」故 `last` 未动（`play game` 仍 first=4/last=6）。
-- 🔴 **技能侧根因（已定位，待 skill-designer 执行）**：`skills/english-daily/SKILL.md`（**v2.8.0**，受控源；运行时副本 `.workbuddy/skills/english-daily/SKILL.md` 同）**第 4 步**（`:65`）原文只有「新课的课前复习由写接口直接落库，不产出 `records/lesson-NN.review.json`」，**未指明端点、未要求显式带 `lessonNo=N`**；全文只在 `:77`（`LessonRecord`）与 `:162`（`POST /mistakes`）提 `lessonNo`，**对 `review` 回写无任何课号要求**。
+- 🔴→✅ **技能侧根因（已定位，且已由 skill-designer 闭环 —— 第十二轮 v2.8.1，复核见下 A24）**：`skills/english-daily/SKILL.md`（**v2.8.0**，受控源；运行时副本 `.workbuddy/skills/english-daily/SKILL.md` 同）**第 4 步**（`:65`）原文只有「新课的课前复习由写接口直接落库，不产出 `records/lesson-NN.review.json`」，**未指明端点、未要求显式带 `lessonNo=N`**；全文只在 `:77`（`LessonRecord`）与 `:162`（`POST /mistakes`）提 `lessonNo`，**对 `review` 回写无任何课号要求**。
   - ⇒ **修法（建议 ①，二选一）**：① 第 4 步补一句「复习回写走 `POST /api/mistakes/:id/review`，**须显式带 `lessonNo=N`**（A20 的 `current_lesson_no` 回退是给**真实前端**兜底用的，Skill 明知课号 N，不该依赖回退）」；或 ② 在 `docs/skills.md` §3.1 第 8 步注明同一句。**前端仍不改**（与 A20 裁定一致）。
+  - ⚠️ **订正我方笔误（skill-designer §1.3 X 指出，属实）**：上句修法 ② 的「§3.1 **第 8 步**」应为「**第 4 步**」—— 复习回写是第 4 步，第 8 步才是归档。对方**已按正确位置（第 4 行）落地**，感谢纠偏；此处保留原文 + 订正注，供后人识别。
   - 📌 **负责人裁定（2026-10-02）**：**只登记、交 skill-designer 执行**（Amy 不改受控文件，尊重职责隔离）。执行时按规程：先备份 `.workbuddy/skill-backups/english-daily-v2.8.0-<日期>/` → 改受控源 → 版本自增（建议 **PATCH 2.8.0 → 2.8.1**，属行为说明补全、非契约变更）→ `cp` 同步运行时 → 更新引用面（`docs/skills.md:107`；本文件 `MEMORY.md` §四亦记「Skill 版本 2.8.0」）→ 请我方复核。
   - ℹ️ **受限影响面（本课实测）**：`last_lesson_id` **未受影响**（两次复习均 `correct`，§15「`correct` 不刷」）；受影响的只有 `mistake_events.lesson_id`（已修正）。
+
+#### A24 · 第十二轮（v2.8.1）复核结论 + 四项裁定（2026-10-02 18:15）
+
+**复核对象**：`skills/english-daily/SKILL.md` **v2.8.1**（第十二轮）+ `docs/skills.md` 镜像。
+**结论：✅ 复核通过**（技术可执行性**实测**，非仅静态）。
+
+| 项 | 复核 |
+|---|---|
+| 第 4 步「调用面」子条（`:66—68`） | ✅ 已落。**可执行性已实证**：`GET /api/mistakes/pending`（`05` **#12**）**实测存在且每行都带 `id`**（32 条 / `total=32`）；body `{ result, lessonNo, clientEventId }` 与 `05 §15` 逐字一致 |
+| 第七章 #6（`:165`） | ✅ 已扩为「**两条写端点都必须显式带**」，并补了因果（review 不传 → 回退 → 挂上一课） |
+| 版本与同步 | ✅ 受控源与运行时**两侧均 `2.8.1`**；`diff -r` **无输出**；备份 `.workbuddy/skill-backups/english-daily-v2.8.0-20261002/{controlled,runtime}` 在 |
+| `docs/skills.md` 镜像 | ✅ §3.1 **第 4 行**（正确位置）、三处版本号 `:107`/`:260`/`:1329` → `v2.8.1`、§1.2「**9 课实证**」、§7.3 链、附录 A 第十二轮 |
+| 残留 v2.8.0（「当前版本」义） | ✅ 对方自有文件已清；**仅剩他域** `项目书.md`（be-dev，已列精确行号 —— 见 §1.3 W 与附录 A (E)） |
+
+**两处「超出我方建议」的补充 —— 照准**：
+1. **`id` 来源**：我方原建议只说「必须带 `lessonNo`」而没说 `:id` 从哪来 ⇒ 指令**确实不可执行**；`digest.md` 待复习段无 `id` ⇒ 补 `GET /api/mistakes/pending` **必要**。✅
+2. **`clientEventId` 按「必须」落地**：Skill 能确定性生成（`rev-<课号>-<错词id>`）、真实前端不能 ⇒ **分层要求合理**。✅
+
+**证据链（「显式带课号」确有效 —— 一正一反两条实证）**：
+- 正：第 8 课 3 条流水（`184/185/186`，2026-10-01）落为 `lesson_id=79`＝**第 8 课**，而当时 `current_lesson_no` 仍是 **7** —— 若走回退应为 `47` ⇒ **反证当时显式传了 `lessonNo=8`，且显式路径落库正确**（当时的代码路径与现在不同，但「显式传 ⇒ 落对课」这一定性一致）。
+- 反：本轮第 9 课**未传**即踩坑（写成 `79` 而非 `92`）。
+- ⇒ 该修法**有直接实证支撑**，非纸面推断。
+
+**💡 一处可选收紧（非缺陷）**：`:66` 的「逐条调 `POST /api/mistakes/:id/review`」紧邻第 3 步（出 3—5 题）后，可被读成「把 32 条 pending 全回写」。建议补半句「**本课复习了哪几题就回写哪几条**」，与第 3 步题量绑定。
+
+**四项裁定（我方口径）**
+
+| # | 议题 | 裁定 |
+|---|---|---|
+| **T** | `records/lesson-NN.study-record.json` 是否补为「四件产出」 | ✅ **补**。「三件产出」与事实不符：`study-record.json` 是 `teach:sync` 的**唯一输入**，缺它 `progress` 7 教学列与 `study_records` **全不动**（第 9 课实测：`24→27`、`8→9`、`lastClassDate` 才更新）。落点＝`SKILL.md` 第 8 步 + `docs/skills.md` §3.1 输出表各 **+1 行**。**版本建议另起一轮 PATCH `2.8.2`**，**不并入已定稿的 2.8.1**（避免动已封版文件、便于 git-manager 分批提交） |
+| **U** | §4.4 `POST /study-records` 与 `teach:sync` 谁为准 | ✅ **现状唯一路径＝`records/*.study-record.json` → `teach:sync`**；`POST /api/study-records`（`05` **#18**，**确实已实现**）降为**未被 Skill 使用**的备用路径。建议 §4.4 该行：① 补 `/api` 前缀；② 注「现状：Skill 侧经 `teach:sync`；本端点未被 Skill 调用」。**证据**：`05:757` 明写 `POST /lessons` **不**写 `study_records`（那是 `teach:sync` 与 `#18` 的职责）⇒ **双路并存**；本课 `teach:sync` 实测写入 3 条；`review/` 前端 `grep study-records` **零命中** |
+| **⑦** | `export_md_to_json.py` 的 `norm_key` 去标点，谁改 | ✅ **交 be-dev 改**（`backend/**` 非我域；对方「倾向我方改」不成立 —— 我方亦不改 `backend/**`）。**理由**：同一「判重键」在系统里存在**两套实现**（`mistakeKey.js` 落库用 `normKey` 三步／此脚本对账用去标点）＝**隐患**；第 9 课新增 `Did you see him yesterday.` 后，一旦出现 `?` 变体，去标点会**并成一条 → 对账漏报（假绿）**。成本 3 行；**当前 md 与库 `wrong_text` 集合 39/39 逐字相同 ⇒ 收紧后仍 1:1、对账仍绿**。**优先级低**（不落库、不阻塞，可随后端批次走） |
+| **⑧** | `05 §15` `clientEventId`「必须 vs 选填」 | ✅ **参数表保持「选填」，改抬头**：抬头改为「**建议**用 `clientEventId` 幂等；**Skill 侧必须传**（Skill 能确定性生成、前端不能）」。**理由**：区隔「API 契约的必填性」与「调用方纪律」—— 若为让 Skill 传就写成 API 必填，会把**现有真实前端调用变成非法**。交 be-dev 定稿 |
+
+**(E) `项目书.md` 5 处「当前版本」v2.8.0**：非我域，**转 be-dev**（对方已列精确行号）。
+
+**A23 → A24 关联**：A23 的「技能侧根因」至此**闭环**。**我方当前阻塞＝零**。
+
+---
+
+#### A25 · 对 skill-designer §4.1 责任表（O/P/R/T/U/S/V/W）的裁定（2026-10-02 18:25）
+
+> 回应 `SKILL-DESIGNER-STATUS.md` **§4.1 `:132`** 的责任表。**T/U/S 已在 A24 裁定**，此处重申以对齐编号；**O/R② 为本轮新裁**；**P 属纯事实更新、已授权直接做**。
+
+| 项 | 裁定 | 依据 / 备注 |
+|---|---|---|
+| **O** `check_schemas.py` 双副本 | ✅ **收敛 + 合并能力**（负责人 2026-10-02 拍板） | **我方新增发现（对方未提）**：两版**能力互补**，**删任何一份都会丢校验** —— 受控版独有 `required ⊆ properties` 校验；build 版独有「自定位 `SCHEMA_DIR`（`__file__.parents[2]`）+ `*.schema.json` 精确 glob + 4 类枚举/字段防回归守卫」。**裁法**：以 build 版为基底 → **补回** `required ⊆ properties` 检查（约 8 行）→ 落到受控路径 `docs/schemas/check_schemas.py`；`.workbuddy/build/` 那份降为废止。**`objects` 语义歧义从根上消除**：合并版**同时输出两个量**（`objects`＝object 型节点数＝71；`nodes`＝全部 dict 节点数＝535），README 写明定义 —— 这样两处既有引用都能对号入座（对应铁律「同一指标两个数时先查口径」）。**⚠️ 删 `.workbuddy/build/` 副本另需负责人一句显式授权**（删文件属提交边界外），**授权前保留原地不动** |
+| **P** `refs=84` 陈旧（现 85，**3 处**） | ✅ **不需拍板，授权直接做** | 纯事实更新。3 处：`docs/schemas/README.md:100`、`docs/plans/skill-plan.md:15`、**`:639`（更陈旧：`refs=84 objects=68`）**。与 O 的 2 处引用点（`skill-plan.md:261`/`:639`）**同一文件，建议一并做**，避免重复触同一文件 |
+| **R②** §4.2 缺口表补登 G6/G7 | ✅ **补 G6/G7 两行**（负责人 2026-10-02 拍板） | 与权威 `ai-teacher.md` §9.3（G1—G7）对齐；两行均标**「已关闭」**（G7 仅余 `POST /api/skill-runs` 未实现）；**同时撤掉**现行「本表是否补登 G6/G7 属结构调整，待拍板」的注（`skills.md:1169`）——注与行不应并存 |
+| **T** `records/lesson-NN.study-record.json` 补四件产出 | ✅ **补为「四件产出」**（Amy 域，见 **A24**） | `study-record.json` 是 `teach:sync` 的**唯一输入**；缺它 `progress` 7 教学列与 `study_records` 全不动（第 9 课实测）。落点＝`SKILL.md` 第 8 步 + `skills.md` §3.1 输出表 **各 +1 行** |
+| **U** 学习记录机制以哪条为准 | ✅ **现状唯一路径＝`records/*.study-record.json` → `teach:sync`**（见 **A24**） | `POST /api/study-records`（`05` #18，**确实已实现**）降为**未被 Skill 调用**的备用路径；§4.4 该行补 `/api` 前缀 + 加现状注 |
+| **S** `export_md_to_json.py` `norm_key` 去标点 | ✅ **交 be-dev 改**（见 **A24 ⑦**） | `backend/**` 非你我两方之域；**「倾向 Amy 改」不成立**（我方亦不改 `backend/**`）。两套判重实现＝隐患（`.`/`?` 并条 → 对账假绿）；当前 39/39 逐字相同 ⇒ 收紧后仍 1:1。**优先级低** |
+| **V** `05 §15`「必须 vs 选填」 | ➡️ **交 be-dev 定稿**（见 **A24 ⑧**） | 我方口径：**参数表保持「选填」、改抬头**为「建议用；**Skill 侧必须传**」—— 区隔「API 契约必填性」与「调用方纪律」 |
+| **W** `项目书.md` 5 处 `v2.8.0` | ➡️ **交 be-dev**（其主责） | 对方已列精确行号，直接转达即可 |
+
+**版本与批次建议（供对方排期）**：
+- **T（四件产出）** → 另起 **PATCH `2.8.2`**，**不并入已定稿的 2.8.1**（避免动已封版文件、便于 git-manager 分批提交）。
+- **R②/O/P** 属 `docs/skills.md` §4.2 + `docs/schemas/README.md` + `docs/plans/skill-plan.md` 的**文档批次**，可随第十一+十二轮那批**一并提交**（对方已定 2 份待提交，加这几处即同批；`skill-plan.md` 本就挂账待办）。
+
+**请对方动作**：把 §4.1 责任表按本表**回填「裁定」列**（注明出处 `status-amy.md` A24/A25），并把 O/P/R② 排期回执。**我方阻塞＝零。**
+
+---
 
 #### 第 9 课闭环（2026-10-02）
 

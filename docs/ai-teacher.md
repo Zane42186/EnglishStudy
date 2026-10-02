@@ -3,7 +3,7 @@
 > **状态：第一版（正式正文）· 2026-09-29**
 > 数据基准：第 7 课（2026-10-01）下课后的仓库状态。
 > 本文所有结论均可在下列文件中定位，**没有推测、没有虚构学生未学过的内容**：
-> `progress.md`、`wrong-words.md`、`notes/day-01-07.md`、`read/*.md`、`digest.md`、`INDEX.md`、`review/*.html`。
+> `progress.md`、`wrong-words.md`、`notes/day-01-07.md`、`read/*.md`、`digest.md`、`INDEX.md`、`frontend/`（Vue 3 前端工程）。
 > 规则权威来源：`PROJECT.md`（理念）、`AGENTS.md`（角色分工）、`backend/docs/03-api-contract.md`（数据契约）。
 > 与旧版骨架的关系：本文件替换原 TODO 骨架，原骨架登记的「规则存放位置」并入本文第一章与第十一章。
 
@@ -18,7 +18,7 @@
 | **Amy（本文件）** | 教学决策：学什么、讲多少、怎么批、是否升降级 | 由 Skill `english-daily` 承载执行 |
 | **Skill** | 把 Amy 的流程固化为可重复执行的步骤与脚本 | `.workbuddy/skills/english-daily`（**不在版本库内**，见 `docs/skills.md` 风险登记） |
 | **Backend** | 学习记忆：只搬运、不重设计教学规则 | `backend/` 已是**可运行服务**：`localhost:4000/api`，**30 个接口已实现并实测**（含 6 条写链路 + 聚合快照，见 `backend/docs/05-api-reference.md`，§28—30 为最新第 6—7 批） |
-| **Frontend** | 学习界面 | `review/*.html`，纯 API 驱动的静态页（不再由脚本生成） |
+| **Frontend** | 学习界面 | `frontend/`，**Vue 3 单页应用**（Vue Router + Vite，纯 API 驱动） |
 | **Git** | 版本安全 | `main` 单分支，origin → `Zane42186/EnglishStudy` |
 
 ### 1.2 数据真相源（双轨：md 手工源 + MySQL 运行库）
@@ -31,7 +31,7 @@
 | 当日阅读 | `read/YYYY-MM-DD-read.md` | 一天一个文件，当天不覆盖 |
 | 批改 / 补漏 / 学习记录（机器契约） | `records/*.json` | **Amy 产出、后端只读消费**（2026-09-30 新增） |
 | 上课速读摘要 | `digest.md` | 后端 `db:summary` 生成，Amy 上课只读这一份 |
-| 索引 / 看板 | `INDEX.md`（后端 `db:summary`）、`review/*.html`（前端维护） | 生成物，禁止手改 |
+| 索引 / 看板 | `INDEX.md`（后端 `db:summary`）、`frontend/`（Vue 3 前端工程） | `INDEX.md` 是生成物、禁止手改；`frontend/` 是**手写源码**（构建产物 `frontend/dist/` 不入库） |
 
 > **2026-10-01 更新 —— 库已启用**：MySQL `english_platform` 已建成并完成回填（**13 表 2 视图**，`db:compare` **15/0/0**）。
 > 真相源分两层：**教学内容**仍以 md 为手工真相源（`records/*.json` 是 md → 库的机器契约中间层）；
@@ -153,8 +153,8 @@
 |---|---|
 | 课程正文（语法 / 词汇 / 例句 / 作业 / 作答 / 批改 / 反馈） | `notes/day-01-07.md` 的 `## 第 N 课` 段 |
 | 当日阅读（含生词注释、理解题） | `read/YYYY-MM-DD-read.md` |
-| 一句话摘要、词汇卡、错词表 | `digest.md`、`review/words.html`、`review/wrong.html` |
-| 人读版课程页 | `review/lessons/lesson-N.html` |
+| 一句话摘要、词汇卡、错词表 | `digest.md`；`frontend/` 词汇卡（路由 `/words`）与错词本（`/wrong`） |
+| 人读版课程页 | `frontend/` 的 `/lesson/N`（Vue 路由；N = **课号**，非主键 id） |
 
 ---
 
@@ -459,7 +459,7 @@
 | `GET /agent/snapshot?recent=3` | **上课第一步**：级别、课号、最近三课、未过关错词（含 priority）、阅读目录 | `digest.md`（**实测 200，已可替代**） |
 | `GET /lessons` | 「上次学到哪了」的快速回答（最新一课 = 课号最大项） | `notes/` 末课摘要 |
 | `GET /mistakes?status=pending` | 出复习题、批改后回写 | `wrong-words.md` |
-| `GET /vocabulary/stats` | 词汇量汇报 | `review/words.html` 顶部 |
+| `GET /vocabulary/stats` | 词汇量汇报 | `frontend/` 词汇卡页（`/words`）顶部 |
 
 **`digest.md` → `snapshot` 字段对照**
 
@@ -552,7 +552,7 @@
 | 教学策略（讲什么、讲多少、怎么批、升降级） | **Amy（唯一决策者）** | `docs/ai-teacher.md`、`progress.md` |
 | 流程固化（步骤、脚本、输入输出格式、JSON Schema） | Skill 设计师 | `.workbuddy/skills/english-daily/`、`docs/skills.md` |
 | 数据落库与接口 | 后端工程师 | `backend/` |
-| 界面呈现 | 前端工程师 | `review/*.html` → 未来 Vue |
+| 界面呈现 | 前端工程师 | `frontend/`（Vue 3 单页应用） |
 | 版本与基线 | Git 工程师 | `docs/changelog.md` |
 
 **协作链**（`AGENTS.md` 第 4 条）：Amy → Skill 设计师 → 后端工程师 → 前端工程师，Git 贯穿全程。
@@ -788,7 +788,7 @@ wrong_count ≥ 3 → 下一课强制自查项（让学生自己找这类错）
 | `answer` 为 `null` / 空串 | **不显示「看答案」按钮**（该题仍显示题干，学生可自己想）；同时 `console.warn` 记录 `{date, pieceNo, questionNo}` 并向上报缺陷 |
 | 若产品上必须有提示 | 文案用**中性缺陷提示**，如「参考答案缺失（数据异常，已记录）」，**不要**写成像功能名的「暂无答案」——那会把缺陷正常化，掩盖真实问题 |
 
-- 现有实现 `review/reading.html` 的 `qnoans` 分支**保留兜底**（避免白屏），但按上表第 2、3 行调整：**去掉按钮 + 改文案 + 加告警**。
+- 现有实现（`frontend/src/views/ReadingView.vue`；原 `review/reading.html` 已于 2026-10-02 退役删除）的 `qnoans` 分支**保留兜底**（避免白屏），并**已按上表第 2、3 行落地**：不出「看答案」按钮 + 中性缺陷文案 + `console.warn` 并登记 `window.__readingDefects`【已实测：该文件 `:87` / `:89` / `:277`】。
 - 该题**不计入**任何「看答案」交互统计（避免缺陷数据污染指标）。
 
 #### Amy 侧的配套承诺（从源头堵住）
@@ -867,7 +867,7 @@ wrong_count ≥ 3 → 下一课强制自查项（让学生自己找这类错）
 | `records/*.json` | **手工真相源（机器契约，2026-09-30 新增）** | Amy 产出、后端消费 |
 | `docs/schemas/*.json` | 契约定义 | Skill 设计师 + 后端 |
 | `digest.md` / `INDEX.md` | 生成物 | **后端 `db:summary`**（`build_board.py` 已于 2026-09-30 退役删除） |
-| `review/*.html` | 生成物 | **前端工程师**（纯 API 驱动静态页，不再由脚本生成） |
+| `frontend/` | **手写源码**（构建产物 `dist/` 不入库） | **前端工程师**（Vue 3 单页应用，纯 API 驱动；原 `review/*.html` 已于 2026-10-02 退役删除） |
 | `skills/english-daily/` | Skill 源码（已入库） | Skill 设计师 |
 
 ### 12.2 本文件引用的真实数据快照（2026-10-01 · 已实测）
