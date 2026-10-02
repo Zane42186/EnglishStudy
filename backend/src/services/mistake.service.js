@@ -2,14 +2,17 @@
 
 const mistakeRepository = require('../repositories/mistake.repository');
 const lessonRepository = require('../repositories/lesson.repository');
+const progressRepository = require('../repositories/progress.repository');
 const { withTransaction } = require('../config/db');
 const ApiError = require('../utils/ApiError');
 const { normalizeDateTime } = require('../utils/datetime');
 // 判重键**唯一实现**：与 `db:sync-mistakes` 共用，两条「错词本 → 库」路径
 // 对「同一行」的判断必须逐字一致（否则即 DQ1 成因）。
 const { normKey } = require('../utils/mistakeKey');
-// 课号两列定则**唯一实现**：同两条路径共用（§11.11）。
-const { buildLessonMaps, resolveNextLastLessonId } = require('../utils/mistakeLesson');
+// 课号两列定则**唯一实现**：三条写入路径共用（§11.11）。
+const {
+  buildLessonMaps, resolveNextLastLessonId, resolveNextLastLessonIdByNo,
+} = require('../utils/mistakeLesson');
 // 枚举白名单只取 `src/constants.js`（唯一来源，与 schema.sql 的 ENUM 同源）
 const { ERROR_TYPE, MISTAKE_STATUS } = require('../constants');
 
@@ -89,15 +92,49 @@ async function getPendingByType(studentId) {
  *   correct → streak+1；streak>=2 → status='passed'
  * 两者都写 last_reviewed_at，并在 mistake_events 留一条复习流水。
  *
+ * §11.11 / A19：**判错（＝复发）时另刷 `last_lesson_id`** —— 走 `max` 单调守卫，
+ * `first_lesson_id` 冻结。判**对**时不刷（答对不是复发）。
+ * 定则复用 `utils/mistakeLesson`，不在本函数里重新实现一遍比较。
+ *
+ * A20：**本次课课号的解析规则** —— 显式入参 `lessonNo` 优先；**未传时回退
+ * `progress.current_lesson_no`**（见 `resolveLessonNo`）。解析结果**一处产出、两处消费**
+ * （刷 `last_lesson_id` 与写 `mistake_events.lesson_id`）⇒ 两者永远同源、不会打架。
+ *
  * 幂等：clientEventId 命中 mistake_events.client_event_id（唯一键）时直接返回首次结果，
- * 不重复累加。配合 mistakes 行锁，同一错词的重复提交是串行的。
+ * 不重复累加（**也不重复刷 `last`**）。配合 mistakes 行锁，同一错词的重复提交是串行的。
  */
+
+/**
+ * 本次课的课号（A20）：**显式入参优先，未传时回退 `progress.current_lesson_no`**。
+ *
+ * 为什么必须回退：全前端**唯一**调用方 `review/wrong.html:187` 只发
+ * `{result, clientEventId}`、**不传 `lessonNo`**。若这里直接返回 null，
+ * A19「判错刷 `last`」在真实链路上永不触发（＝死代码），`mistake_events.lesson_id`
+ * 也永远是 NULL —— 即「测试绿 ≠ 链路活」（MW21—MW24b 每条都显式传了 `lessonNo`）。
+ *
+ * 回退源与 `GET /api/progress` 的 `currentLessonNo` **同源**，故事件流水与两列课号
+ * 永远指向同一课（Amy 的 A20 裁定：**同源回退**）。也让本接口覆盖**所有未来调用方**，
+ * 无需前端配合改动。
+ *
+ * 进度表缺失 / 课号非整数 ⇒ 返回 null（维持「课号不可知」的既有行为：不报错、不刷、事件留空）。
+ */
+async function resolveLessonNo(studentId, lessonNo) {
+  if (Number.isInteger(lessonNo)) return lessonNo;
+  const progress = await progressRepository.findByStudentId(studentId);
+  const no = progress ? progress.current_lesson_no : null;
+  return Number.isInteger(no) ? no : null;
+}
+
 async function reviewMistake(studentId, mistakeId, { result, lessonNo, answeredAt, clientEventId }) {
   const reviewedAt = normalizeDateTime(answeredAt);
 
+  // A20：课号解析（显式入参 → `progress` 回退）。这一次解析同时喂给
+  // 「刷 `last_lesson_id`」与「写 `mistake_events.lesson_id`」⇒ 两处天然同源。
+  const effectiveLessonNo = await resolveLessonNo(studentId, lessonNo);
+
   let lessonId = null;
-  if (Number.isInteger(lessonNo)) {
-    const lesson = await lessonRepository.findByNo(studentId, lessonNo);
+  if (effectiveLessonNo != null) {
+    const lesson = await lessonRepository.findByNo(studentId, effectiveLessonNo);
     lessonId = lesson ? lesson.id : null;
   }
 
@@ -132,6 +169,22 @@ async function reviewMistake(studentId, mistakeId, { result, lessonNo, answeredA
     }
 
     await mistakeRepository.updateReviewState(conn, mistakeId, { ...next, lastReviewedAt: reviewedAt });
+
+    // §11.11 / A19 / A20：**只有判错（复发）才推进「最近一次出错课」**。
+    // 行内课号 `first_lesson_no` / `last_lesson_no` 已由 BASE_SELECT 的子查询解析好，
+    // 本次课课号上文已按「入参 → progress 回退」解析 ⇒ 定则调用**不需要任何额外查询/映射**。
+    if (result === 'wrong') {
+      const nextLastLessonId = resolveNextLastLessonIdByNo({
+        firstLessonNo: row.first_lesson_no,
+        lastLessonNo: row.last_lesson_no,
+        currentLessonNo: effectiveLessonNo,
+        currentLessonId: lessonId,
+      });
+      if (nextLastLessonId != null) {
+        await mistakeRepository.refreshLastLessonOn(conn, mistakeId, nextLastLessonId);
+      }
+    }
+
     await mistakeRepository.insertEvent(conn, {
       studentId,
       mistakeId,

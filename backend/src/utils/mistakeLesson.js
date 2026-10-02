@@ -37,10 +37,32 @@ function buildLessonMaps(lessonRows) {
 }
 
 /**
- * 判定「判重命中」时 `last_lesson_id` 是否应刷新。
+ * **定则核心**（课号口径，唯一实现）：`last` 是否应前进到「本次课」。
  *
- * ⚠️ `currentLessonNo` 是**本次课号**（本次复发出现在第几课），**不是**错词本 8 列里
- *    那个「课号」列 —— 后者是**首次**课号、人工填、已冻结（§11.7 / §11.11 规格 1）。
+ * 三条守卫，逐条对应 §11.11：
+ *   ① `firstLessonNo == null` → 否。规格 3：`first_lesson_id` 为 NULL 的行（「诊断」来源）
+ *      后续命中**也不补填**；新建时 first/last 同源同值，故 first 不可解析 ⇒ 整体跳过。
+ *      （用**课号**而非 id 判断：id 指向的课被删时同样不可解析，语义一致。）
+ *   ② `currentLessonNo == null` → 否。本次课号不可知，无从判断。
+ *   ③ 单调守卫：本次课号必须**严格大于**现有课号才前进（相等／更小均保持原值 ⇒ 重放幂等）；
+ *      现有课号不可解析时视为「可修」，允许写入。
+ *
+ * @param {object} p
+ * @param {number|null} p.firstLessonNo   现有 `first_lesson_id` 解析出的**课号**
+ * @param {number|null} p.lastLessonNo    现有 `last_lesson_id` 解析出的**课号**
+ * @param {number|null} p.currentLessonNo **本次课号**（不是错词本 8 列里的「课号」！）
+ * @returns {boolean} 是否应把 `last` 前进到本次课
+ */
+function shouldAdvanceLast({ firstLessonNo, lastLessonNo, currentLessonNo }) {
+  if (firstLessonNo == null) return false;
+  if (currentLessonNo == null) return false;
+  if (lastLessonNo == null) return true;
+  return currentLessonNo > lastLessonNo;
+}
+
+/**
+ * 适配器 A —— **错词批量写入**（`POST /api/mistakes`）：入参是现有行的 **id**，
+ * 需要 `lessons` 双向映射把「本次课号」换成 id、把现有 id 换成课号。
  *
  * @param {object} p
  * @param {number|null} p.firstLessonId  库内现有 `first_lesson_id`
@@ -51,22 +73,37 @@ function buildLessonMaps(lessonRows) {
  * @returns {number|null} 应写入的新 `last_lesson_id`；`null` ＝ 不改
  */
 function resolveNextLastLessonId({ firstLessonId, lastLessonId, currentLessonNo, idByNo, noById }) {
-  // §11.11 规格 3：`first_lesson_id` 为 NULL 的行（「诊断」来源）后续命中**也不补填**。
-  // 新建时 first 与 last 同源同值，故 first 为 NULL ⇒ last 亦为 NULL ⇒ 整体跳过。
-  if (firstLessonId == null) return null;
-
-  // 本次课号不可知（未给 `items[].courseNo` 也未给顶层 `lessonNo`）→ 无从判断，不动
-  if (currentLessonNo == null) return null;
-
-  const nextId = idByNo.get(currentLessonNo);
-  if (nextId == null) return null; // 课号在库内不存在 —— 交由调用方告警，此处不猜
-
-  const prevNo = lastLessonId == null ? null : (noById.get(lastLessonId) ?? null);
-  // 现有值指向的课不可解析（对应课被删）→ 视为「可修」，不构成倒退
-  if (prevNo == null) return nextId;
-
-  // 单调守卫：本次课号必须**严格更大**才刷新（相等／更小均保持原值 ⇒ 重放幂等）
-  return currentLessonNo > prevNo ? nextId : null;
+  const nextId = currentLessonNo == null ? null : (idByNo.get(currentLessonNo) ?? null);
+  if (nextId == null) return null; // 本次课号不可知 / 课号在库内不存在 —— 调用方负责告警，此处不猜
+  return shouldAdvanceLast({
+    firstLessonNo: firstLessonId == null ? null : (noById.get(firstLessonId) ?? null),
+    lastLessonNo: lastLessonId == null ? null : (noById.get(lastLessonId) ?? null),
+    currentLessonNo,
+  }) ? nextId : null;
 }
 
-module.exports = { buildLessonMaps, resolveNextLastLessonId };
+/**
+ * 适配器 B —— **复习回写**（`POST /api/mistakes/:id/review`）：行内课号**已经**由
+ * `BASE_SELECT` 的子查询解析好（`first_lesson_no` / `last_lesson_no`），且本次课的
+ * `lessonId` 调用方手上就有（它同时要写 `mistake_events.lesson_id`）⇒ **无需任何映射/查询**。
+ *
+ * ⚠️ 调用方必须只在 `result === 'wrong'`（＝复发）时调它 —— 答对不是复发。
+ *
+ * @param {object} p
+ * @param {number|null} p.firstLessonNo   行内 `first_lesson_no`（课号）
+ * @param {number|null} p.lastLessonNo    行内 `last_lesson_no`（课号）
+ * @param {number|null} p.currentLessonNo 本次课号
+ * @param {number|null} p.currentLessonId 本次课的 `lessons.id`
+ * @returns {number|null} 应写入的新 `last_lesson_id`；`null` ＝ 不改
+ */
+function resolveNextLastLessonIdByNo({ firstLessonNo, lastLessonNo, currentLessonNo, currentLessonId }) {
+  if (currentLessonId == null) return null;
+  return shouldAdvanceLast({ firstLessonNo, lastLessonNo, currentLessonNo }) ? currentLessonId : null;
+}
+
+module.exports = {
+  buildLessonMaps,
+  shouldAdvanceLast,
+  resolveNextLastLessonId,
+  resolveNextLastLessonIdByNo,
+};
