@@ -299,4 +299,28 @@
 > **另两项裁定**：`Tom play soccer`(id=4) 的 `last` **暂不回填**（A22②）；`db:sync-mistakes` **不新增**课号源（A22③）。
 > Be-dev 侧**「仍待 Amy 一句话」的项已清零**；我方**当前阻塞为零**。
 > 教学侧下一动作：**第 9 课**（过去时的否定与疑问 `did` + 补漏块 5「a/an 与可数名词」），写 `notes/day-08-14.md`。
-> ⚠️ **陈旧快照提示**：本节以上 A1—A19 与 §1.7／§1.8 含**第 7 课期**时点数字，**作历史证据保留**；现状以 **A20—A22** 与本节为准。
+> ⚠️ **陈旧快照提示**：本节以上 A1—A19 与 §1.7／§1.8 含**第 7 课期**时点数字，**作历史证据保留**；现状以 **A20—A23** 与本节为准。
+
+#### A23 · A20 已落地；本轮实跑踩到「顺序缺口」（🟡 需后端/契约侧补一条）
+
+- ✅ **A20 已由 be-dev 落地**（`05` 第十批，2026-10-02）：`review` 未传 `lessonNo` → 回退 `progress.current_lesson_no`；`mistake_events.lesson_id` 与 `mistakes.last_lesson_id` 同源；`test:write 134 → 138`（MW25—MW27，夹具刻意不传课号）。**我方复核通过**。
+- 🟡 **本轮第 9 课落库实测暴露一个隐含前提**：A20 的回退值取决于 `teach:sync` 是否已跑。而 `teach:sync`（更新 `progress.current_lesson_no`）在**归档之后**，`review` 在 `skills.md` §3.1 **第 3—4 步** ⇒ **新课首课**（`current_lesson_no` 仍是 N-1）时，复习流水会被**挂到上一课**。
+  - 实证：第 9 课 2 条复习流水初写为 `mistake_events.lesson_id=79`（第 8 课），应为 `92`（第 9 课）。已按授权修正（见下）。
+  - **不受影响的项**：`last_lesson_id` 不受影响 —— 本轮两次复习均为 `correct`，按 §15「`correct` 不刷」故 `last` 未动（`play game` 仍 first=4/last=6）。
+- 🔴 **技能侧根因（已定位，待 skill-designer 执行）**：`skills/english-daily/SKILL.md`（**v2.8.0**，受控源；运行时副本 `.workbuddy/skills/english-daily/SKILL.md` 同）**第 4 步**（`:65`）原文只有「新课的课前复习由写接口直接落库，不产出 `records/lesson-NN.review.json`」，**未指明端点、未要求显式带 `lessonNo=N`**；全文只在 `:77`（`LessonRecord`）与 `:162`（`POST /mistakes`）提 `lessonNo`，**对 `review` 回写无任何课号要求**。
+  - ⇒ **修法（建议 ①，二选一）**：① 第 4 步补一句「复习回写走 `POST /api/mistakes/:id/review`，**须显式带 `lessonNo=N`**（A20 的 `current_lesson_no` 回退是给**真实前端**兜底用的，Skill 明知课号 N，不该依赖回退）」；或 ② 在 `docs/skills.md` §3.1 第 8 步注明同一句。**前端仍不改**（与 A20 裁定一致）。
+  - 📌 **负责人裁定（2026-10-02）**：**只登记、交 skill-designer 执行**（Amy 不改受控文件，尊重职责隔离）。执行时按规程：先备份 `.workbuddy/skill-backups/english-daily-v2.8.0-<日期>/` → 改受控源 → 版本自增（建议 **PATCH 2.8.0 → 2.8.1**，属行为说明补全、非契约变更）→ `cp` 同步运行时 → 更新引用面（`docs/skills.md:107`；本文件 `MEMORY.md` §四亦记「Skill 版本 2.8.0」）→ 请我方复核。
+  - ℹ️ **受限影响面（本课实测）**：`last_lesson_id` **未受影响**（两次复习均 `correct`，§15「`correct` 不刷」）；受影响的只有 `mistake_events.lesson_id`（已修正）。
+
+#### 第 9 课闭环（2026-10-02）
+
+- **教学**：`did` 否定/疑问结构全对；错处 4（标点 2 / 名词裸用 1 / `did` 后过去式 1）；降载判定 **L0 常规**（新点首课触发 §7.4 **D1 例外**）。`play game` 连对 2 次 → **已过关出队** 🎉。
+- **归档落库（后端路径，全绿）**：
+  - `POST /api/lessons` → **id=92**（9 sections / 10 词 / 7 题 / `errorCount=4`；唯一 warning＝`knowledgePoints` 未建表）。
+  - `POST /api/mistakes` → **6 created**（id 192—197；`first=last=9`）。
+  - `review` ×2 → `play game` streak 2/**passed**、`she always is busy` streak 1/pending。
+  - `teach:sync` → `study_records` **24→27**、`progress.current_lesson_no` **8→9**、`lastClassDate` **2026-10-02**。
+  - `db:export → db:import` → readings **5→6 天 / 14→17 篇 / 28→34 题**（`mistakes md5 未变`）。
+  - `db:apply-error-types` → **updated=3**（L9 hw#1 grammar / hw#2 punctuation / hw#4 grammar）。
+- **对账**：`db:compare` **15 / 0 / 0（缺口 0）**；`db:summary --check` **stale=0**；API 错词 **39 / 未过关 32 / 已过关 7**；阅读 6 天 / 17 篇 / 669 词。
+- ⚠️ **授权修正 2 处真实数据**（回滚锚点）：`mistake_events` 208/209 `lesson_id 79 → 92`；`lessons(第8课) status 'archived' → 'taught'`（对齐 `05 §28` 与 1—7／9 课口径，现 9 课全 `taught`）。
