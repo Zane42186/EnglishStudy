@@ -94,10 +94,21 @@ AI Skill → 结构化 JSON → Backend API → Database → Frontend
 **推荐：零依赖只读校验（本目录自带，仅用标准库，无需安装任何包）**
 
 ```bash
-python docs/schemas/check_schemas.py docs/schemas
+python docs/schemas/check_schemas.py                 # 自定位（脚本所在目录即本目录），不依赖当前工作目录
+python docs/schemas/check_schemas.py docs/schemas    # 亦可显式传目录（向后兼容）
 ```
 
-通过时输出 `SCHEMA_CHECK files=12 refs=84 objects=71` 与 `SCHEMA_OK 全部 $ref 可解析，required 字段定义完整`；发现问题时输出 `SCHEMA_PROBLEMS` 清单并以退出码 `1` 结束，可直接作为 CI 门禁。脚本只读，不做任何写入。
+通过时输出 `SCHEMA_CHECK files=12 refs=85 objects=71 nodes=535` 与 `SCHEMA_OK 全部 $ref 可解析，required 字段定义完整，枚举与字段防回归通过`；发现问题时输出 `SCHEMA_FAIL 问题数=N` 与 `⛔` 清单并以退出码 `1` 结束，可直接作为 CI 门禁。脚本只读，不做任何写入。
+
+**两个计数量的定义（2026-10-02 合并双副本后同时输出，消除「535 vs 71」歧义）：**
+
+| 量 | 当前值 | 定义 | 回答的问题 |
+|---|---|---|---|
+| `objects` | **71** | `type == "object"` 或含 `properties` 的节点数（**语义计数**） | 契约对象有多少个 |
+| `nodes` | **535** | 全部 dict 节点数（**原始计数**，含 `$defs` 内每个子对象、`properties` 映射本身等） | 结构规模有多大 |
+
+> 两者都对，只是口径不同。历史文档里报出的 `objects=535` / `objects=536` 属**原始计数**口径，与今日的 `nodes` 等价（已实测：注入一处断链后输出 `refs=86 objects=71 nodes=536`，可见 `536` 即原始计数）。
+> 本目录曾同时存在两个同名脚本（本目录的与 `.workbuddy/build/` 的，**两版各有对方没有的校验**：本目录版独有 `required ⊆ properties`，build 版独有自定位路径 / 精确 glob / 枚举防回归守卫）；2026-10-02 已将两版**合并**为本目录的单一受控版本。
 
 本地校验（需要 `jsonschema` 库）：
 

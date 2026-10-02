@@ -13,7 +13,7 @@
 
 用途：初始化学习目录（`init_workspace.py`）与运行环境自检（`check_environment.py`）。两个脚本只用 Python 标准库，不需要 pip 安装任何包。
 
-总目录与复习看板**不由脚本产出**：`INDEX.md` / `digest.md` 由后端数据更新，`review\*` 是纯 API 驱动的静态页。
+总目录与学习界面**不由脚本产出**：`INDEX.md` / `digest.md` 由后端数据更新；学习界面是仓库内 `frontend/`（Vue 3 单页应用 + Vite，纯 API 驱动，开发态 5173 / 构建产物 `dist/` 由 `serve.cjs` 托在 8080），由前端工程师维护，本 Skill 不产出也不改动。原生静态站 `review/` 已于 2026-10-02 退役删除。
 
 - 官方下载：https://www.python.org/downloads/
 - 官方文档：https://docs.python.org/zh-cn/3/

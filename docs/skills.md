@@ -14,7 +14,7 @@
 
 **Skill 只认对象，不认文件。**
 
-所有 Skill 的输入输出都是 `docs/schemas/` 里定义的结构化对象。Skill 不得读取 `digest.md`、解析 `notes/*.md`、拼接 `review/*.html`。
+所有 Skill 的输入输出都是 `docs/schemas/` 里定义的结构化对象。Skill 不得读取 `digest.md`、解析 `notes/*.md`、拼接前端页面（原 `review/*.html`，前端已于 2026-10-02 迁至 `frontend/`）。
 
 判定标准只有一条：**如果一个 Skill 的行为会因为 md 文件换个排版而改变，说明设计错了。**
 
@@ -80,7 +80,7 @@
 
 | Skill 绝不做什么 | 原因 |
 |---|---|
-| 直接读写 `review/*.html` | 那是前端产物。Skill 产出契约对象，由后端翻译成页面 |
+| 直接读写前端页面（原 `review/*.html`，现 `frontend/`） | 那是前端产物。Skill 产出契约对象，由后端翻译成页面 |
 | 调用前端接口、拼 HTML/CSS | 违反「不直接与前端耦合」；前端改版会连带 Skill 失效 |
 | 解析 `notes/*.md` 的结构 | 一旦 Skill 依赖 md 排版，md 就不敢改，等于把真相源钉死在一个格式上 |
 | 自行发明枚举值 | 枚举与 `schema.sql` 一一对应，改枚举必须先改表 |
@@ -94,7 +94,7 @@
 Skill  ──契约对象──▶  后端 API  ──▶  Database  ──▶  Frontend
 ```
 
-Skill 只与后端 API 交互；前端（静态页 / 未来 Vue）从同一批接口取数，因此**切换前端不影响任何 Skill**。原「生成脚本直出 `review/*.html`」的第二条路径已于 2026-09-30 随 `build_board.py` 退役（见 7.3），`review/` 下页面已全部改为 API 驱动。
+Skill 只与后端 API 交互；前端（`frontend/`，Vue 3 单页应用）从同一批接口取数，因此**切换前端不影响任何 Skill**。原「生成脚本直出 `review/*.html`」的第二条路径已于 2026-09-30 随 `build_board.py` 退役（见 7.3）；原生静态站 `review/` 亦已于 **2026-10-02 整体退役删除**（`2e91345`），由 Vue 版全面替代。
 
 ---
 
@@ -104,7 +104,7 @@ Skill 只与后端 API 交互；前端（静态页 / 未来 Vue）从同一批�
 
 | # | Skill | 层 | 触发 | 当前落地物 | 状态 |
 |---|---|---|---|---|---|
-| 1 | `daily-lesson` | 独立 | 上课 / 开始今天的英语课 / 今天学英语 / 下一课 / 继续 / 英语每日课 / 上次学到哪了 | `skills/english-daily/` v2.8.0（受控源；运行副本 `.workbuddy/skills/english-daily/`） | ✅ 运行中（7 课实证） |
+| 1 | `daily-lesson` | 独立 | 上课 / 开始今天的英语课 / 今天学英语 / 下一课 / 继续 / 英语每日课 / 上次学到哪了 | `skills/english-daily/` v2.8.2（受控源；运行副本 `.workbuddy/skills/english-daily/`） | ✅ 运行中（9 课实证） |
 | 2 | `lesson-review` | 独立 | 复习 / 复习错词 / 今天先复习 / 考考我 | 内嵌于 daily-lesson 第 3—4 步 | ⚠️ 内嵌可用，未独立可触发 |
 | 3 | `grammar-teaching` | 内嵌 | —（daily-lesson 第 5 步） | 内嵌于 daily-lesson | ✅ 内嵌运行中 |
 | 4 | `vocabulary-teaching` | 内嵌 | —（daily-lesson 第 5 步） | 内嵌于 daily-lesson | ✅ 内嵌运行中 |
@@ -257,7 +257,7 @@ ALTER TABLE lesson_sections
 ### 3.1 daily-lesson
 
 #### Skill 名称
-`daily-lesson`（英语每日课）· 独立 Skill · 当前受控源为 `skills/english-daily/` v2.8.0（运行副本 `.workbuddy/skills/english-daily/`，单向同步）。
+`daily-lesson`（英语每日课）· 独立 Skill · 当前受控源为 `skills/english-daily/` v2.8.2（运行副本 `.workbuddy/skills/english-daily/`，单向同步）。
 
 #### 功能
 编排一次完整上课。把 `AgentSnapshot` 与 `LessonPlan` 变成 11 步可执行的教学动作，结束时产出可归档的 `LessonRecord` 与当日 `ReadingSet`。它是唯一在课内调用其他六个能力的编排层。
@@ -281,6 +281,7 @@ ALTER TABLE lesson_sections
 | `skillRuns: SkillRun[]` | 自身一条 + 每个被调用的内嵌能力各一条，`parentSkillRunId` 指向自身 |
 | `records/lesson-NN.grading.json` | **机器契约产物**：本课作业逐题判定（`kind:"homework"`）。后端只读它，禁止解析笔记散文 |
 | `records/lesson-NN.backfill.json` | 有补漏块时另出一份（`kind:"backfill"`）；无补漏块不出此文件。作业与补漏块**必须分两个文件**（题号各自从 1 起） |
+| `records/lesson-NN.study-record.json` | **机器契约产物**：本课 `attend` / `grade` / `feedback` **三条学习记录**（`study_records.payload` 的落库依据；`feedback` 还决定 `progress.lastClassDate`）。由 `teach:sync` 消费后写库 —— 是 `progress` 7 列与 `study_records` 的**唯一写作路径**，缺它则这两处全不更新 |
 
 #### 依赖数据
 
@@ -304,7 +305,7 @@ ALTER TABLE lesson_sections
 | 1 | 取快照与计划；课号 N = `max(courseCatalog.lessonNo) + 1`，与 `progress.currentCourseNo` 不一致时以课号为准并在回复中说明 | — | |
 | 2 | 定归档文件 `day-{起始:02d}-{结束:02d}.md`，起始 = ⌊(N-1)/7⌋×7+1 | — | |
 | 3 | 出 3—5 道复习题 | `lesson-review` | ⏸ |
-| 4 | 批改复习，回写连击与过关 | `answer-grading` → `mistake-analysis` | |
+| 4 | 批改复习，回写连击与过关。**回写走 `POST /api/mistakes/:id/review`（`id` 取自 `GET /api/mistakes/pending`；`digest.md` 的待复习段没有 id），body 必须显式带 `lessonNo = N` 与确定性 `clientEventId`** —— 不得依赖服务端 `progress.current_lesson_no` 回退（那是给真实前端兜底的；上课期间该值仍是 N-1，会把复习流水挂到上一课） | `answer-grading` → `mistake-analysis` | |
 | 5 | 讲新课：1 个语法点 + 词表 + 3—5 例句，总量 20—30 分钟 | `grammar-teaching`、`vocabulary-teaching` | ⏸ |
 | 6 | 出作业 3 小题 + 1 开放题，带强制自查项；学生作答后逐题批改（错误类型 / 正确形式 / 一句解释），并产出 `records/lesson-NN.{grading,backfill}.json` | `exercise-generation` → `answer-grading` → `mistake-analysis` | ⏸ |
 | 7 | 收难度反馈（太简单 / 刚好 / 太难） | — | ⏸ |
@@ -1164,11 +1165,13 @@ R3 判定演示：最近三课错误数为 6 → 2 → 5，**不满足「持续�
 | G3 | 无待补知识点 / 补漏队列 | `backlog.pendingKnowledgePoints`、`backlog.backfillQueue` | `next-lesson-planning`、`grammar-teaching` | 本课不排补漏块 |
 | G4 | 无「上次未完成的教学动作」 | `lastIncomplete` | `daily-lesson`、`next-lesson-planning` | 中断后从头开始，需学生确认 |
 | G5 | 学习时长 `study_minutes` 由谁填未定（**当前无落库列**：`courses` 表已废弃、`lessons` 表亦无此列） | `LessonRecord.studyMinutes` | `daily-lesson` | 留空，不做时长统计 |
+| G6 | 无聚合快照接口 | `GET /api/agent/snapshot` 一次取齐（`progress` / `courseCatalog` / `recentLessons` / `pendingMistakes` / `pendingMistakeStats` / `errorTrend` / `readingCatalog` / `backlog` / `lastIncomplete` / `lastRecommendation` / `degradation`） | 全部 9 个 Skill | ✅ **已关闭**（2026-10-01 实测 **200**，9 次请求 → 1 次） |
+| G7 | 无写接口（复习判定 / 反馈 / 归档） | `POST` 组：`/mistakes`、`/mistakes/:id/review`、`/progress/feedback`、`/study-records`、`/readings`、`/lessons` + `/lessons/:id` | `daily-lesson`、`lesson-review`、`mistake-analysis` | ✅ **已关闭（仅余 1 条）**：仍缺 `POST /api/skill-runs`（S2，非教学闭环必需） |
 
 > **闭环状态（2026-10-01 实测复核，权威表见 `docs/ai-teacher.md` §9.3）**：**G1（`errorTrend`）、G4（`lastIncomplete`）已关闭** —— `GET /api/agent/snapshot` 实测 200 且 `lastIncomplete` 已有值（`{lessonNo:7, nextRecommendation:"第 8 课…"}`）；**G3 仍降级**：`snapshot.backlog` **键已存在**、值 `null` 并列入 `degradation.affected` → 本课不排补漏块（待 `knowledge_points` 建表，教学侧暂不建）；**G5 维持降级**：实测为**省略键**式降级（响应里没有该键），按快照服务约定「`null` / `[]` / 省略键」均可，**不得用 0 冒充「没数据」**。
-> ⚠️ 本表只登记 **G1—G5**；权威 `docs/ai-teacher.md` §9.3 另含 **G6（无聚合快照接口）** 与 **G7（无写接口）**，**两者均已关闭**（G7 仅余 `POST /api/skill-runs` 未实现）。本表是否补登 G6/G7 属结构调整，待拍板，**本轮不擅自补**。
+> ✅ **已补登（2026-10-02，裁定 A25）**：本表现已与权威 `docs/ai-teacher.md` §9.3 **全量对齐，登记 G1—G7**；G6（聚合快照）与 G7（写接口）**均已关闭**，见上表末两行。（原「本表只登记 G1—G5、是否补登 G6/G7 待拍板」的说明**已作废**。）
 
-**本设计新增的两项请求（不在 G1—G5 内）**：
+**本设计新增的两项请求（不在 G1—G7 内）**：
 
 | # | 需求 | 影响 |
 |---|---|---|
@@ -1192,6 +1195,8 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 ### 4.4 接口清单
 
+> **路径前缀**：本节所有路径均以 `http://localhost:4000/api` 为根 —— `/agent/snapshot` 即 `GET /api/agent/snapshot`，`/study-records` 即 `POST /api/study-records`。**以 `backend/docs/05-api-reference.md` 为准**。
+
 **Skill 读（阶段 B）**
 
 | 接口 | 谁用 |
@@ -1210,7 +1215,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 | `POST /mistakes` | `mistake-analysis` | 发现新错词（Step 2b **已实现**，`05` #30；载荷 = **R3「只喂原始条目」**：错词本 8 列 + 顶层 `lessonNo`，**不传** `before/after` / `patternHits` / `recurrenceWarnings`） |
 | `POST /mistakes/:id/review` | `lesson-review`、`daily-lesson` | 每次判对错 |
 | `POST /progress/feedback` | `daily-lesson` | 收难度反馈 |
-| `POST /study-records` | `daily-lesson` | 下课时（`grade` / `feedback`） |
+| `POST /study-records` | ⚠️ **当前无 Skill 调用方** | **备用路径**：接口已实现（`05` #18）但 **Skill 不调用它**。**现状唯一路径 = 产出 `records/lesson-NN.study-record.json` → `teach:sync`（后端脚本、DB 直连）**；本行降级为「已实现、未被调用」 |
 | `POST /readings` | `daily-lesson` | 生成当日阅读 |
 | `POST /skill-runs` | 全部 Skill | 每次执行 |
 
@@ -1239,7 +1244,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 - 学生未作答时，不推进下一环节，不替学生写答案。
 - 不删除、不重命名、不移动任何已有笔记与阅读文件。
-- 不手工修改后端或前端生成物（`INDEX.md`、`digest.md`、`review/*.html`）。
+- 不手工修改后端或前端生成物（`INDEX.md`、`digest.md`；原 `review/*.html` 已于 2026-10-02 退役删除）。
 - 不擅自跳级；升级必须先说明并等学生确认。
 - 不编造新闻内容，不用旧新闻冒充当日新闻。
 
@@ -1269,7 +1274,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 ### 6.3 实测状态（截至 2026-09-29）
 
-> ⚠️ **本节是 2026-09-29 的时点快照，多行已失效，请勿据它判断现状；时点记录保留不改（属历史证据）。** 已知失效项（**2026-10-01 实测**）：① 「与后端接口的读写联调 ❌ 未执行」—— 后端已实现 **30 个接口**（含 6 条写链路 + 聚合快照）并已实测；② 「`daily-lesson` 已实跑 6 课、阅读 11 篇、词卡 52 条、错词 23 条」—— 现为 **7 课**（`lessons=7`）、阅读 **5 天/14 篇/28 题**、词卡 **62 条**（`lesson_vocabulary=62`）、错词本 **26 条**；③ `errorType` 走查行的「现有 19 条」已过时。**现状以 `backend/docs/05-api-reference.md` 与 `docs/ai-teacher.md` §9.3 / §9.4 为准。**
+> ⚠️ **本节是 2026-09-29 的时点快照，多行已失效，请勿据它判断现状；时点记录保留不改（属历史证据）。** 已知失效项：① 「与后端接口的读写联调 ❌ 未执行 / `backend/` 仅有设计稿」—— 后端已实现 **30 个接口**（含 6 条写链路 + 聚合快照）并已实测；② 各行的课数 / 篇数 / 条数（6 课 / 11 篇 / 52 词卡 / 23 错词）**均已增长**（截至 2026-10-02 已到第 **9** 课）。**现状数字不在此处维护** —— 一律以 `backend/docs/05-api-reference.md`、`docs/ai-teacher.md` §9.3 / §9.4 与库内实测为准。
 
 | 项 | 状态 | 证据 |
 |---|---|---|
@@ -1283,6 +1288,8 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 | Level 4—5 新闻取材 | ❌ **未验证** | 本环境网络不通；新闻源可达性未确认 |
 
 > 未实测项不得声明通过。上表为交付时的真实状态。
+>
+> ✅ **脚本口径已归一（2026-10-02 补注）**：上表第 1 行引用的 `.workbuddy/build/check_schemas.py` 已按裁定 A25 **并入受控的 `docs/schemas/check_schemas.py`**（两版能力合并）。该行 `objects=535` 属**原始计数**口径，与合并版今日输出的 `nodes` 等价；**语义计数**的 `objects` 为 71。定义见 `docs/schemas/README.md` §五。**本行作为时点证据保留不改。**
 
 ---
 
@@ -1307,7 +1314,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 | B1 | 后端实现 `GET /agent/snapshot` 与各写接口 | — |
 | B2 | `deploymentMode` 从 `markdown` 切到 `backend` | **零改动** |
 | B3 | 契约缺口 G1—G5 由后端补齐（**2026-10-01 实况**：G1/G2/G4 **已关闭**；G3 **键已存在、值降级**；G5 维持**省略键**式降级） | **零改动**（字段为可选，补上后自动启用增强能力） |
-| B4 | 前端从静态 `review/*.html` 迁到 Vue | **零改动** |
+| B4 | 前端从静态 `review/*.html` 迁到 Vue | **零改动**（✅ **已落地**：2026-10-02 全站迁移完成、原生站退役删除 `2e91345`） |
 
 切换点验证方式：同一课在 A、B 两阶段产出的 `LessonRecord` 应逐字段一致；不一致即为设计缺陷。
 
@@ -1326,7 +1333,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 ### 7.3 现有 `english-daily` 的处置
 
-现有实现 `english-daily`（受控源 v2.8.0）即 `daily-lesson` 的当前形态。**本轮不改动其能力边界**，后续演进建议：
+现有实现 `english-daily`（受控源 v2.8.2）即 `daily-lesson` 的当前形态。**本轮不改动其能力边界**，后续演进建议：
 
 | 项 | 现状 | 目标 |
 |---|---|---|
@@ -1338,7 +1345,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 改名会影响触发词，需在改造时同步更新 `description` 并做触发测试。
 
-**退役过程**：`scripts/build_board.py`。它的 HTML 生成职责已于 2026-09-29 下线（`review/` 改为纯 API 驱动静态页）；`INDEX.md` / `digest.md` 的产出职责自 2026-09-30 起退役，改由后端数据更新。脚本一度保留的唯一用途是**第 1—6 课的历史回填**（那批数据没有 `records/` JSON，只能从 md 推），该回填完成后即满足删除前置条件。
+**退役过程**：`scripts/build_board.py`。它的 HTML 生成职责已于 2026-09-29 下线（`review/` 改为纯 API 驱动静态页）；`INDEX.md` / `digest.md` 的产出职责自 2026-09-30 起退役，改由后端数据更新。脚本一度保留的唯一用途是**第 1—6 课的历史回填**（那批数据没有 `records/` JSON，只能从 md 推），该回填完成后即满足删除前置条件。**收尾**：原生静态站 `review/*.html` 亦已于 **2026-10-02 整体退役并物理删除**（`2e91345`），前端改由 `frontend/`（Vue 3）承载。
 
 **接盘方已明确：`records/` 结构化归档**（见 2.5）。md 解析链的正向职责已被 `records/lesson-NN.*.json` 取代——后端只读 JSON、不解析散文。**注意：`backend/db/migration/export_md_to_json.py` 已不再依赖它**。该脚本已于 2026-09-30 改造为**自包含**（内联全部正则与解析函数，删除 `import build_board` 与 `load_build_board()`），因此 `build_board.py` 现在**没有任何下游消费方**；`compare_snapshot.js` 只读导出的 `_snapshot.json`，与该脚本无耦合。
 
@@ -1355,7 +1362,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 版本 **2.2.2 → 2.2.3 → 2.3.0**（本次为 MINOR：能力移除 + 依赖清单结构变更，即上文原先预留的那次）。清理后 Skill 内已无 `build_board` / `BOARD_OK` / `BOARD_FAIL` 任何引用，受控源与运行副本 `diff -r` 完全一致。
 
-> **后续版本**：**2.3.0 → 2.4.0**（错词本 8 列规范 + `records/` 产物 + 初始化模板 6→8 列，见附录 A 第四轮）、**2.4.0 → 2.5.0**（§11.2—§11.5 镜像 + 运行时最小条文，见第五轮）、**2.5.0 → 2.6.0**（阅读理解题答案必填，缺则重写该篇，见第六轮）、**2.6.0 → 2.7.0**（归档步产出 `LessonRecord`，见第八轮）、**2.7.0 → 2.8.0**（判重键 `normKey` / §11.11 课号两列 / `selfCheck` 载体 / G4 已落地 —— 同步运行时副本滞后，见第十一轮）。
+> **后续版本**：**2.3.0 → 2.4.0**（错词本 8 列规范 + `records/` 产物 + 初始化模板 6→8 列，见附录 A 第四轮）、**2.4.0 → 2.5.0**（§11.2—§11.5 镜像 + 运行时最小条文，见第五轮）、**2.5.0 → 2.6.0**（阅读理解题答案必填，缺则重写该篇，见第六轮）、**2.6.0 → 2.7.0**（归档步产出 `LessonRecord`，见第八轮）、**2.7.0 → 2.8.0**（判重键 `normKey` / §11.11 课号两列 / `selfCheck` 载体 / G4 已落地 —— 同步运行时副本滞后，见第十一轮）、**2.8.0 → 2.8.1**（第 4 步复习回写补「端点 + 必带 `lessonNo=N` + `clientEventId`」，见第十二轮）、**2.8.1 → 2.8.2**（第 8 步产出清单补第 4 件 `records/lesson-NN.study-record.json`，见第十三轮）。
 
 ### 7.4 Skill 源码入库（已完成）
 
@@ -1412,6 +1419,131 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 ---
 
 ## 附录 A：契约与文件清单
+
+### 第十五轮（2026-10-02：Vue 迁移善后 · `SKILL.md` **逐节**通读审计，**纯文档批、不动版本号**）
+
+> **背景**：第十四轮收尾后，用户指出一处漏改 —— 「**`SKILL.md` 工作目录的树结构都没改**」。自查证实：第十四轮**只按 `review/` 关键词全仓扫了一遍**，而 `SKILL.md` §一 的目录树用的是**树形字符 + 「前端静态页」字样**（不含 `review/` 字样），**关键词扫不到，必须逐节读才看得见**。
+> **根因**：「**关键词查全 ≠ 逐节查全**」。已改为**通读全文**（`SKILL.md` 269 行逐节过）后出清单，故本轮条目多于第十四轮。
+> **口径**：同第十四轮 —— 只改**已失效的事实描述**，**不动任何教学规则、API 契约与能力边界**；带日期的历史结论保留。
+
+| 文件 | 动作 | 说明 |
+|---|---|---|
+| `skills/english-daily/SKILL.md` `:3` frontmatter `description` | 改 | 「看板首页**只放统计与入口**（课程正文、阅读、词汇卡、错词各一页）」→ 「**首页放统计与课程正文**（左侧可搜索目录 + 单课完整正文，默认最新一课，上一课/下一课切换），阅读、词汇卡、错词各一页」。**依据＝读源码核实**：`HomeView.vue:200-240` 内联渲染 `LessonSections` + 左目录 + 上/下一课 ⇒ 课程正文**已不再单独成页**（2026-10-02 需求⑥）。同句「整篇看中文按钮」（`ReadingView.vue:252`）与「词汇卡首字母索引」（`WordsView.vue:6`）**核实仍准确、不改** |
+| `SKILL.md` `:10` 开头概述 | 改 | 「看板是纯 API 驱动的静态页」→「学习界面是 `frontend/` 下的 Vue 3 单页应用（纯 API 驱动，数据实时来自后端）」 |
+| `SKILL.md` §一 目录树（原 `:34-40`） | 改写 | `review\`（5 个 html）一节 → **`frontend\`**（`src\` / `index.html` / `serve.cjs` / `dist\` 不入库）；并**新增「历史沿革」注**：`review\` 已于 2026-10-02 退役删除（`2e91345`），入口改由路由 `/`、`/reading/:date?`、`/words`、`/wrong`、`/lesson/:no?` 承担，**全仓 `review/*.html` 引用均已作废** |
+| `SKILL.md` §一 `records\` 树 | 改 | **补第 4 件产出 `lesson-06.study-record.json`**（T 项已在第 8 步定为「四件产出」，**树里漏登**）；三条注释同时写清「第 6 步 / 仅有补漏块时 / 第 8 步 / 仅 `deploymentMode=markdown` 时落盘」 |
+| `SKILL.md` §二 触发词行 | 改 | 「打开 `review\index.html`——纯 API 驱动静态页…**无需任何重建**」→「打开 `frontend/`：开发态 `npm run dev`（5173，热更新免重建）；静态预览 `npm run build` + `node serve.cjs`（8080 跑 `dist/`）」——**「免重建」只对开发态成立**，原措辞在 `dist` 路径下已不准确 |
+| `SKILL.md` §八 脚本 #2 | 改 | `init_workspace.py` 描述「创建 notes、read、**review** 目录」→ 去掉 `review`，并注明「`records\` 与 `frontend\` 属仓库内容，不由本脚本创建」 |
+| `SKILL.md` §九 质量自查清单 | 加 | 补一行 **`records/lesson-NN.study-record.json` 已产出** —— 原清单只列 grading / backfill / LessonRecord / selfCheck，**与第 8 步「四件产出」不同步**，会让「缺第 4 件」的一课照样通过自查 |
+| `SKILL.md` §十 停止条件 | 改 | 「不手工改 `INDEX.md`、`digest.md` 与 `review` 下的 html」→ 保留前两者，**改为不属本 Skill 范围的 `frontend/`（源码 + `dist/`）** |
+| `skills/english-daily/scripts/init_workspace.py` `:59` | 删 1 行 | 去掉 `(root / "review").mkdir(exist_ok=True)`（目录已退役，继续创建会产生无意义空目录） |
+| `skills/english-daily/references/setup-guide.md` `:16` | 改 | 「`review\*` 是纯 API 驱动的静态页」→ 改指仓库内 `frontend/`（Vue 3 + Vite，5173 / 8080），并注明 `review/` 已于 2026-10-02 退役删除 |
+
+**版本**：**不动版本号**（沿用第十四轮先例）。全部为**已失效事实的订正**，**API 契约、能力边界、教学规则零变更**；改动**并入尚未提交的 `2.8.2`**（该版本＝「四件产出」＋ 第十四/十五两轮引用修复）。
+
+**备份**：`.workbuddy/skill-backups/english-daily-v2.8.2-20261002/runtime/`（＝改动**前**副本，实测 `version: 2.8.2`）。⚠️ 因 `.workbuddy/` **未被 git 跟踪**、且 2.8.2 的受控源改动亦**未提交**，此快照是改动前的**唯一完整副本**（`git show HEAD:` 只能取到 `2.8.1`）。**回滚**：`git checkout -- skills/english-daily docs/skills.md` ＋ 从该备份目录覆盖 `.workbuddy/skills/english-daily/`。
+
+**验收【已实测】**：
+- `diff -r skills/english-daily .workbuddy/skills/english-daily` **无输出**、两侧 `version: 2.8.2`。
+- 全目录复查 `grep -rn "review\|静态页\|看板\|\.html" skills/english-daily/` —— 剩余命中**全部为合法项**：API 路径 `/review`、触发词「生成复习看板」、Vue 的 `index.html` 入口、本轮新增的「历史沿革」注、`setup-guide.md` 的退役说明。
+- `init_workspace.py` **功能实测**（临时目录）：`INIT_OK 新建=3 已存在=0`，生成 `notes/` `read/` + 3 个初始文件，**未创建 `review/`**。
+- `py_compile` 语法校验通过（`__pycache__` 用完即删）。
+
+**本轮浮出、只登记未改（不擅自扩范围）**：
+- **(甲)** `E:\English\review\` 仍有**空目录残留**（0 文件、git 未跟踪、mtime 2026-10-02 19:16）。文件确已随 `2e91345` 删除，只是壳还在；**删目录属本地动作且需显式授权**，授权前不动。风险：低（任何扫描 `review/` 的工具会看到空目录）。
+- **(乙)** `init_workspace.py` **不创建 `records\`**，而本 Skill 要往 `records\` 写 4 类 json。当前**非缺陷**（`records/README.md` 被 git 跟踪 ⇒ 克隆后必然存在），但**在仓库外/被误删的工作区是潜在缺口**。修法＝`mkdir` 列表加 `records`（1 行），**是否做请裁定**。
+
+### 第十四轮（2026-10-02：原生前端退役 → 死引用全量清理，**纯文档批、不动版本号**）
+
+> **背景**：Vue 3 全站迁移完成，原生静态站 `review/` 于 **2026-10-02 硬退役**（提交 `2e91345` 物理删除 14 文件；`HEAD = 4543984`）。项目负责人指派 **skill-designer 负责「教学权威文档 + 契约镜像」一侧**的死引用清理。
+> **口径**：只改**死引用**（路径已不存在），**不动任何教学规则与结论**；带日期的**时点快照 / 历史台账不静默改写**，只加注或原样保留。
+
+| 文件 | 动作 | 说明 |
+|---|---|---|
+| `docs/ai-teacher.md` **9 处** | 改 | `:6` / `:21` / `:34` / `:156` / `:157` / `:462` / `:555` / `:791` / `:870`（`review/*.html`、`review/words.html`、`review/wrong.html`、`review/lessons/lesson-N.html`、`review/reading.html`）→ `frontend/`（Vue 3）及其路由 `/words`、`/wrong`、`/lesson/N`、`/reading`。**`:34` / `:870` 的「性质」由「生成物」订正为「手写源码（构建产物 `dist/` 不入库）」** |
+| `docs/ai-teacher.md` `:791` | 改＋补证 | §11.10 阅读答案兜底改指 `frontend/src/views/ReadingView.vue`，并补**【已实测】证据**（`:87` `window.__readingDefects` / `:89` `console.warn` / `:277` 中性文案）—— **读源码核实，非推断** |
+| `docs/architecture.md` `:22` | 改写 | 整条前端现状改为 Vue 3 单页应用（Router / Vite / `serve.cjs` / `dist` 不入库）＋ 原生站退役 |
+| `docs/api.md` `:78` | 改 | 「前端实际接入时间点」TODO → **已完成**（`[x]`） |
+| `docs/database.md` `:69` | 改 | 「`review/` 看板」→「`frontend/` 看板（原 `review/`，2026-10-02 退役）」 |
+| `skills/english-daily/SKILL.md` `:67` | 改 | 第 4 步「真实前端不知课号」的旁证由 `review/wrong.html` 改指 **Vue 版 `/wrong`**；**结论不变**（Vue `WrongView.vue:145` 实测仍只发 `{result, clientEventId}`、**不传 `lessonNo`**）；受控源 → 运行副本单向同步 |
+| `docs/skills.md` **8 处** | 改 | `:17` / `:83`（禁止拼接**前端页面**）、`:97`（前端已迁 Vue）、`:1247`（停止条件）、`:1317`（B4 标**已落地**）、`:1348`（退役过程补收尾）、`:1458`（回退兜底的旁证改指 Vue `/wrong`）、`:1669`（附录补退役注） |
+| `docs/plans/amy-teaching-plan.md` `:496` / `:524` | 划线＋加注 | **F1**（`build_board` 覆盖 `index.html`）**标已关闭**（脚本 v2.3.0 已删、原生站亦已退役删除） |
+| `docs/plans/backend-plan.md` `:79` / `:364` | 改＋加注 | `:79` 路径改指 Vue `/reading`；`:364` 的 `size=100` 静默截断风险**标已消解**（Vue `api.js:119-126` 改为**优先 `/lessons/all`**，读源码核实） |
+| `docs/plans/skill-plan.md` 顶部 | 加注 | 时点说明补一句：文中 `review/` / `build_board.py` 引用属**当时事实**、**本文件不逐行改写** |
+
+**验收【已实测】**：
+- `docs/ai-teacher.md` 残留 `review/` **2 处**、`architecture.md` / `api.md` / `database.md` 各 **1 处** —— **全部是刻意保留的「已于 2026-10-02 退役」标注**，无死引用。
+- `diff -r skills/english-daily .workbuddy/skills/english-daily` **无输出**、两侧 `version: 2.8.2`。
+- Vue 侧行为**读源码核实**（非推断）：`ReadingView.vue` 三条 §11.10 证据、`WrongView.vue:145` 不传 `lessonNo`、`api.js:119-126` 优先 `/lessons/all`。
+
+**版本**：**不动版本号** —— 全部为文案 / 引用订正，**API 契约、能力边界、教学规则零变更**；SKILL.md 的改动并入**尚未提交**的 **2.8.2**（该版本＝「四件产出」＋ 本处引用修复）。
+
+**⚠️ 跨域声明**：`docs/ai-teacher.md` 属 **Amy 权威文档**（本角色默认界外），本轮**经项目负责人明确指派**执行；已按「跨职责改动须 ① 登记 ② 请对方复核 ③ 显式路径」规程 → **请 Amy 复核这 9 处**（只改引用、未动任何规则）。
+
+**未列入本轮（已查全登记，均为历史文档 / 他人主责，未擅改）**：
+`docs/backend-analysis.md` **10 处**（整篇是「尚无服务端」时期的分析稿，结论早已被推翻 → 建议其主责方加时点注）、`docs/plans/frontend-plan.md` **72 处**（其 `:39` 已有「迁移前审计快照、保留原样」声明）、`docs/Work Alignment/前端工程师-工作状态.md` 27、`docs/plans/git-plan.md` 15、`docs/Work Alignment/be-dev-status.md` 15、`docs/plans/integration-plan.md` 10、`docs/Work Alignment/GIT-MANAGER-STATUS.md` 8、`docs/integration-report-01.md` 7、`docs/changelog.md` **3（历史台账，绝对不改）**、`docs/Work Alignment/status-amy.md` 3、`docs/amy-session-07-plan.md` 1（DQ3 对比行）。
+**假阳性（不改）**：`docs/plans/backend-plan.md:136` 的 `role=new/review/backfill` 是 `lesson_knowledge_points.role` 的**枚举值**，不是路径。
+
+### 第十三轮（v2.8.2 + 文档批：双副本合并 / 缺口表对齐 / 产出清单补第 4 件 / 学习记录口径）
+
+> **触发**：负责人 2026-10-02 裁定 **A25**（回应责任表 §4.1）：**O 收敛＋合并能力**、**P 直接做**、**R② 补登 G6/G7**、**T 补为「四件产出」**、**U 口径定为 `records/*.study-record.json` → `teach:sync`**；**S / V / W** 转 be-dev（已由其落地）。
+
+| 文件 | 动作 | 说明 |
+|---|---|---|
+| `docs/schemas/check_schemas.py` | **重写（合并）** | 以 `.workbuddy/build/` 版为基底，**补回**受控版独有的 `required ⊆ properties` 校验；保留 build 版独有的**自定位 `SCHEMA_DIR`**、`*.schema.json` 精确 glob、**4 类枚举/字段防回归守卫**（`SectionType` 含 `backfill` 且居末、`ExerciseBlockKind`、`blockNo` / `blockKind` 存在性） |
+| `docs/schemas/check_schemas.py` | **双量输出** | 同时输出 `objects`（**语义计数** ＝ `type=="object"` 或含 `properties`，**71**）与 `nodes`（**原始计数** ＝ 全部 dict 节点，**535**）→ 「535 vs 71」之争从根上消失 |
+| `docs/schemas/README.md` §五 | 改 | 命令改**自定位**写法；输出示例更新；新增**两个计数量的定义表** + 「历史 `objects=535/536` 即今日 `nodes`」说明 |
+| `docs/plans/skill-plan.md` | 改 | 顶部加**时点说明**（2026-09-29 快照，不含易腐行内数字）；`:15` `refs=84→85` 并补 `nodes=535`；`:261` / `:639` 的 `.workbuddy/build/check_schemas.py` **改指受控版** `docs/schemas/check_schemas.py`，`:639` 另补复跑值 |
+| `docs/skills.md` §4.2 | 改 | **补登 G6/G7 两行**（均标已关闭），与权威 `docs/ai-teacher.md` §9.3 **全量对齐**；撤掉原「只登 G1—G5、待拍板」注 |
+| `docs/skills.md` §6.3 / 第九轮「口径提醒」 | 改注 | §6.3 时点快照**加注**（脚本已并入受控版、`objects=535` 系原始计数，**行本身保留不改**）；第九轮的口径提醒更新为「**已归一**」 |
+| `docs/skills.md` §4.4 | 改 | 加**路径前缀**说明（本节路径均以 `/api` 为根）；`POST /study-records` 行降级为「**已实现、未被 Skill 调用**」的备用路径，现状唯一路径 ＝ `records/*.study-record.json` → `teach:sync` |
+| `skills/english-daily/SKILL.md` 第 8 步 | 改 | **「三件产出」→「四件产出」**，新增第 4 件 `records/lesson-NN.study-record.json`（含「它是 `progress` 7 列与 `study_records` 的唯一写作路径」说明）；`:4` `version: 2.8.1` → **`2.8.2`** |
+| `docs/skills.md` §1.2 / §3.1 / §7.3 / §3.1 输出表 | 改 | 版本号 → **`v2.8.2`**；§3.1 **输出表补 1 行**；§7.3 版本链补 **2.8.1 → 2.8.2** |
+| `.workbuddy/skills/english-daily/` | 同步 | 受控源单向复制所得（运行副本） |
+
+**验收【已实测】**：
+- `docs/schemas/check_schemas.py` → `SCHEMA_CHECK files=12 refs=85 objects=71 nodes=535` + `SCHEMA_OK`；**三种调用方式**（无 argv / 从 `/tmp` 自定位 / 带 argv）**结果一致**；`py_compile` 通过。
+- **负向验证（证明合并非装饰）**：在临时目录注入 ①「`required` 幽灵字段」→ 命中（**受控版独有能力**）；②「`SectionType` 去 `backfill`」→ 命中（**build 版独有能力**）；③「`$ref` 断链」→ 命中。三例均 `exit=1`，临时目录已清理。
+- `diff -r skills/english-daily .workbuddy/skills/english-daily` **无输出**；两侧 `version: 2.8.2`。
+
+**版本语义说明**：T 取 **PATCH 2.8.2**（产出清单补一行，**API 契约与能力边界未变**）；O / P / R② 属**文档与工具批**、不动 Skill 版本号。
+
+**备份**：`.workbuddy/skill-backups/english-daily-v2.8.1-20261002/{controlled,runtime}/`（实测两侧均 `version: 2.8.1`）。**回滚**：`git checkout -- skills/english-daily docs/skills.md docs/schemas docs/plans/skill-plan.md`。
+
+**仍待他方（已登记，非本轮范围）**：
+- ⚠️ **删 `.workbuddy/build/` 本地副本需显式授权**（该目录**未被 git 跟踪**，删除属本地动作、不入库）；**授权前原样保留、不动**。
+- `backend/docs/05-api-reference.md` §15 的 `clientEventId` 抬头措辞、`backend/db/migration/export_md_to_json.py` 的 `norm_key` 三步、根目录 `项目书.md` 版本引用 —— 归 **be-dev**（已由其落地，见其回执）。
+- 同族 3 项已随裁定转 be-dev：**S / V / W**。
+
+### 第十二轮（v2.8.1：第 4 步复习回写补「调用面 + 必带课号」）
+
+> **背景**：Amy 在 `status-amy.md` **A23** 报出「顺序缺口」——第 9 课实跑时，2 条课前复习流水被写成 `mistake_events.lesson_id = 79`（第 8 课的 id），实际应为 `92`（第 9 课）；负责人裁定 **「只登记、交 skill-designer 执行」**（不改他人文件）。
+> **根因（我方复核属实）**：`SKILL.md` 第 4 步原文只有「新课的课前复习**由写接口直接落库**，不产出 `records/lesson-NN.review.json`」——**既没点名端点，也没要求显式带课号**；全文只在第 8 步（`LessonRecord`）与第七章（`POST /mistakes`）提 `lessonNo`，**对 `review` 回写零要求**。
+> **为什么必须显式带**：`review` 的 `lessonNo` 选填，未传时服务端回退 `progress.current_lesson_no`（A20）。而 `teach:sync` 更新该列**在第 8 步归档之后**，第 4 步时它**仍是 N-1** ⇒ 回退必然把流水挂到上一课。该回退是给**真实前端**兜底的（原 `review/wrong.html`、现 Vue 版 `/wrong`，都只发 `{result, clientEventId}`），**Skill 明知 N，不该退到前端的最低标准**。
+
+| 位置 | 动作 | 说明 |
+|---|---|---|
+| `skills/english-daily/SKILL.md` 第 4 步 | 加 | 新增「**调用面**」子条：逐条 `POST /api/mistakes/:id/review`；`id` 取自 `GET /api/mistakes/pending`（`digest.md` 待复习段**没有 id**）；body `{ result, lessonNo: N, clientEventId }`；**`lessonNo` 必须显式传 N**（并写明「不得依赖回退」的原因与第 9 课实证）；**`clientEventId` 必须传**且取确定性可重放值，否则重试多计 `streak` / `wrong_count` |
+| `skills/english-daily/SKILL.md` 第七章 #6 | 改 | 「上送课号」由只讲 `POST /mistakes` 扩为**两条写端点都必须显式带**（`items[].courseNo` / `top-level lessonNo`、`:id/review` 的 `lessonNo`）—— 避免同一规则只落在一条路径上 |
+| `skills/english-daily/SKILL.md` `:4` | 改 | `version: 2.8.0` → **`2.8.1`** |
+| `docs/skills.md` §3.1 执行流程第 4 行 | 改 | 同句镜像（含「`digest.md` 没有 id」「不得依赖回退」） |
+| `docs/skills.md` §1.2 / §3.1 / §7.3 | 改 | 版本号 → **`v2.8.1`**；§1.2「7 课实证」→ **「9 课实证」**；§7.3「后续版本」链补 **2.8.0→2.8.1** |
+| `docs/skills.md` §6.3 到期提示 | 改 | 去掉**易腐的行内数字**，改为「数字一律不在此处维护、以 `05` 与 `ai-teacher.md` §9.3/§9.4 与库内实测为准」—— 时点快照的提示**自己不该再成为新的过期源** |
+
+**⚠️ 本轮超出 Amy 建议的两处补充（同源补全，可否决）**：① **id 来源** —— 只说「必须带 `lessonNo`」而没说 `:id` 从哪来，指令不可执行；`digest.md` 待复习段确实无 id ⇒ 补读端点。② **`clientEventId`** —— `05 §15` 抬头写「**必须**用 `clientEventId` 幂等」，Skill 可确定性生成而真实前端不能，故按「必须」落地。
+
+**版本语义说明**：按 Amy 建议取 **PATCH 2.8.1**（口径补全、API 契约未变）。若负责人认为「新增行为要求」应记 **MINOR（2.9.0）**，改一个字符即可。
+
+**待裁（本轮只登记、未改）**：
+- **(B)** `records/lesson-NN.study-record.json` **未登产出清单** —— `SKILL.md` 第 8 步写「**三件产出，缺一不可**」（md / wrong-words / `LessonRecord`），`docs/skills.md` §3.1 输出表也只有 `grading` + `backfill`；但 `records/README.md` 明确该文件「收完难度反馈后产出」，且 `teach:sync` **靠它写 `progress` 7 教学列与 `study_records`**（`sync_study_records.js:31/331-345` 实测）。⇒ **漏在两层都漏**，非运行时滞后。是否并入本次补为「四件产出」？
+- **(C)** `docs/skills.md` §4.4 写 `POST /study-records`（**缺 `/api` 前缀**）且把学习记录归为「下课时由 `daily-lesson` 调」—— 与实际的 `records/*.study-record.json` → `teach:sync`（纯 DB 直连）**机制并存**，口径需澄清。
+- **(D)** `backend/docs/05-api-reference.md` §15 **内部不自洽**：抬头「**必须**用 `clientEventId` 幂等」vs 参数表「`clientEventId`（**选填**）」。⇒ 交 be-dev 定稿措辞（`backend/**` 非我域）。
+- **(E)** 根目录 `项目书.md`（be-dev 主责，2026-10-02 13:45 生成）有 **8 处 `v2.8.0`** 引用，其中 **5 处属「当前版本」表述**（`:313` `:314` `:1286` `:1363` `:1491` `:1646` 一带）→ 随本次 2.8.1 变陈旧；另 3 处（`:82` `:320`）是「v2.8.0 起/关键约定」，**历史正确、不必改**。**请其主责方更新**（我不动他人文件）。
+- **(F)** Amy A23 的**修法 ②** 写「在 `docs/skills.md` §3.1 **第 8 步**注明同一句」—— 复习回写在**第 4 步**、归档才是第 8 步，属笔误；我按**第 4 步**落。
+
+**备份**：`.workbuddy/skill-backups/english-daily-v2.8.0-20261002/{controlled,runtime}/`（实测两侧均 `version: 2.8.0`）。**回滚**：`git checkout -- skills/english-daily docs/skills.md`。
+
+**验收【已实测】**：`diff -r skills/english-daily .workbuddy/skills/english-daily` **无输出**；两侧 `version: 2.8.1`。
 
 ### 第十一轮（v2.8.0：运行时副本滞后审计与同步 + 镜像缺口标记订正）
 
@@ -1478,7 +1610,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 **验收【已实测】**：`docs/schemas/check_schemas.py` → `SCHEMA_CHECK files=12 refs=85 objects=71` + `SCHEMA_OK`；且与提交态（`git archive HEAD docs/schemas`）**三数逐项一致** → 证明**仅改描述、结构零变更**。12 个 JSON 逐个 `json.load` 全通过。
 
-> ⚠️ **口径提醒（勿当回归）**：全仓有**两份同名脚本、统计口径不同** —— `.workbuddy/build/check_schemas.py` 输出 `objects=535`，而受控的 `docs/schemas/check_schemas.py` 输出 `objects=71`（脚本历史仅 `74b0382` 一次提交、从未改过）。本文档 §6.3 与第三轮引的是**前者**，`docs/schemas/README.md` 与 `docs/plans/skill-plan.md` 引的是**后者**，两处数字**各自自洽**。另：后两处的 `refs=84` 已陈旧，**现为 85**。
+> ✅ **口径已归一（2026-10-02 更新，原「两份脚本」提醒作废）**：原先全仓有**两份同名脚本、统计口径不同** —— `.workbuddy/build/check_schemas.py` 输出 `objects=535`，受控的 `docs/schemas/check_schemas.py` 输出 `objects=71`。**现已按裁定 A25 合并为单一受控版本** `docs/schemas/check_schemas.py`：同时输出 `objects`（语义计数，71）与 `nodes`（原始计数，535），并并入 build 版独有的**枚举/字段防回归守卫 + 自定位路径 + `*.schema.json` 精确 glob** 与受控版独有的 **`required ⊆ properties` 校验**。定义见 `docs/schemas/README.md` §五。**本文档 §6.3 与第四/二轮引的 `objects=535/536` 属「原始计数」口径，与今日的 `nodes` 等价**，作为历史证据保留不改；`refs` 现状为 **85**（`refs=84` 的陈旧引用已清）。
 
 ### 第八轮（v2.7.0：归档步产出 `LessonRecord`）
 
@@ -1598,7 +1730,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 ### 首轮未改动
 
-`PROJECT.md`、`AGENTS.md`、`docs/ai-teacher.md`、`notes/`、`read/`、`progress.md`、`wrong-words.md`、`digest.md`、`INDEX.md`、`review/`。
+`PROJECT.md`、`AGENTS.md`、`docs/ai-teacher.md`、`notes/`、`read/`、`progress.md`、`wrong-words.md`、`digest.md`、`INDEX.md`、`review/`（**该目录已于 2026-10-02 退役删除，由 `frontend/` 取代**）。
 
 ---
 

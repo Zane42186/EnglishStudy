@@ -5,6 +5,8 @@
 > 权威来源：`PROJECT.md`、`AGENTS.md` 3.3、`docs/skills.md`、`docs/schemas/`（12 个 schema）、`docs/ai-teacher.md`、`backend/docs/05-api-reference.md`、`backend/db/schema.sql`。
 > **证据标注**：【已实测】本轮在本机跑过；【静态证据】文件/代码可定位但未运行；【推断】由证据推导；【未验证】无可执行环境或尚未执行。
 
+> ⚠️ **时点说明（2026-10-02 补注）**：本文是 **2026-09-29 的方案快照**（数据基准＝第 6 课），其中多项计数与状态**已过期**（如 schema 的 `refs` 数、课数 / 错词数、「后端仅 16 个 GET」、「无写接口 / 聚合快照 404」）。**现状数字不在此维护** —— 一律以 `backend/docs/05-api-reference.md`、`docs/ai-teacher.md` §9.3 / §9.4、`docs/schemas/README.md` 与库内实测为准；本文历史结论作为演进证据**保留不改**。另：文中大量 `review/*.html` / `build_board.py` 引用属**当时事实**（前端已于 **2026-10-02** 迁至 `frontend/`、原生站 `review/` 退役删除 `2e91345`），**本文件不做逐行改写**。
+
 ---
 
 ## 0. 结论摘要
@@ -12,7 +14,7 @@
 | 结论 | 内容 |
 |---|---|
 | **体系** | 3 个独立 Skill + 6 个内嵌能力，共用同一套契约。判据只有一个：用户会不会单独说一句话来要它。 |
-| **契约** | `docs/schemas/` 12 个 JSON Schema（v1），枚举与 `schema.sql` 严格同源；加字段兼容、Skill 必须忽略未知字段。已实测 `SCHEMA_CHECK files=12 refs=84 objects=71` → `SCHEMA_OK`（objects 68→71 为增补 `pendingMistakeStats`/`lastRecommendation` 两次；后续仅改描述文本，objects 不变）【已实测，见 `docs/skills.md` 6.3】 |
+| **契约** | `docs/schemas/` 12 个 JSON Schema（v1），枚举与 `schema.sql` 严格同源；加字段兼容、Skill 必须忽略未知字段。已实测 `SCHEMA_CHECK files=12 refs=85 objects=71 nodes=535` → `SCHEMA_OK`（objects 68→71 为增补 `pendingMistakeStats`/`lastRecommendation` 两次；后续仅改描述文本，objects 不变；`refs` 84→85 为后续契约增补引用）【已实测，见 `docs/schemas/README.md` §五 与 `docs/skills.md` 6.3】 |
 | **数据源** | 三态而不是两态：**A0 纯 md → A1 md + 只读 API（当前实际所处）→ B 全 API**。切换只改 `AgentSnapshot.deploymentMode` 一个字段，Skill 零改动。 |
 | **适配层** | 全项目**唯一**允许接触 md 的地方，且必须复用 `build_board.py` 已有的解析函数，禁止写第二套正则。 |
 | **阻塞项（需他人决策/交付）** | ① 无聚合快照接口（`/api/agent/snapshot` 实测 404）；② 无任何写接口，闭环断裂；③ ~~接口命名两套~~ **已与 be-dev 确认：一律以 `05-api-reference.md` 为准（`/api` 前缀 + 资源名 `lessons`，`03-api-contract.md` 与 `docs/backend-analysis.md` 作废）**；④ 阶段一 8 表缺 6 张表（be-dev 已给补表顺序）；⑤ `build_board.py` 5 份副本、权威副本不在版本库。 |
@@ -258,7 +260,7 @@
 
 ### 3.4 保证「切换后端时 Skill 零改动」的四条约束
 
-1. **形状一致**：两种 mode 产出的 `AgentSnapshot` 通过同一个 `agent-snapshot.schema.json` 校验；适配层自带校验（复用 `.workbuddy/build/check_schemas.py` 的 `$ref` 解析思路【静态证据：该脚本为只读校验，可直接调用】）。
+1. **形状一致**：两种 mode 产出的 `AgentSnapshot` 通过同一个 `agent-snapshot.schema.json` 校验；适配层自带校验（复用 `docs/schemas/check_schemas.py` 的 `$ref` 解析思路【静态证据：该脚本为只读校验，可直接调用】）。
 2. **ID 可辨识**：markdown 模式 id 取 `900000+`，与 DB 自增主键不可能撞；切换后一眼能分辨数据来自哪条链路。
 3. **Skill 不读 `deploymentMode` 做分支**：该字段只进 `SkillRun.deploymentMode` 留痕。
 4. **黄金样本比对**：固定一批输入（第 6 课后状态）分别跑 md 与 API 两条链路，diff 只允许出现在 2.6 的缺口字段内。样本入 `docs/testdata/`（新建，待 git-manager 确认目录约定）。
@@ -636,7 +638,7 @@ Q13 已由 team-lead 在 integration-plan §D-8 裁决：**2026-09-27 那张 10 
 
 | 层 | 回归对象 | 方式 | 现状 |
 |---|---|---|---|
-| **L1 契约** | 12 个 schema | `python .workbuddy/build/check_schemas.py docs/schemas`（只读，输出 `SCHEMA_OK`）【静态证据：脚本存在且为只读】 | ✅ 已实测通过（`files=12 refs=84 objects=68`） |
+| **L1 契约** | 12 个 schema | `python docs/schemas/check_schemas.py`（只读，输出 `SCHEMA_OK`）【静态证据：脚本存在且为只读】 | ✅ 已实测通过（当时 `files=12 refs=84 objects=68`；2026-10-02 复跑为 `files=12 refs=85 objects=71 nodes=535`） |
 | **L2 适配层** | md → `AgentSnapshot` | 黄金样本：固定第 6 课后仓库状态，产出 `snapshot.json` 与既有 `docs/amy-next-lesson-plan.json`（API 链路产物）逐字段 diff；差异只允许落在 2.6 缺口清单内 | 🆕 待建（样本入 `docs/testdata/`） |
 | **L3 教学规则** | `error_type` 判定 | **19 条回归基线**（见 6.2） | ⚠️ 静态走查完成，未程序化 |
 | **L4 端到端** | 一次完整上课 | 上一课归档 → 下一课计划，与 `docs/amy-next-lesson-plan.json` 对标（该样本已由 9 个 GET 接口产出第 7 课计划）【静态证据】 | ❌ 未执行（无模型调用环境） |

@@ -1,13 +1,13 @@
 ---
 name: english-daily
-description: "面向零基础学习者的每日英语课：讲一课英语、按课次归档笔记（每 7 课一份 md）、阅读材料单独按天存到 read 目录（每篇一个整篇看中文按钮）、词汇卡按首字母分组索引、读取总目录与学习摘要（digest.md 供上课读取，不必读 notes 全文）、看板首页只放统计与入口（课程正文、阅读、词汇卡、错词各一页）、按用户当课反馈升级或降级难度、按级别生成分级阅读文章（Level 4 起改为改写后的当日英文新闻）。当用户说「上课」「开始今天的英语课」「今天学英语」「下一课」「继续」「上次学到哪了」「生成复习看板」「复习错词」「重新出今天的阅读」「英语每日课」时使用。"
-version: 2.8.0
+description: "面向零基础学习者的每日英语课：讲一课英语、按课次归档笔记（每 7 课一份 md）、阅读材料单独按天存到 read 目录（每篇一个整篇看中文按钮）、词汇卡按首字母分组索引、读取总目录与学习摘要（digest.md 供上课读取，不必读 notes 全文）、看板首页放统计与课程正文（左侧可搜索目录 + 单课完整正文，默认最新一课，上一课/下一课切换），阅读、词汇卡、错词各一页、按用户当课反馈升级或降级难度、按级别生成分级阅读文章（Level 4 起改为改写后的当日英文新闻）。当用户说「上课」「开始今天的英语课」「今天学英语」「下一课」「继续」「上次学到哪了」「生成复习看板」「复习错词」「重新出今天的阅读」「英语每日课」时使用。"
+version: 2.8.2
 agent_created: true
 ---
 
 # 英语每日课
 
-面向零基础学习者的每日英语课。上课内容按课次归档为 md 笔记，每 7 课一份文件；阅读材料单独放在 read 目录，一天一个文件；总目录与摘要（`INDEX.md` / `digest.md`）由后端数据更新，看板是纯 API 驱动的静态页；难度随用户对当课的反馈升级或降级。
+面向零基础学习者的每日英语课。上课内容按课次归档为 md 笔记，每 7 课一份文件；阅读材料单独放在 read 目录，一天一个文件；总目录与摘要（`INDEX.md` / `digest.md`）由后端数据更新，学习界面是 `frontend/` 下的 Vue 3 单页应用（纯 API 驱动，数据实时来自后端）；难度随用户对当课的反馈升级或降级。
 
 ## 一、工作目录
 
@@ -27,18 +27,19 @@ E:\English\
 │   ├─ 2026-09-26-read.md
 │   └─ ...
 ├─ records\            归档产出（机器契约，本人产出、后端只读）
-│   ├─ lesson-06.grading.json
-│   ├─ lesson-06.backfill.json
-│   ├─ lesson-06.record.json        LessonRecord（第 8 步归档产出）
+│   ├─ lesson-06.grading.json        作业逐题判定（第 6 步）
+│   ├─ lesson-06.backfill.json       补漏块判定（有补漏块时才有）
+│   ├─ lesson-06.study-record.json   学习记录（第 8 步；progress 7 列与 study_records 的唯一写作路径）
+│   ├─ lesson-06.record.json         LessonRecord（仅 deploymentMode=markdown 时落盘）
 │   └─ ...
-└─ review\             前端静态页，纯 API 驱动，数据实时来自后端
-    ├─ index.html      看板首页（统计、入口、课程总结）
-    ├─ reading.html    阅读页
-    ├─ words.html      词汇卡页
-    ├─ wrong.html      错词本页
-    └─ lessons\
-        └─ lesson-1.html   每课详情页
+└─ frontend\           学习界面（Vue 3 单页应用 + Vue Router + Vite，纯 API 驱动）
+    ├─ src\            手写源码（views 视图 / router 路由 / api.js 接口封装）
+    ├─ index.html      入口页
+    ├─ serve.cjs       SPA 静态服务（8080，HTML5 history 回退）
+    └─ dist\           构建产物（`npm run build` 生成，不入库）
 ```
+
+> **历史沿革**：`review\`（原生静态页 `index.html` / `reading.html` / `words.html` / `wrong.html` / `lessons\lesson-N.html`）已于 2026-10-02 随 Vue 3 迁移**退役删除**（提交 `2e91345`），全部入口改由 `frontend/` 的路由承担：`/`（首页课程区）、`/reading/:date?`、`/words`、`/wrong`、`/lesson/:no?`。**全仓任何 `review/*.html` 引用均已作废。**
 
 **仓库内依赖（重要）**：本 Skill 的教学规则（级别判定、降载档位与触发、出题与批改口径）以仓库内 **`docs/ai-teacher.md`** 为唯一权威来源。该文件缺失或版本不符时，本 Skill 无法正确判档与出题——**它只能在包含 `docs/ai-teacher.md` 的仓库内运行**。若要打包分发给仓库外使用，必须连同该文件一起带上；若运行时发现该文件不存在，应**明确提示依赖缺失并停止**，不得凭默认值硬跑。
 
@@ -48,7 +49,7 @@ E:\English\
 |---|---|
 | 上课 / 开始今天的英语课 / 今天学英语 / 下一课 / 继续 / 英语每日课 | 走上课流程 |
 | 上次学到哪了 / 我的进度 | 读 progress.md 与 INDEX.md，汇报课号、级别、最近三课主题、下次要复习的内容 |
-| 生成复习看板 / 看板 / 我要复习 | 打开 `review\index.html`——纯 API 驱动静态页，数据实时来自后端，无需任何重建 |
+| 生成复习看板 / 看板 / 我要复习 | 打开 `frontend/`（Vue 3 单页应用，纯 API 驱动）：开发态 `npm run dev`（5173，热更新免重建）；静态预览先 `npm run build` 再 `node serve.cjs`（8080 跑 `dist/`）。数据实时来自后端 |
 | 复习错词 / 错词 | 从 wrong-words.md 取未过关项出 5 题，批改后更新连续答对次数 |
 | 重新出今天的阅读 / 换一篇阅读 | 覆盖重写当天的 read\YYYY-MM-DD-read.md |
 | 今天我想学 X | 把 X 作为当日课程主题，仍走完整上课流程 |
@@ -63,6 +64,9 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 2. 定课号：本课号 N = 实际最大课号 + 1。目标文件为 `notes\day-{起始:02d}-{结束:02d}.md`，其中起始 = ((N-1)//7)*7+1，结束 = 起始 + 6。
 3. 出复习题（等待作答）：从四处取 3—5 题——第 N-1 课一题、第 N-3 课一题、第 N-7 课一题，其余取错词本未过关项（`digest.md` 已列好，可直接取用）。课号小于等于 0 的项跳过。题目只出现在对话里，不写进笔记。
 4. 批改复习：逐题判定。答错项在 `wrong-words.md` 中 `累计犯错` 累加、`连续答对` 清零；答对则 `连续答对` +1，达到 2 次标记「已过关」，不再进入每日复习队列。判重与列口径见第七章。**新课的课前复习由写接口直接落库，不产出 `records/lesson-NN.review.json`**——该文件只用于旧课回填。
+   - **调用面（必须写清，否则数据会挂错课）**：逐条调 `POST /api/mistakes/:id/review`；`id` 取自 `GET /api/mistakes/pending`（`digest.md` 的「待复习」段**只有课号与文本、没有 id**，不能凭它拼端点）。body = `{ result, lessonNo: N, clientEventId }`：
+     - **`lessonNo` 必须显式传 `N`**（第 2 步已定课号）。服务端未传时回退 `progress.current_lesson_no`（A20）——那是给**真实前端**兜底用的（Vue 版错词本页 `/wrong` 只知道「在复习」、不知道课号）；**Skill 明知 N，不得依赖回退**：上课期间 `teach:sync` 还没跑（它在第 8 步归档之后），`progress.current_lesson_no` **仍是 N-1**，回退会把复习流水挂到**上一课**（第 9 课实测已发生：`mistake_events.lesson_id` 写成上一课的 id）。
+     - **`clientEventId` 必须传**，取**确定性可重放**的值（如 `rev-<课号>-<错词id>`）：同 id 重复提交返回首次结果、**不再累加**；不传则重试会多计 `streak` / `wrong_count`，污染过关判定。
 5. 讲新课（等待作答）：**先按下方「降载判定」算出本课档位**（定生词数、是否讲新点、复习题量），再按 `references/level-map.md` 取当前级别的下一个知识点。固定内容量——1 个语法点 + 生词数量按当前级别与档位取：Level 1 常规 5—8 个；Level 2 常规 10 个（区间 8—12），触发降载时 6—8 个（**触发条件与档位以 `docs/ai-teacher.md` §7.4 为准**）（含音标和中文）+ 3—5 个例句 + 3 道小题 + 1 道开放题（造句或写 5 句左右的小段）。总量控制在 20—30 分钟，不允许一课塞进两个语法点。
 6. 收作业（等待作答）：用户提交后逐题批改，每题指出错误类型（语法 / 拼写 / 用词）、给出正确句、附一句解释。**同时产出机器契约文件，这是本步的硬性产物，不是可选项**：
    - `records/lesson-NN.grading.json` —— 本课**作业**逐题判定（`kind: "homework"`）。
@@ -71,7 +75,7 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
    - 字段与写法以 `records/README.md` 为准（`verdict` → `is_correct` 的映射、`mistakeCandidates[]` 的形态见该文件第二节）。
    - **不得只写 `### 批改` 散文而不产出 JSON**：后端禁止解析散文，而「两处错误。用词：…；语法：…」这类写法无法可靠映射到题号与错误类型，文本匹配必然产出假数据。
 7. 收反馈（等待作答）：问「这课太简单 / 刚好 / 太难？」，等用户回答后更新 `progress.md` 的级别与反馈记录。
-8. 归档（**三件产出，缺一不可**）：
+8. 归档（**四件产出，缺一不可**）：
    - **追加写 md**：把第 5—7 步的内容**追加**到目标 `notes/` 文件末尾，只追加，不重写、不删除已有内容。
    - **更新 `wrong-words.md`**：按第七章口径（新错词追加整行，含人工判定的 `类型` / `累计犯错`）。
    - **产出 `LessonRecord`（机器契约）**：按 `docs/schemas/lesson-record.schema.json` 组装本课归档对象（`lessonNo` / `levelCode` / `summary` / `sections` / `vocabulary` / `exercises` / `feedback` / `gradeSummary` / `nextRecommendation`）。**对象由本步已在手的教学内容直接组装 —— 不解析 md、不拼 HTML**。
@@ -79,6 +83,7 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
      - `deploymentMode = backend`（**当前实况**，`GET /api/agent/snapshot` 实测）→ 经 `POST /lessons` 提交；批改与反馈回填走 `PUT /lessons/:id`。
      - `deploymentMode = markdown`（**历史阶段**，仅在快照实测为该值时才走）→ 落盘 `records/lesson-NN.record.json`，待后端就绪后提交。
    - **md 与 `LessonRecord` 的关系**：md 是 `LessonRecord` 的**人类可读落地形式**（两者内容须一致）；**真相源是 `LessonRecord`**（口径见 `docs/skills.md` §7.2）。**md 不再作为任何导入管线的输入**。
+   - **产出 `records/lesson-NN.study-record.json`**：本课的 **`attend` / `grade` / `feedback` 三条学习记录**（`study_records.payload` 的落库依据；`feedback` 还决定 `progress.lastClassDate`）。**它是 `progress` 7 列与 `study_records` 的唯一写作路径** —— 由 `teach:sync` 消费后写库，**缺它则这两处全不更新**（第 1—2 步读的 `progress.md` 也不会刷新）。字段与写法以 `records/README.md` 第一节为准。
 9. 生成当日阅读：看 `read\YYYY-MM-DD-read.md`（当天日期）是否存在——
    - 不存在：按当前级别生成 1—3 篇，写进这个文件。
    - 已存在：不改动它。同一天上第二次课不会再生成，也不会覆盖。
@@ -159,7 +164,7 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 3. 判重键：剥全角括号批注「（…）」→ 折叠空白 → 转小写后的 wrongText（实现＝backend/src/utils/mistakeKey.js 的 normKey）；命中只累加，不新建条目。标点参与判重——「Do you like coffee.」与「Do you like coffee?」是两条，不得合并。
 4. errorType 由 Amy 人工判定（三步判定见 §11.5）；判不出归 other 并标「待人工复核」。
 5. 批改完成必须同时产出 records/lesson-NN.grading.json（作业）与 lesson-NN.backfill.json（补漏块）。
-6. 上送错词时「本次课号」＝本次上课的课号（POST /mistakes 的 items[].courseNo，省略则由顶层 lessonNo 兜底）；绝不能填错词本「课号」列的值——那是首次课号、已冻结，填了会让 last_lesson_id 永远不前进。
+6. 上送错词时「本次课号」＝本次上课的课号。两条写端点**都必须显式带**：`POST /mistakes` 的 items[].courseNo（省略则由顶层 lessonNo 兜底）、`POST /mistakes/:id/review` 的 lessonNo（见第 4 步）。绝不能填错词本「课号」列的值——那是首次课号、已冻结，填了会让 last_lesson_id 永远不前进；review 不传则回退 progress.current_lesson_no、上课期间该值仍是 N-1，会把复习流水与 last 挂到上一课。
 说明：错词本「错误点」列只写错误形式本身，批注写进「错因」列。
 ```
 
@@ -218,7 +223,7 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 两个脚本只依赖 Python 标准库，需要 Python 3.10 及以上，用 `python scripts\<脚本名>.py --root E:\English` 调用。
 
 1. `check_environment.py`：只读检查 Python 版本、目录写权限、网络连通性（用于当日新闻）。输出 `ENV_STATUS=ready|partial|needs_setup|unavailable` 与逐项结果；退出码 0 表示 ready/partial，1 表示 needs_setup，2 表示 unavailable。
-2. `init_workspace.py`：创建 notes、read、review 目录与初始文件，已存在的文件一律不覆盖。首次使用或目录被误删后运行，输出 `INIT_OK`。
+2. `init_workspace.py`：创建 notes、read 目录与初始文件，已存在的文件一律不覆盖。首次使用或目录被误删后运行，输出 `INIT_OK`。（`records\` 与 `frontend\` 属仓库内容，不由本脚本创建。）
 
 `INDEX.md` 与 `digest.md` 由后端数据更新，本 Skill 不产出这两个文件；上课时照旧只读 `digest.md`，不要读 notes 全文。`digest.md` 正常稳定在 2—4KB，超过 8KB 时提醒用户清理旧课细则。
 
@@ -230,6 +235,7 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 - [ ] 作业已批改，错误类型、正确句、解释三项齐全
 - [ ] 已产出 `records/lesson-NN.grading.json`（本课有补漏块时另有 `lesson-NN.backfill.json`）
 - [ ] 已产出 `LessonRecord`（按 `docs/schemas/lesson-record.schema.json`）并已成功提交（`deploymentMode = backend` 走 `POST /lessons`；仅当快照实测为 `markdown` 时才落盘 `records/lesson-NN.record.json`）
+- [ ] 已产出 `records/lesson-NN.study-record.json`（本课 `attend` / `grade` / `feedback` 三条学习记录）——**第 8 步「四件产出」的第 4 件**，缺它则 `progress` 7 列与 `study_records` 全不更新
 - [ ] `LessonRecord.exercises[]` 里已给 **1—2 道题**填 `selfCheck`（**规则**、≤128 字符、一题≤1 条）
 - [ ] `wrong-words.md` 的 `错误点` 只写错误形式、无括号批注，`类型` / `累计犯错` 已填且为人工判定值
 - [ ] 笔记小节齐全、课号连续、只在文件末尾追加
@@ -246,7 +252,7 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 - 用户未作答时不推进下一环节，不替用户写作业答案。
 - 网络不可用时不编造「今日新闻」，改自编短文并如实标注来源。
 - 当天阅读文件已存在时不覆盖，除非用户明确要求重出。
-- 不手工改 `INDEX.md`、`digest.md` 与 `review` 下的 html：前者由后端数据更新，后者是纯 API 驱动的静态页。
+- 不手工改 `INDEX.md` 与 `digest.md`：两者由后端数据更新。学习界面在 `frontend/`（Vue 3 手写源码 + 构建产物 `dist/`，由前端工程师维护），**不属本 Skill 的产出范围**，不改源码、也不直接改 `dist/`。
 - 不删除、不重命名、不移动任何已有笔记和阅读文件；需要调整时先向用户说明并等确认。
 
 ## 十一、参考文件

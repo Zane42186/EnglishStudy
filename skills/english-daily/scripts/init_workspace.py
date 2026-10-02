@@ -56,7 +56,6 @@ def main() -> int:
         root.mkdir(parents=True, exist_ok=True)
         (root / "notes").mkdir(exist_ok=True)
         (root / "read").mkdir(exist_ok=True)
-        (root / "review").mkdir(exist_ok=True)
         created, existing = 0, 0
         for name, content in FILES.items():
             target = root / name
