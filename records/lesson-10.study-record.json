@@ -1,0 +1,51 @@
+{
+  "lessonNo": 10,
+  "lessonDate": "2026-10-03",
+  "level": "Level 2",
+  "studyMinutes": null,
+  "source": "由 Amy 在收完难度反馈后产出；对应 POST /api/study-records（recordType: attend / grade / feedback）——由 teach:sync 消费落库（progress 7 列与 study_records 的唯一写作路径）",
+  "records": [
+    {
+      "recordType": "attend",
+      "payload": {
+        "lessonNo": 10,
+        "level": "Level 2",
+        "lessonDate": "2026-10-03"
+      }
+    },
+    {
+      "recordType": "grade",
+      "payload": {
+        "lessonNo": 10,
+        "exerciseCount": 4,
+        "errorCount": 4,
+        "blankCount": 0,
+        "byType": { "grammar": 2, "spelling": 1, "punctuation": 1 },
+        "newMistakes": 3,
+        "passedMistakes": 1,
+        "note": "错误处数口径见 docs/ai-teacher.md §11.4。本课语法点「将来时 will 与 be going to」结构全对（will + go/get、be going to + visit/play/visit、改错题 went→go 一次改对）——连续第 3 课新语法点零错误；错处全部是老问题：拼写 1（shcool 一课两犯）、冠词 2（get offer / on weekend）、标点 1（句号前空格，新变体）。本课无补漏块（Level 1 待补点队列 1—5 已在第 4—9 课清空）。newMistakes=3 指本课作业新增 3 条（get offer / next Sunday . / on weekend）；另有复习新增 3 条（shcool / Do you see him yesterday? / visitted），合计入库 6 条——其中 shcool 由作业判重命中累加 wrongCount 1→2，不新建行。passedMistakes=1 指 she always is busy（累计 3）复习答对满 2 次过关出队。"
+      }
+    },
+    {
+      "recordType": "feedback",
+      "payload": {
+        "lessonNo": 10,
+        "lessonDate": "2026-10-03",
+        "feedback": "just_right",
+        "levelBefore": "Level 2",
+        "levelAfter": "Level 2",
+        "easyStreak": 0,
+        "nextRecommendation": "第 11 课：Level 2 第 8 点「频度副词 always / usually / often / sometimes / never」（she always is busy 刚过关，正合适）。复习优先：shcool（一课两犯、0/2）、Do you like coffee.（标点 1/2）、Tom play soccer / They plays games（-s 轴线各 1/2）、get offer / on weekend（冠词，本课新入）。降载复评：E 连续两课持平（8→4→4）、无补漏块；若第 11 课 E 仍 ≥3，按 §7.4 走 L1 轻度降载；冠词复发 ≥2 处则开补漏块 6（a / an / the）。"
+      }
+    }
+  ],
+  "notes": {
+    "whySeparateFile": "grade / feedback 的 payload 是后端 `study_records` 与 `progress_feedback` 的落库依据，与逐题判定的 grading.json 分离，避免一份文件承载两种语义。",
+    "lastClassDate": "`/api/progress.lastClassDate` 靠本文件的 feedback 记录（带 lessonNo=10、lessonDate）更新。",
+    "newMistakesList": ["shcool", "Do you see him yesterday?", "visitted", "get offer", "next Sunday .", "on weekend"],
+    "newMistakesNote": "前 3 条来自课前复习（不在 records/grading.json 覆盖范围内）、后 3 条来自作业。本课入库 6 条中 shcool 为判重命中累加（wrongCount 1→2）。",
+    "passedMistakesList": ["she always is busy"],
+    "studyMinutesNote": "G5 维持降级：lessons 表无 study_minutes 列，本字段按口径留 null（未新增列）。",
+    "a26Note": "本课复习写库（review 流水 + 复习新错词）在第 4 步执行时第 10 课 lessons 行尚未建立 ⇒ 课号落空；第 8 步 POST /api/lessons 建行（id=93）后，已按负责人授权定向 UPDATE 6 行（mistakes 198/199/200 的 first/last_lesson_id、mistake_events 210/211/212 的 lesson_id）。详见 docs/Work Alignment/status-amy.md A26。"
+  }
+}

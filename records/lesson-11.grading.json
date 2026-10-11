@@ -1,0 +1,55 @@
+{
+  "lessonNo": 11,
+  "kind": "homework",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "correct",
+      "userAnswer": "I usually get up at 7 o'clock.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "频度副词位置（实义动词 get 之前）+ get up + at 7 o'clock"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "correct",
+      "userAnswer": "She is always busy on Monday.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "频度副词位置（be 动词 is 之后）+ on Monday（周一用 on）"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "correct",
+      "userAnswer": "She is always late for school.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "频度副词位置改写：always 从 is 前移到 is 后"
+    },
+    {
+      "exerciseNo": 4,
+      "verdict": "wrong",
+      "userAnswer": "I usually eat breakfast at 8 o'clock. I sometimes sleep at 14 o'clock. I never study English. I always eat dinner every day.",
+      "correctText": null,
+      "revisedAnswer": "I usually eat breakfast at 8 o'clock. I sometimes sleep at 2 p.m. I rarely study English. I eat dinner every day.",
+      "errorNote": "一处错：①用词——`14 o'clock` 不成立，o'clock 只用于 1—12 点；下午两点说 `2 p.m.`（或 two in the afternoon）。另两处不计错、仅提示改进：②`I never study English.` 语法正确，但 never = 0%（从不），与你每天都学英语的事实矛盾 —— 想说「很少」用 `rarely`，想说「不是每天」用 `I don't study English every day.`；③`I always eat dinner every day.` 语法正确，但 `always` 与 `every day` 意思重复，去掉一个即可（`I eat dinner every day.` / `I always eat dinner.`）。达标项：4 句**句首全部大写**；`usually / sometimes / never / always` 四个频度副词**位置全部正确**（实义动词前、be 动词后）；breakfast、dinner、eat、sleep 用词准确；三句任务（用够 3 个频度副词、写 3—5 句）全部完成。",
+      "targetPoint": "频度副词综合运用 + 时间表达（o'clock 与 p.m.）"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "14 o'clock",
+      "correctText": "2 p.m.",
+      "errorType": "word_choice",
+      "errorReason": "o'clock 只用于 1—12 点；下午两点要说 2 p.m.（或 two in the afternoon），不能说 14 o'clock（与 on weekend 同为「中文直译成英文」类搭配错；第 11 课作业开放题第 2 句）",
+      "sourceExerciseNo": 4
+    }
+  ],
+  "summary": {
+    "exerciseCount": 4,
+    "errorCount": 1,
+    "blankCount": 0,
+    "byType": { "word_choice": 1 },
+    "note": "错误处数按 §11.4「一处 = 一个可独立改正的点」：第 1、2、3 题各 0 处；第 4 题 1 处（`14 o'clock`）。**本课 E=1，为 11 课以来最低**（此前最低是第 3 课 2 处）。本课新点「频度副词 always / usually / often / sometimes / never」**结构全对**——4 句中 4 个频度副词位置全部正确（实义动词前 / be 动词后），改错题一次改对 —— 连续第 4 课新语法点零错误（第 8 课不规则过去式、第 9 课 did、第 10 课将来时、第 11 课频度副词）。**两条强制自查项全部达标**：① 句首字母大写（4 句全大写，复习的 `they → They` 未复发）② 频度副词位置（4 句全对）。两处 correct_with_note 不计错：`I never study English.`（与事实矛盾，建议 rarely）、`I always eat dinner every day.`（always 与 every day 重复）。本课无补漏块（Level 1 待补点队列 1—5 已清空；复习新增的 4 条 word_choice 搭配错已入错词本，走复习队列）。"
+  }
+}

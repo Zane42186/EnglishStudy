@@ -1,0 +1,53 @@
+{
+  "lessonNo": 12,
+  "kind": "backfill",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "wrong",
+      "userAnswer": "I stay on home weekend.",
+      "correctText": "I stay at home on the weekend.",
+      "errorNote": "两处：①介词——「在家」是 **at home**，home 前用 at、不用 on / in（与 live in home 同源）；②搭配——「在周末」是 **on the weekend** / this weekend，on 和 the 都不能省（与 on weekend 同源）。达标项：`I stay` 的一般现在时形式正确。",
+      "targetPoint": "常用搭配与介词：at home / on the weekend"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "wrong",
+      "userAnswer": "We go to travel to Beijing.",
+      "correctText": "We travel to Beijing.",
+      "errorNote": "**只把 in 改成 to、没改到病根**：`go to travel` 本身就错。「去某地旅行」直接用动词 travel → **travel to + 地点**；`go to` 后面要接**地点**（go to Beijing），不能接动词。与第 11 课 `go to trval in Beijing` 同一类错，本次是第 2 次犯。",
+      "targetPoint": "常见搭配：travel to + 地点（go to 后不接动词）"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "correct",
+      "userAnswer": "I eat lunch at 2 p.m.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "时间表达：下午两点用 2 p.m.（o'clock 只用于 1—12 点）"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "on home weekend",
+      "correctText": "at home on the weekend",
+      "errorType": "grammar",
+      "errorReason": "两处虚词错：「在家」是 at home（home 前用 at 不用 on/in）；「在周末」是 on the weekend（on 与 the 都不能省）（第 12 课补漏块 6 第 1 题）",
+      "sourceExerciseNo": 1
+    },
+    {
+      "wrongText": "go to travel",
+      "correctText": "travel",
+      "errorType": "word_choice",
+      "errorReason": "「去某地旅行」直接用 travel to + 地点；go to 后接地点、不接动词（与第 11 课 go to trval in Beijing 同类，本次第 2 次犯；第 12 课补漏块 6 第 2 题）",
+      "sourceExerciseNo": 2
+    }
+  ],
+  "summary": {
+    "exerciseCount": 3,
+    "errorCount": 3,
+    "backfillErrorCount": 3,
+    "byType": { "grammar": 2, "word_choice": 1 },
+    "note": "补漏块 6（常用搭配与介词）3 题：第 1 题 2 处（on home / home weekend）、第 2 题 1 处（go to travel）、第 3 题 0 处。补漏块错误**独立计数**，不计入第 12 课作业 errorCount（作业为 4）。✅ 第 3 题 `at 2 p.m.` 正确 —— 第 11 课的 `14 o'clock` 老错未复发。⚠️ 第 2 题属「只改表面（in→to）、未改病根（go to travel）」的答题习惯问题，与第 9 课「改错题被原样抄回」同类现象。⚠️ 该块目标点（at home / on the weekend / go to + 地点 / travel to）与第 11 课复习新增的 4 条 word_choice 搭配错同源，第 13 课建议续查是否再犯。"
+  }
+}

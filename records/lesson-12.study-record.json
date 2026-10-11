@@ -1,0 +1,53 @@
+{
+  "lessonNo": 12,
+  "lessonDate": "2026-10-09",
+  "level": "Level 2",
+  "studyMinutes": null,
+  "source": "由 Amy 在收完难度反馈后产出；对应 POST /api/study-records（recordType: attend / grade / feedback）——由 teach:sync 消费落库（progress 7 列与 study_records 的唯一写作路径）",
+  "records": [
+    {
+      "recordType": "attend",
+      "payload": {
+        "lessonNo": 12,
+        "level": "Level 2",
+        "lessonDate": "2026-10-09"
+      }
+    },
+    {
+      "recordType": "grade",
+      "payload": {
+        "lessonNo": 12,
+        "exerciseCount": 4,
+        "errorCount": 4,
+        "blankCount": 0,
+        "byType": { "spelling": 1, "grammar": 1, "punctuation": 1, "other": 1 },
+        "newMistakes": 3,
+        "passedMistakes": 2,
+        "backfillExerciseCount": 3,
+        "backfillErrorCount": 3,
+        "note": "错误处数口径见 docs/ai-teacher.md §11.4。本课语法点「形容词比较级」结构基本掌握：-er + than（taller）、more + 长形容词 + than（more interesting）、改错题 more tall → taller 一次改对、否定式 not as tall as 在开放题里一次用对。作业 4 处错：拼写 1（intrusting，第 3 课老错第 2 次犯）、语法 1（比较级句缺 be 动词）、标点 1（句尾缺句号）、other 1（desousic 非英语单词、意图不明，待人工复核、不入错词本）。补漏块 6（常用搭配与介词）3 题单列 3 处错（on home / home weekend / go to travel），不计入作业 errorCount。newMistakes=3 指作业与补漏块合计新建 3 条（This book more interesting / on home weekend / go to travel）；另有课前复习新增 7 条，合计入库 10 条，另 intrusting 判重命中累加 1→2。passedMistakes=2 指 those are their bags. 与 I am very busy. 复习答对满 2 次过关出队。⚠️ 本课为断更 5 天后的第一课，课前复习错 8 处（12 课以来最多），其中 4 处为第三人称单数 -s 集中复发 ⇒ Tom play soccer 累计 2→3，已按 §11.6 加 -s 强制自查项，本课作业 -s 未再出错。"
+      }
+    },
+    {
+      "recordType": "feedback",
+      "payload": {
+        "lessonNo": 12,
+        "lessonDate": "2026-10-09",
+        "feedback": "just_right",
+        "levelBefore": "Level 2",
+        "levelAfter": "Level 2",
+        "easyStreak": 0,
+        "nextRecommendation": "第 13 课：Level 2 第 10 点「形容词最高级」（the tallest / the most interesting / the best）。复习优先：第三人称单数 -s 轴线整体（Tom play soccer 累计 3、She play soccer、He play soccer、He read books、She go to school —— 已触发强制自查，第 13 课继续）；intrusting（累计 2，再犯即触发强制自查）；go to travel（go to + 动词 搭配坑，第 2 次）；on home weekend；shcool（1/2）；on weekend（累计 2）；wasn't eat（did 类助动词）。降载复评：E=4、D=0，不触发 T-1～T-6 ⇒ 维持 L0 常规档。⚠️ 反馈连击已归零（0/2）。"
+      }
+    }
+  ],
+  "notes": {
+    "whySeparateFile": "grade / feedback 的 payload 是后端 `study_records` 与 `progress_feedback` 的落库依据，与逐题判定的 grading.json 分离，避免一份文件承载两种语义。",
+    "lastClassDate": "`/api/progress.lastClassDate` 靠本文件的 feedback 记录（带 lessonNo=12、lessonDate）更新。",
+    "newMistakesList": ["usually", "He play soccer", "wasn't eat", "She is reading", "He read books", "She go to school", "by went", "on home weekend", "go to travel", "This book more interesting"],
+    "newMistakesNote": "前 7 条来自课前复习（不在 records/grading.json 覆盖范围内）、后 3 条来自作业与补漏块；另 intrusting 判重命中既有行（累计 1→2）。",
+    "passedMistakesList": ["those are their bags.", "I am very busy."],
+    "studyMinutesNote": "G5 维持降级：lessons 表无 study_minutes 列，本字段按口径留 null（未新增列）。",
+    "a26Note": "本课为技能侧「第 4 步只判定、写库统一挪到第 8 步」流程下的第 2 次执行（第 11 课为首次）。写库三步顺序：POST /api/lessons（id=95）→ POST /api/mistakes（created 10 / updated 1，全部 lessonResolved=true、unresolvedLessonNos=[]）→ review ×3（全部 lessonResolved=true）。A26 回归继续通过。"
+  }
+}

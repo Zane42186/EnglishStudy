@@ -1,0 +1,62 @@
+{
+  "lessonNo": 12,
+  "kind": "homework",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "correct",
+      "userAnswer": "Tom is taller than Jack.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "短形容词比较级：-er + than"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "wrong",
+      "userAnswer": "This book more intrusting than that book.",
+      "correctText": "This book is more interesting than that book.",
+      "errorNote": "三处：①拼写——interesting，拼作 in-ter-est-ing（第 3 课入册的老错，本次第 2 次犯）；②语法——比较级是形容词、不能单独作谓语，句子里必须有 be 动词 → This book **is** more interesting than that book.；③标点——句尾缺句号。达标项：`more + 长形容词 + than` 的选用正确（没有写成 more interestinger / interestinger）。",
+      "targetPoint": "长形容词比较级：more + 形容词 + than"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "correct",
+      "userAnswer": "She is taller than her sister.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "改错：more tall → taller（短形容词不用 more）"
+    },
+    {
+      "exerciseNo": 4,
+      "verdict": "wrong",
+      "userAnswer": "This banana is more desousic than that banana. I am taller than Jack. I am shorter than Tom. I am not as tall as Jack.",
+      "correctText": null,
+      "revisedAnswer": "This banana is more delicious than that banana. I am taller than Jack. I am shorter than Tom. I am not as tall as Jack.",
+      "errorNote": "一处错（意图待复核）：`desousic` 不是英语单词。若想说「更好吃」→ `more delicious`；想说「更甜」→ `sweeter`。因无法从卷面确定你想表达哪个词，按 §11.5 第三步归 `other` 并标「待人工复核」，**本次不入错词本**（无确定正确形式可写）。达标项：另外 3 句**全部正确**，且**否定式 `not as tall as` 一次就用对**；`more + 形容词 + than` 与 `-er + than` 两种形式都出现了且用得对；4 句句首全部大写、句尾全部有句号。",
+      "targetPoint": "比较级综合运用（-er / more / not as … as）"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "intrusting",
+      "correctText": "interesting",
+      "errorType": "spelling",
+      "errorReason": "拼写：interesting（有趣的），重音在首，拼作 in-ter-est-ing（第 3 课入册；第 12 课作业第 2 题再犯 —— 判重命中既有行、累计 1→2，不新建）",
+      "sourceExerciseNo": 2
+    },
+    {
+      "wrongText": "This book more interesting",
+      "correctText": "This book is more interesting",
+      "errorType": "grammar",
+      "errorReason": "比较级是形容词、不能单独作谓语，句子里必须有 be 动词（结构缺失；第 12 课作业第 2 题）",
+      "sourceExerciseNo": 2
+    }
+  ],
+  "summary": {
+    "exerciseCount": 4,
+    "errorCount": 4,
+    "blankCount": 0,
+    "byType": { "spelling": 1, "grammar": 1, "punctuation": 1, "other": 1 },
+    "note": "错误处数按 §11.4「一处 = 一个可独立改正的点」：第 1 题 0 处；第 2 题 3 处（intrusting 拼写、缺 be 动词、句尾缺句号）；第 3 题 0 处；第 4 题 1 处（`desousic` 非英语单词）。**本课新点「形容词比较级」结构基本掌握**：`-er + than`（taller）、`more + 长形容词 + than`（more interesting）、改错题 `more tall → taller` 一次改对，**否定式 `not as tall as` 开放题一次用对**。⚠️ `intrusting` 为**第 3 课入册老错、本次第 2 次犯**（判重命中，累计 1→2）。⚠️ 第 2 题的「句尾缺句号」与第 4 题的 `desousic`（other、待人工复核）**均不入错词本**：前者同类已有 3 行在册且无有意义的独立错误串，后者无法确定正确形式（§11.5 第三步「不猜」）。⚠️ `Tom play soccer` 复习累计到 3，本课已按 §11.6 加 -s 强制自查项，本课作业**-s 未再出错**（3 处错中无 -s），自查项起效。"
+  }
+}

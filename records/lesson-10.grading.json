@@ -1,0 +1,76 @@
+{
+  "lessonNo": 10,
+  "kind": "homework",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "wrong",
+      "userAnswer": "I will go to shcool tomorrow.",
+      "correctText": "I will go to school tomorrow.",
+      "errorNote": "拼写：school，拼作 s-ch-oo-l，别把 ch 和 oo 写反。本课第 2 次犯（复习第 1 题刚犯过）。达标项：will + 动词原形（go）结构完全正确 —— 本课新点零问题。",
+      "targetPoint": "将来时 will + 动词原形"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "correct",
+      "userAnswer": "She is going to visit her teacher next week.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "将来时 be going to + 动词原形（is 随主语 she、next week 前不加介词）"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "correct",
+      "userAnswer": "We will go to the park tomorrow.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "will 后面必须用动词原形（went → go，一次改对）"
+    },
+    {
+      "exerciseNo": 4,
+      "verdict": "wrong",
+      "userAnswer": "I will get offer next weekend. I am going to play a game with my friend next Sunday .I am going to visit a park on weekend.",
+      "correctText": null,
+      "revisedAnswer": "I will get an offer next weekend. I am going to play a game with my friend next Sunday. I am going to visit a park on the weekend.",
+      "errorNote": "三处：①语法——offer 是可数名词、单数不能裸用 → get an offer；②标点——next Sunday 与句号之间多了一个空格，句号要紧跟最后一个词；③语法——on weekend 缺冠词 → on the weekend（或 this weekend）。达标项：will + 原形（get）、be going to + 原形（play / visit）三处结构全部正确；a game、a park、my friend 的冠词与物主代词都用对了；三句任务完成。另：句与句之间要留一个空格（第 1 句句号后直接接了第 2 句的大写 I，中间没空格）。",
+      "targetPoint": "将来时 will / be going to 综合运用 + 冠词 a / an / the + 句尾标点"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "shcool",
+      "correctText": "school",
+      "errorType": "spelling",
+      "errorReason": "拼写：school，拼作 s-ch-oo-l，别把 ch 和 oo 写反（第 10 课第 2 次犯：复习第 1 题 + 作业第 1 题；判重命中本课复习新入的 id=198，wrongCount 1→2，不新建）",
+      "sourceExerciseNo": 1
+    },
+    {
+      "wrongText": "get offer",
+      "correctText": "get an offer",
+      "errorType": "grammar",
+      "errorReason": "offer 是可数名词，单数不能裸用，前面要加 an（与 play game / eat banana 同源；第 10 课作业开放题第 1 句）",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "next Sunday .",
+      "correctText": "next Sunday.",
+      "errorType": "punctuation",
+      "errorReason": "句号必须紧跟最后一个词，前面不留空格（第 10 课作业开放题第 2 句；与 work.So「句号后必须空一格」互补成一对：句号前后都不留多余空格）",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "on weekend",
+      "correctText": "on the weekend ／ this weekend",
+      "errorType": "grammar",
+      "errorReason": "「在周末」要说 on the weekend（或 this weekend），weekend 前不能没有 the（第 10 课作业开放题第 3 句）",
+      "sourceExerciseNo": 4
+    }
+  ],
+  "summary": {
+    "exerciseCount": 4,
+    "errorCount": 4,
+    "blankCount": 0,
+    "byType": { "grammar": 2, "spelling": 1, "punctuation": 1 },
+    "note": "错误处数按 §11.4「一处 = 一个可独立改正的点」：第 1 题 1 处（shcool）、第 2 题 0、第 3 题 0、第 4 题 3 处（get offer 缺 an、句号前多空格、on weekend 缺 the）。本课新点「将来时 will 与 be going to」结构全对 —— will + 原形（go / get）、be going to + 原形（visit / play / visit）、改错题 went→go 一次改对；错处全部是老问题（拼写 1、冠词 2、标点 1）。⚠️ shcool 一课两犯（复习第 1 题 + 作业第 1 题）。本课无补漏块（Level 1 待补点队列 1—5 已在第 4—9 课清空；冠词复发走错词本 + 第 11 课再评是否开补漏块 6）。"
+  }
+}

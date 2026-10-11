@@ -1,0 +1,83 @@
+{
+  "lessonNo": 13,
+  "kind": "homework",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "correct",
+      "userAnswer": "Tom is the tallest in his class.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "短形容词最高级：the + -est + in + 范围"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "wrong",
+      "userAnswer": "This book is the most intrusting of th three.",
+      "correctText": "This book is the most interesting of the three.",
+      "errorNote": "两处：①拼写——`intrusting` → **interesting**（in-ter-est-ing）。第 3 课入册的老错，**本次第 3 次犯 ⇒ 按 §11.6 触发强制自查项**，第 14 课起做题须逐词拼读一遍；②`of th three` 漏字母 → `of the three`（判错，**不入错词本**：疑手误、且同句已有主错）。达标项：`the most + 长形容词 + of the three` 结构用对（没写成 the most interestinger）。",
+      "targetPoint": "长形容词最高级：the most + 形容词 + of + 复数范围"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "wrong",
+      "userAnswer": "She is the most tall in her class.",
+      "correctText": "She is the tallest in her class.",
+      "errorNote": "改错题**改反了方向**。原句 `She is the most tallest in her class.` 只有**一处**错：`most` 与 `-est` 叠用。该删的是 **most**、保留 `-est`；把 `-est` 删掉、留下 `the most tall` 仍然不是英语（短形容词用 -est，不用 most）。⚠️ 这是同类问题第 3 次：第 9 课改错题原样抄回、第 12 课只改表面（in→to）、本次改反 ⇒ 改错题第一步应**先找出「哪一处错」**。",
+      "targetPoint": "改错：the most tallest → the tallest（most 与 -est 只能留一个）"
+    },
+    {
+      "exerciseNo": 4,
+      "verdict": "wrong",
+      "userAnswer": "Tom is the tallest of the there. The food is most delious in the dinner. The banana is most love in fruits. She is my best friend.",
+      "correctText": null,
+      "revisedAnswer": "Tom is the tallest of the three. The food is the most delicious at dinner. The banana is the most loved of all the fruits. She is my best friend.",
+      "errorNote": "三句错、一句对（6 处错）。①句 1：`three`（三）写成 `there`（那里）→ `of the three`（拼写/用词混淆）；②句 2：最高级前**漏 the** → `is **the** most delicious`，且 `delious` → **`delicious`**（de-li-cious）；③句 3：**又漏 the** + `love` 是动词、不能当形容词（应说 `the most loved` 或换 `my favorite fruit`）+ 范围要用 **of**（`of all the fruits`）不用 `in fruits`。达标项：句 4 `She is my best friend.` **正确**（不规则最高级 best 用对）；句 1 的 `of the …` 范围结构选对；4 句句首全部大写、句尾全部有句号。⚠️ 句 2 的 `in the dinner` 作**提示**处理、未计为独立处数。",
+      "targetPoint": "最高级综合运用（the + -est / the most + in / of）"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "intrusting",
+      "correctText": "interesting",
+      "errorType": "spelling",
+      "errorReason": "拼写：interesting（有趣的），重音在首，拼作 in-ter-est-ing（第 3 课入册；第 12 课第 2 次犯；**第 13 课作业第 2 题第 3 次犯 → 累计 3，触发 §11.6 强制自查项**）",
+      "sourceExerciseNo": 2
+    },
+    {
+      "wrongText": "the most tall",
+      "correctText": "the tallest",
+      "errorType": "grammar",
+      "errorReason": "改错题改反了方向：原句 `the most tallest` 的错在**两个最高级形式叠用**，该删的是 most、保留 -est（短形容词用 -est）；把 -est 删掉留下 `the most tall` 仍是错的（第 13 课作业第 3 题）",
+      "sourceExerciseNo": 3
+    },
+    {
+      "wrongText": "is most delious",
+      "correctText": "is the most delicious",
+      "errorType": "grammar",
+      "errorReason": "最高级前面必须有 the（本课开放题句 2、句 3 连犯 2 次）；句 3 `is most love in fruits` 是同一规则的另一次犯，且 `love` 是动词、不能当形容词（应说 `the most loved`），范围要用 `of` 不用 `in`（第 13 课作业第 4 题）",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "delious",
+      "correctText": "delicious",
+      "errorType": "spelling",
+      "errorReason": "拼写：delicious（美味的），拼作 de-li-cious（第 13 课作业第 4 题句 2）",
+      "sourceExerciseNo": 4
+    },
+    {
+      "wrongText": "of the there",
+      "correctText": "of the three",
+      "errorType": "spelling",
+      "errorReason": "拼写/用词混淆：three（三）≠ there（那里）—— 只差一个字母、完全不同的词（第 13 课作业第 4 题句 1）",
+      "sourceExerciseNo": 4
+    }
+  ],
+  "summary": {
+    "exerciseCount": 4,
+    "errorCount": 9,
+    "blankCount": 0,
+    "byType": { "spelling": 4, "grammar": 4, "word_choice": 1 },
+    "note": "错误处数按 §11.4「一处 = 一个可独立改正的点」：第 1 题 0 处；第 2 题 2 处（intrusting 拼写、th 漏字母）；第 3 题 1 处（改错改反）；第 4 题 6 处（句 1 spelling 1；句 2 缺 the + delious 拼写；句 3 缺 the + love 词性 word_choice + in→of 范围）；句 4 全对。⇒ **本课作业 9 处错，为 13 课以来最高**。🔴 **本课新点「形容词最高级」不是零错误** —— 打破了第 8—11 课「新语法点零错误」的势头：结构会用（`the tallest of the three`、`the most + 长形容词 + of the three` 两处都对），但**「最高级前面必须有 the」连漏 2 次**、改错题改反、拼写 3 处。⚠️ `intrusting` **累计 2→3 ⇒ 触发 §11.6 强制自查项**（第 14 课起）。⚠️ 判错**不入错词本**：`th`（漏字母手误）、`in the dinner`（提示）。"
+  }
+}

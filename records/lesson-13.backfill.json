@@ -1,0 +1,46 @@
+{
+  "lessonNo": 13,
+  "kind": "backfill",
+  "items": [
+    {
+      "exerciseNo": 1,
+      "verdict": "correct",
+      "userAnswer": "I am at home on the weekend.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "常用搭配与介词：at home / on the weekend"
+    },
+    {
+      "exerciseNo": 2,
+      "verdict": "wrong",
+      "userAnswer": "They go to travel to Beijing every year.",
+      "correctText": "They travel to Beijing every year.",
+      "errorNote": "**老毛病原样复发**：只把 `in` 改成了 `to`，病根 **`go to travel`** 没动 —— `go to` 后面接**地点**、不接动词；「去某地旅行」直接用动词 travel → `travel to + 地点`。⚠️ 与**第 12 课补漏块 6 第 2 题是同一道题、同一个错法**（连续两课同一病根），`go to travel` 累计 **1→2**、本类第 3 次犯。",
+      "targetPoint": "常见搭配：travel to + 地点（go to 后不接动词）"
+    },
+    {
+      "exerciseNo": 3,
+      "verdict": "correct",
+      "userAnswer": "She walks to work every day.",
+      "correctText": null,
+      "errorNote": null,
+      "targetPoint": "步行表达：walk ＋ 第三人称单数 -s"
+    }
+  ],
+  "mistakeCandidates": [
+    {
+      "wrongText": "go to travel",
+      "correctText": "travel",
+      "errorType": "word_choice",
+      "errorReason": "「去某地旅行」直接用 travel to + 地点；go to 后接地点、不接动词（与第 11 课 go to trval in Beijing 同类；第 12 课补漏块 6 第 2 题；**第 13 课补漏块 7 第 2 题再犯、仍只把 in 改成 to → 累计 1→2**，本类第 3 次犯）",
+      "sourceExerciseNo": 2
+    }
+  ],
+  "summary": {
+    "exerciseCount": 3,
+    "errorCount": 1,
+    "backfillErrorCount": 1,
+    "byType": { "word_choice": 1 },
+    "note": "补漏块 7（常用搭配与介词·第二轮·变式）3 题：第 1 题 0 处、第 2 题 1 处（go to travel 老毛病复发）、第 3 题 0 处。补漏块错误**独立计数**，不计入第 13 课作业 errorCount（作业为 9）。✅ **比补漏块 6（3 处）明显好转**：第 1 题 `I am at home on the weekend.` 把第 12 课的两处错（`on home` / `weekend` 缺 the）**全部纠正**；第 3 题 `She walks to work every day.` 直接纠正了本课复习题 1(2) 的 `She go` 漏 -s。⚠️ 但第 2 题**连续两课同一道题、同一病根**（只改表面 in→to、不改 `go to + 动词`），仍属**未达标**。"
+  }
+}

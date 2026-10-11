@@ -1,0 +1,51 @@
+{
+  "lessonNo": 11,
+  "lessonDate": "2026-10-04",
+  "level": "Level 2",
+  "studyMinutes": null,
+  "source": "由 Amy 在收完难度反馈后产出；对应 POST /api/study-records（recordType: attend / grade / feedback）——由 teach:sync 消费落库（progress 7 列与 study_records 的唯一写作路径）",
+  "records": [
+    {
+      "recordType": "attend",
+      "payload": {
+        "lessonNo": 11,
+        "level": "Level 2",
+        "lessonDate": "2026-10-04"
+      }
+    },
+    {
+      "recordType": "grade",
+      "payload": {
+        "lessonNo": 11,
+        "exerciseCount": 4,
+        "errorCount": 1,
+        "blankCount": 0,
+        "byType": { "word_choice": 1 },
+        "newMistakes": 1,
+        "passedMistakes": 1,
+        "note": "错误处数口径见 docs/ai-teacher.md §11.4。本课语法点「频度副词 always / usually / often / sometimes / never」结构全对（usually 在 get 前、is always、always 从 is 前移到 is 后一次改对）——连续第 4 课新语法点零错误；作业唯一错处是时间表达用词（14 o'clock → 2 p.m.），非语法结构。**E=1，为第 8 课以来最低**。两条强制自查项（句首字母大写 / 频度副词位置）全部达标。本课无补漏块（Level 1 待补点队列已清空；Level 2 补漏块 6「常用搭配与介词」为本课后新立项候选）。newMistakes=1 指本课作业新增 1 条（14 o'clock）；另有复习新增 6 条（go to trval in Beijing / live in home / they are watching TV / at time / She is going to the park / She play soccer），合计入库 7 条、判重未命中任何既有行。passedMistakes=1 指 Do you like coffee.（累计 3）复习答对满 2 次过关出队。"
+      }
+    },
+    {
+      "recordType": "feedback",
+      "payload": {
+        "lessonNo": 11,
+        "lessonDate": "2026-10-04",
+        "feedback": "too_easy",
+        "levelBefore": "Level 2",
+        "levelAfter": "Level 2",
+        "easyStreak": 1,
+        "nextRecommendation": "第 12 课：Level 2 第 9 点「形容词比较级」。复习优先：on weekend（复习再犯、累计 2）、shcool（1/2）、Tom play soccer / She play soccer（-s 轴线）、She is going to the park / I am very busy.（主格代词轴线）、句首大写（those are their bags. / they are watching TV）、新入 4 条 word_choice 搭配错（go to trval in Beijing / live in home / at time / She is going to the park）。降载复评：E=1，连续两课 ≥3 的势头已断，若不触发 T-1～T-6 则维持 L0 常规档。⚠️ 反馈「太简单」连击已达 1/2：第 12 课若再反馈「太简单」，按 docs/ai-teacher.md 与 SKILL.md 第五章规则自动升 Level 3（Level 2 尚余第 9—14 点：比较级 / 最高级 / must 与 have to / should / 连词 because·so·but / when 从句）——是否接受跳级待学员确认。"
+      }
+    }
+  ],
+  "notes": {
+    "whySeparateFile": "grade / feedback 的 payload 是后端 `study_records` 与 `progress_feedback` 的落库依据，与逐题判定的 grading.json 分离，避免一份文件承载两种语义。",
+    "lastClassDate": "`/api/progress.lastClassDate` 靠本文件的 feedback 记录（带 lessonNo=11、lessonDate）更新。",
+    "newMistakesList": ["go to trval in Beijing", "live in home", "they are watching TV", "at time", "She is going to the park", "She play soccer", "14 o'clock"],
+    "newMistakesNote": "前 6 条来自课前复习（不在 records/grading.json 覆盖范围内）、最后 1 条来自作业。7 条全部无判重命中（created 6 + created 1，updated 0 / unchanged 0）。",
+    "passedMistakesList": ["Do you like coffee."],
+    "studyMinutesNote": "G5 维持降级：lessons 表无 study_minutes 列，本字段按口径留 null（未新增列）。",
+    "a26Note": "本课为 skill-designer 第十七轮改流程（第 4 步只判定、写库统一挪到第 8 步）后的**首次**执行 ⇒ 回归验证点。实测：POST /api/mistakes 两批 7 条 `lessonResolved` 全 true、`warnings: []`、`unresolvedLessonNos: []`；3 条 review 流水 `lessonResolved` 全 true；库内 mistakes 204—210 的 first/last_lesson_id 全 = 94，mistake_events 213—215 的 lesson_id 全 = 94；**全库 mistake_events NULL 课号 = 0**。A26 修复回归通过（详见 docs/Work Alignment/status-amy.md A26 执行记录）。"
+  }
+}

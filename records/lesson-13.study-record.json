@@ -1,0 +1,54 @@
+{
+  "lessonNo": 13,
+  "lessonDate": "2026-10-10",
+  "level": "Level 2",
+  "studyMinutes": null,
+  "source": "由 Amy 在收完难度反馈后产出；对应 POST /api/study-records（recordType: attend / grade / feedback）——由 teach:sync 消费落库（progress 7 列与 study_records 的唯一写作路径）",
+  "records": [
+    {
+      "recordType": "attend",
+      "payload": {
+        "lessonNo": 13,
+        "level": "Level 2",
+        "lessonDate": "2026-10-10"
+      }
+    },
+    {
+      "recordType": "grade",
+      "payload": {
+        "lessonNo": 13,
+        "exerciseCount": 4,
+        "errorCount": 9,
+        "blankCount": 0,
+        "byType": { "spelling": 4, "grammar": 4, "word_choice": 1 },
+        "newMistakes": 11,
+        "passedMistakes": 1,
+        "backfillExerciseCount": 3,
+        "backfillErrorCount": 1,
+        "note": "错误处数口径见 docs/ai-teacher.md §11.4。🔴 本课作业 9 处错为 13 课以来最高，且**本课新点「形容词最高级」不是零错误** —— 打破了第 8—11 课「新语法点零错误」的势头：结构会用（the tallest of the three、the most + 长形容词 + of the three 两处都对），但「最高级前面必须有 the」连漏 2 次、改错题改反方向、拼写 3 处（intrusting / delious / there←three）。补漏块 7（常用搭配与介词·第二轮）3 题单列 1 处错（go to travel 老毛病复发），不计入作业 errorCount —— 比补漏块 6 的 3 处明显好转（第 1 题把 on home / 缺 the 两处全纠正、第 3 题 She walks to work 纠正了复习的 -s）。newMistakes=11 指本课新建 11 条（课前复习 7 条：She go to work / Tom not as taller as than Jack / I shorter than her / I am going to travel / next mouth / were not stayed / streak；作业与补漏块 4 条：the most tall / is most delious / delious / of the there）；另 intrusting 判重命中累计 2→3、go to travel 判重命中累计 1→2。passedMistakes=1 指 They plays games 复习答对满 2 次过关出队。⚠️ 课前复习 5 题 / 10 作答点错 8 处（与第 12 课持平，但本课**无断更借口**），其中 -s 轴线出现「同一题里一对一错」（题 1(1) 答对 → 题 1(2) She go 又漏）⇒ 定性为习惯未稳定，非「不会」。"
+      }
+    },
+    {
+      "recordType": "feedback",
+      "payload": {
+        "lessonNo": 13,
+        "lessonDate": "2026-10-10",
+        "feedback": "too_hard",
+        "levelBefore": "Level 2",
+        "levelAfter": "Level 1",
+        "easyStreak": 0,
+        "upgradeFrozenUntil": 16,
+        "nextRecommendation": "第 14 课：**降载至 L2 中度（复现课）** —— 不讲新点，改「同点变式」复练本课两点（最高级 the + -est / the most + in / of；比较级 -er / more + than），复习题量 8—10 题、生词 0—6、阅读 1 篇短。强制自查项：① **最高级前面必须有 the** ② **改错题先找出「哪一处错」再动笔**（第 9 / 12 / 13 课连续三次同类问题）③ `intrusting` 累计 3 ⇒ 逐词拼读 in-ter-est-ing。⚠️ 反馈「太难」⇒ 按 §7.1 降 1 级（Level 2 → **Level 1**）、`upgradeFrozenUntil = 13+3 = 16`（第 14—16 课内不再升级）。"
+      }
+    }
+  ],
+  "notes": {
+    "whySeparateFile": "grade / feedback 的 payload 是后端 `study_records` 与 `progress_feedback` 的落库依据，与逐题判定的 grading.json 分离，避免一份文件承载两种语义。",
+    "lastClassDate": "`/api/progress.lastClassDate` 靠本文件的 feedback 记录（带 lessonNo=13、lessonDate）更新。",
+    "newMistakesList": ["She go to work", "Tom not as taller as than Jack", "I shorter than her", "I am going to travel", "next mouth", "were not stayed", "streak", "the most tall", "is most delious", "delious", "of the there"],
+    "newMistakesNote": "前 7 条来自课前复习（不在 records/grading.json 覆盖范围内）、后 4 条来自作业；另 intrusting 判重命中既有行（累计 2→3）、go to travel 判重命中既有行（累计 1→2）。",
+    "passedMistakesList": ["They plays games"],
+    "studyMinutesNote": "G5 维持降级：lessons 表无 study_minutes 列，本字段按口径留 null（未新增列）。",
+    "a26Note": "本课为技能侧「第 4 步只判定、写库统一挪到第 8 步」流程下的第 3 次执行（第 11 课首次、第 12 课第 2 次）。写库三步顺序：POST /api/lessons → POST /api/mistakes → review ×2。校验 `lessonResolved` / `unresolvedLessonNos`。"
+  }
+}
