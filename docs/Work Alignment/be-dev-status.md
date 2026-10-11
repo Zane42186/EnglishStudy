@@ -1142,6 +1142,327 @@ fe-dev 转达「仓级 `.gitignore` 补 `dist/`（G3）仍待 git-manager」—�
 
 ---
 
+## §6.20 数据库三问：取证 + 裁定 + 方案二落地（2026-10-03）
+
+> ⚠️ 编号说明：上一条 `§6.19`（跨职责登记）由 fe-dev 先落笔，故本条顺延为 **§6.20**。
+
+> 来源：负责人 2026-10-03 提问（D1 自增 id 跳号 / D2 `grammar_point` 为空 / D3 `mistakes` 两列 NULL）。
+> 过程：**先取证 → 给方案 → 负责人裁定**。裁定见 **§7**；D1 方案二落地实测见 **§8**。
+> 说明：D1 只做方案二（不动生产数据）；D2 归 skill-designer/Amy；D3 维持 NULL。**生产库零 DML**。
+
+### 0. 结论速览
+
+| 议题 | 判定 | 建议 |
+|---|---|---|
+| **D1** `lessons.id` = 47/79/92 | **代理键跳号，生产数据本身干净**；根因＝测试脚本消耗自增号 | **方案二必做**；**方案一（`lesson_no` 作主键）不建议**；可选「重编号」见 §3 |
+| **D2** 第 8/9 课 `grammar_point` NULL | **契约缺口**（`LessonRecord` 未定义该字段），**非 Amy 传值之过** | skill-designer 补契约 1 行 + Amy 补值；**后端零改动** |
+| **D3** `mistakes` id=8/9 两列 NULL | **不是脏数据**，是「诊断」来源的**既定口径 DQ4** | **建议不改**；要可读性改**展示层** |
+
+---
+
+### 1. D1 取证：跳号是「计数器被推进」，不是「数据被污染」
+
+**实测**：`lessons.id` = `1,2,3,4,5,6,`**`47,79,92`**；`lesson_no` = `1..9` **全部正确且连续**。
+
+**🔴 重要更正用户假设**：库内 `students` **仅 1 行**、`lessons` **仅 9 行**（无任何残留测试行）⇒
+**不存在「测试数据与生产混在一起」**；生产数据是干净的，**只有 `AUTO_INCREMENT` 计数器被推进了**。
+
+**根因（源码实锤）**：`backend/scripts/write-api-check.js`
+- `:163` 每次运行 `INSERT INTO lessons (student_id, lesson_no, …) VALUES (testStudentId, …)` —— 建**临时学生的一条测试课**；
+- `:136-137` 收尾 `DELETE FROM lessons WHERE student_id = ?` / `DELETE FROM students WHERE id = ?` —— **删行，但不回退 `AUTO_INCREMENT`**；
+- ⇒ 跑 N 轮 `test:write` 就消耗 N+ 个号。`smoke-test.js` 无写操作（已核）。
+
+**引用面（6 张表 FK → `lessons.id`，全部 `NO ACTION`）**：
+`lesson_sections` / `lesson_vocabulary` / `lesson_exercises` / `mistake_events` / `study_records` / `vocabulary.first_lesson_id`。
+⚠️ `mistakes.first_lesson_id` / `last_lesson_id` **无外键**（逻辑关联，应用层保证）。
+
+---
+
+### 2. D1 方案一（`lesson_no` 作主键）—— ❌ **不建议**（技术不可行）
+
+1. **语义错位**：`lessons` 的业务键是 **`(student_id, lesson_no)`**（`uk_lessons_no` 是**复合唯一**），**不是** `lesson_no`。
+   `lesson_no` 全局唯一**只在单学生下成立** ⇒ 该方案**抽掉多学生架构的地基**。
+2. **结构性障碍（实测）**：若改「复合外键 `(student_id, lesson_no)`」，子表必须都有 `student_id`；
+   而 **`lesson_sections` / `lesson_vocabulary` / `lesson_exercises` 均无 `student_id` 列** ⇒ 必须先加列。
+3. **契约联动**：API 的 `:id` 就是 `lessons.id`（`05` §28/§29、`lesson.service.js:524`）⇒ 改语义会波及**前端全部课程 URL、Skill 契约、文档**。
+
+> 用户的**真实意图＝可读性**，可用 **§3（重编号）+ §4（测试库）** 达成，**不必动结构**。
+
+---
+
+### 3. D1 可选加强（①-c）：把 `lessons.id` **重编号**为与 `lesson_no` 一致（1..9）
+
+**只改「值」，不改「结构」** ⇒ `:id` 语义不变、**零代码改动、零契约改动**、前端不受影响。
+
+**需改行数（实测，共 143 行 / 8 列）**
+
+| 表.列 | 47/79/92 行数 |
+|---|---|
+| `lesson_sections.lesson_id` | 26 |
+| `lesson_vocabulary.lesson_id` | 30 |
+| `lesson_exercises.lesson_id` | 18 |
+| `mistake_events.lesson_id` | 5 |
+| `study_records.lesson_id` | 9 |
+| `vocabulary.first_lesson_id` | 29 |
+| `mistakes.first_lesson_id` | 16 |
+| `mistakes.last_lesson_id` | 16 |
+
+**步骤（须授权后执行）**：① `mysqldump` 全库备份 → ② `DROP` 6 个 FK → ③ 按 `47→7 / 79→8 / 92→9`
+更新**父表 + 全部子表**（单事务）→ ④ `ADD` 回 6 个 FK（**重建即校验**，能挡住漏改）→
+⑤ `ALTER TABLE lessons AUTO_INCREMENT = 10` → ⑥ `db:compare` 期望 **15/0/0**。
+
+**⚠️ 必须与 §4 同批**，否则下次测试又把号推歪。
+**⚠️ 副作用**：文档 3 处示例需同步（`backend/docs/05-api-reference.md:782`、`lesson.service.js:524` 注释、`docs/ai-teacher.md:887`）；
+**历史状态文档里的 `79/92` 证据一律不改**（时点记录，按既定纪律）。
+
+---
+
+### 4. D1 方案二（测试库隔离）—— ✅ **必做，成本低**
+
+**可行性已坐实**：`src/config/env.js:26` 已是 `process.env.DB_NAME || 'english_platform'`，
+且 `env.js` 与 `write-api-check.js:22` 的 `dotenv` 均为**默认不 override** 语义
+⇒ **`DB_NAME=english_platform_test` 直接生效，后端零代码改动**。
+
+**做法**：① `CREATE DATABASE english_platform_test` + 导入 `backend/db/schema.sql` + 播种（`db:seed`，`test:api` 需要默认学生）；
+② 测试用服务 `PORT=4100 DB_NAME=english_platform_test node src/server.js`；③ 测试脚本打 `:4100`；④ 建议加 npm script 固化（如 `test:api:isolated`）。
+
+**收益**：测试**永不**触碰生产；`lessons.id` 不再被推高；`4100` 与生产 `4000` 并存、互不干扰。
+
+---
+
+### 5. D2 `grammar_point` 为空 —— **契约缺口，非 Amy 之过**
+
+**证据**：
+- `docs/schemas/lesson-record.schema.json` 的 `required` = `["lessonNo","levelCode","summary","sections"]`，**全文无 `grammarPoint`**；
+- 后端 `src/services/lesson.service.js:254` 注释自陈：「`grammarPoint` 是**契约之外的新增请求**（`LessonRecord` 未定义该字段）」；
+- 对照 `lesson-plan.schema.json`：`grammarPoint` **是 required** ⇒ **Amy 备课时有该值，只是归档契约没带**；
+- 1—7 课的值来自 **md 导入路径**（`notes/*.md` 有）；**第 8 课起走 API**（切换点）⇒ 缺。
+
+**修法（归属 skill-designer + Amy；be-dev 零改动）**：
+① `lesson-record.schema.json` 增 `grammarPoint`（可选，**加字段不升版本**）；
+② `SKILL.md` 第 8 步产出清单 + `docs/skills.md` §3.1 输出表带上该字段；
+③ **历史补值**：`PUT /api/lessons/:id` —— `lesson.service.js:541` **已支持** `grammarPoint`。
+
+**建议补值**（取自 `notes/day-08-14.md`，风格对齐 1—7 课「<语法名> <关键词>」）：
+- 第 8 课（id=79）：`不规则动词过去式 go / eat / see / have`
+- 第 9 课（id=92）：`过去时否定与疑问 did`
+> ⚠️ 具体措辞应由 **Amy 确认**（教学口径归她）。
+
+---
+
+### 6. D3 `mistakes` id=8/9 两列 NULL —— **不是脏数据**
+
+**权威口径**（`docs/ai-teacher.md`）：
+- `:717` 「课号 | `first_lesson_id` 线索 | Amy | 首次出现的课号；**诊断来源写「诊断」**」
+- `:826` 「`first_lesson_id IS NULL` = **2**（两行均来自「诊断」）… 本裁定**不改变**」
+- `:835` 「含「诊断」来源的 `NULL` 行：后续命中**也不补填**」
+- `:537` DQ4 = 「来源课号为「诊断」的错词，`firstLessonNo` 为 null」→ **属预期**
+
+**源头佐证**：`wrong-words.md` 这两行的首列**就写「诊断」**（`| 诊断 | An book on the table. | …` / `| 诊断 | Do you like coffee. | …`），**根本没有课号**。
+`mistakes.first_lesson_id` / `last_lesson_id` 在 `schema.sql:120-121` 也是 **NULL-able**（设计即允许）。
+
+⇒ **改成 (3,4) 会违反 DQ4 口径，且属「编造数据」**。**建议不改**；若目的是可读性，改**展示层**（前端把 `null` 渲染成「诊断」）。
+
+**❓需用户确认**：`(3,4)` 是否**另有依据**（如记得它们出自第 3、4 课）？
+若有依据，正确做法是改 **`wrong-words.md` 的「课号」列**（人工真相源）+ 重跑同步 —— **而不是直接写库**。
+
+---
+
+### 7. 负责人裁定（2026-10-03）
+
+| # | 议题 | 裁定 | 后续 |
+|---|---|---|---|
+| D1 | `lessons.id` 跳号 | **只做方案二**（不重编号 ①-c） | ✅ 已落地，见 §8 |
+| D2 | 第 8/9 课 `grammar_point` 空 | 认可「契约缺口」；**be-dev 零改动** | 负责人已告知 skill-designer；待其改契约后再告知 Amy 补值 |
+| D3 | `mistakes` 两列 NULL | **维持 NULL**（不改库、不改 `wrong-words.md`） | 无需动作；展示层如需可读性再单开 |
+
+> `§1—§6` 为**取证存档**（含 ①-c 重编号方案，本次**未采用**，保留备查）。
+
+---
+
+### 8. D1 方案二落地实测（2026-10-03，**已实测**）
+
+**交付物（4 个文件：3 新增 + 2 改动）**
+
+| 文件 | 作用 |
+|---|---|
+| `backend/db/migration/clone_to_test.js` | 生产库 → `english_platform_test`：**只读生产**（`mysqldump --single-transaction`），DROP 重建目标库 + 逐表行数比对；含名字安全闸（非 `*_test` 需 `--force`） |
+| `backend/scripts/start-test.js` | 以 `DB_NAME=english_platform_test`、`PORT=4100` 启动 API；**拒绝**把实例指回生产库 |
+| `backend/scripts/isolated.js` | 设好 `DB_NAME` 再跑既有测试脚本（`smoke`／`write`），BASE 固定 `:4100`；解决 `write-api-check.js` 直连库做自证时的「写测试库、验生产库」错位 |
+| `backend/scripts/write-api-check.js` | **新增写入安全闸**：直连库非 `*_test` 或目标端口是 4000 时**默认拒绝运行**（exit 2，打印隔离跑法）；确需打生产加 `--allow-prod` |
+| `package.json` | `db:test:clone` ／ `start:test` ／ `test:api:isolated` ／ `test:write:isolated` |
+
+**用法（两个终端）**
+```bash
+npm run db:test:clone    # 1) 造/刷新测试库（只读生产）
+npm run start:test       # 2) 终端 A：4100 实例（库=english_platform_test）
+npm run test:api:isolated    # 3) 终端 B：49 项
+npm run test:write:isolated  #    138 项
+```
+
+**实测证据**
+
+| 检查 | 结果 |
+|---|---|
+| 克隆一致性 | `CLONE_OK`：13 张表**逐表行数一致**；库内 13 基表 + 2 视图齐备；`lessons.id` 与生产逐条相同 |
+| `test:api:isolated` | **49 / 49** |
+| `test:write:isolated` | **138 / 138**（含 F2「真实数据计数清理前后完全一致」自证） |
+| 端口纪律 | 4100 跑完即停（复验 `stopped`）；**未触碰 4000** |
+
+**生产库零影响证明**（同一 `information_schema_stats_expiry=0` 会话取实时值，实验前后对拍）
+
+| 指标 | 基线（实验前） | 实验后 | 判 |
+|---|---|---|---|
+| `lessons` AUTO_INCREMENT | 93 | **93** | ✅ 未变 |
+| 全 13 表 AUTO_INCREMENT | 867/1164/869/93/210/198/39/327/653/116/36/276/865 | **逐项一致** | ✅ 未变 |
+| 13 表行数 | 1/9/77/80/82/52/39/5/27/1/6/17/34 | **逐项一致** | ✅ 未变 |
+| **测试库** `lessons` AUTO_INCREMENT | 93（克隆时） | **99** | ✅ 写操作确实落在测试库 |
+
+> 即：`test:write` 的插入把**测试库**计数器推到 99，**生产库纹丝不动停在 93** —— 隔离生效，方案二达成目标。
+
+**⚠️ 运维约定**
+- 测试**只在** `english_platform_test` 上跑；需要与生产对齐时**重跑 `npm run db:test:clone`**（会清空测试库重建）。
+- **安全闸已生效**：`npm run test:write`（裸跑）现在**直接拒绝**（exit 2）并打印隔离跑法 —— 生产 `lessons.id` 的历史跳号（47/79/92）**按裁定保持原样**，根因由此封堵；写入验证**一律** `npm run test:write:isolated`；确需打生产才加 `--allow-prod`。
+- `npm run test:api`（冒烟）**只读**、对生产无害，保留原样；`test:api:isolated` 仅供需要完全隔离时用。
+
+**谁跑什么（分工，2026-10-03 定）**
+
+| 角色 | 负责的验证 | 备注 |
+|---|---|---|
+| **be-dev** | `test:api` ／ `test:write` ／ `db:*`（export/compare/import/summary/sync） | **后端测试由 be-dev 跑**；今后写入测试一律走 `*:isolated` |
+| **fe-dev** | `integration-check.js` ／ `verify-frontend-pages.js` ／ `verify-frontend-shared.js` | 前端静态/链路验证，不动库 |
+| **Amy** | ✗ 不跑测试 | 她的上课/批改/反馈经 Skill 写**生产**（`teach:sync` 等）——**设计如此，无需改动**；仅需知悉「测试命令不要跑」 |
+
+> Amy 侧无需任何操作；建议只发一句通知（见下「告知文案」），避免误触测试/迁移命令。
+>
+> **给 Amy 的告知文案（可直接转发）**：
+> 「后端加了隔离测试库（`english_platform_test` / 端口 4100）。你的上课流程写生产数据是正常的、**不用改**。只是新增了几条 `npm run *:isolated` / `db:test:clone` 命令是给测试用的——**你不用跑**，别误用哈。」
+
+- 未提交：本轮改动（`backend/db/migration/clone_to_test.js`、`backend/scripts/{start-test,isolated}.js`、`backend/package.json`、`backend/scripts/write-api-check.js`）待 git-manager 以显式路径提交。
+
+---
+
+## §6.21 回执 Amy 的 A26（2026-10-03，**①②③ 已实现并实测**）—— 课号未解析的显式信号 + vocabulary 对账口径
+
+> 对应 `status-amy.md` A26。负责人裁定：**Q1 加字段（不改 HTTP 码）／Q2 不做（不回填）**；另追加 ③「`db:import` vocabulary 差额归因」。
+
+### 1. A26 一句话
+复习写库（Skill 第 4 步）时第 N 课的 `lessons` 行**尚未创建**（第 8 步 `POST /api/lessons` 才建）⇒ `mistakeLesson.resolveNextLastLessonId` 解析不到课号、返回 `null` ⇒ `mistakes.first/last_lesson_id`、`mistake_events.lesson_id` 落 NULL；而 NULL 行按 `ai-teacher.md` §11.11 被当「**诊断**」来源且**不补填**（课号永久丢）。**根因＝写库时序，不是参数错**（第 10 课 `lessonNo=10` 与确定性 `clientEventId` 都传对仍挂空）。
+
+### 2. Q1 落地：把「课号未解析」从**一行字符串告警**升级为**结构化信号**（不动 HTTP 码）
+
+| 端点 | 新增字段 | 语义 |
+|---|---|---|
+| `POST /api/mistakes` | 顶层 `unresolvedLessonNos: number[]`（升序去重） | 本批**解析不到 `lessons` 行**的 `courseNo` 集合；空数组＝全部解析成功 |
+| | `items[].lessonResolved: boolean\|null` | `true`＝课号已映射 `lessons.id`；`false`＝给了课号但库内无行；`null`＝本项未给课号 |
+| `POST /api/mistakes/:id/review` | `lessonResolved: boolean` | `true`＝`mistake_events.lesson_id` 已写入；`false`＝未解析（`lesson_id` 为空） |
+| | `warnings: string[]` | **补 review 侧「零信号」缺口**（此前 review 响应**既无 `warnings` 也无任何标志**）；未解析时一行说明，且**区分**「课号不可知」与「课号无对应行」两种措辞 |
+
+**关键理由**：写已成功 ⇒ **不得**返回非 2xx（会触发 Skill 重试 / 幂等混乱）⇒ 用**新增字段**而非 HTTP 状态码做信号。
+⚠️ **覆盖率**：`items[].lessonResolved` 在**幂等命中**路径（`action=unchanged`）**同样计算**（MW14c 实测），避免「只有新建行才报」的盲区。
+
+### 3. Q2 裁定：**不做**回填机制
+- 「事件行不存『当时想挂哪课』」⇒ 事后回填是**不适定问题**（无真相源）。
+- A26 根因是**顺序错**，正解＝Skill 侧把写库挪到第 8 步（skill-designer 第十七轮已改）。
+- 结论：接口层**不加**「允许 `courseNo` 指向未建行」的能力（否则把顺序 bug 合法化）。
+
+### 4. ③ 归因：`db:import` vocabulary「90 vs 61」差额 = **结构性口径失配，非数据漂移**
+- 原比对：快照域已限 `lesson_no < 8`（`import_json.js:528`），却拿库内**全局** `vocabulary` 计数相比 ⇒ **恒报差 29**。
+- 实测（独立 mysql 直查）：`vocabulary` 总 **90** = `first_lesson_no ≤ 7` 的 **61** + `≥ 8` 的 **29**（`first_lesson_id IS NULL` = **0**）；`lesson_vocabulary` 92。
+- 差额 29 = 第 8/9/10 课（**API 写路径期**）的词 —— 快照按设计不含该域。
+- **修复**：改为**同域比对** + 可解释加和式（`n_snapshot_domain` / `n_api_era` / `n_orphan`）→ 实测输出
+  `vocabulary 对账 ✅：1—7 课域 61 = 快照并集 61；第 ≥8 课（API 写路径期）词 29 个，库内合计 90（快照按设计不含该域）`。
+- **同域不等才 `warn`** ⇒ 回归时能真正抓到漂移（不再被结构性差值淹没）。
+
+### 5. 实测证据（隔离库 `english_platform_test` / 端口 4100）
+
+| 检查 | 结果 |
+|---|---|
+| `node --check`（`mistake.service.js` / `import_json.js`） | **exit 0** |
+| `db:import --dry-run`（含新对账） | `vocabulary 对账 ✅ …`（见 §4） |
+| `test:api:isolated` | **49 / 49** |
+| `test:write:isolated` | **143 / 143**（基线 **138 → 143**，+5） |
+| 端口纪律 | 4100 跑完即停（复验**无 `LISTENING`**，仅 1 条 `TIME_WAIT` 客户端残留） |
+
+新增断言（`scripts/write-api-check.js`）：**MW14b**（课号不存在 → `lessonResolved=false` 且顶层含 999）、**MW14c**（命中已有行 + 课号未解析 → 仍 `false`）、**MW24c**（幂等命中同样带 `lessonResolved`/`warnings`）、**MW28**（review 课号无对应课 → `false` 且 `warnings.length===1`）、**MW29**（review 正常 → `true` 且 `warnings.length===0`）。
+
+### 6. 契约同步（`backend/docs/05-api-reference.md`）
+- §15（review）：加「课号未解析＝显式信号」段 + 响应补 `lessonResolved`/`warnings`。
+- §30（batch）：语义新增第 10 条（`unresolvedLessonNos[]` + `items[].lessonResolved`，含覆盖率差异警告）；响应样例补两字段。
+- 顶部变更记录新增 2026-10-03 A26 条目。
+
+### 7. 交接与未提交
+- **skill-designer**：`SKILL.md` 第 4 步 + §九自查清单加「写库后检查 `unresolvedLessonNos` / `lessonResolved`，**非空即停并上报**」。
+- **Amy**：已回执 —— Q1 已落地、Q2 不做。
+- **未提交**（待 git-manager 显式路径）：`backend/src/services/mistake.service.js`、`backend/scripts/write-api-check.js`、`backend/db/migration/import_json.js`、`backend/docs/05-api-reference.md`。
+
+---
+
+## §6.22 回执：05 §20/§18 补注「教学链路不使用本接口」+ `dedupe_key` 评估（2026-10-10，**已落地**）
+
+> 对应 Amy 交办（`status-amy.md` 反馈双写裁定节）。负责人裁定：**教学侧反馈与学习记录统一只走 `teach:sync`**。
+
+### 1. ⚠️ 编号缺口（先报后做）
+交办写「`05` **§20** 与 **§15 抬头**」。经取证：
+- **§15 = `POST /api/mistakes/:id/review`** —— **教学链路在用**（第 13 课第 8 步实测调 2 次；`ai-teacher.md:487` 该行 **★ 保留**、`05 §15` 亦保留 ★）⇒ **不能标「不使用」**。
+- 裁定正文点名的两接口是 `progress/feedback` 与 `study-records` ⇒ `05` 侧正解 = **§20（feedback）+ §18（study-records）**。
+- **处置**：按**安全版**——**不改 §15**（标「不使用」会与事实冲突），改 **§18** 并**显式上报**本缺口（疑为「§15」笔误，指 `§18`）。
+
+### 2. 落地（零代码 / 零 DDL）
+| 文件 | 改动 |
+|---|---|
+| `backend/docs/05-api-reference.md` **§20** | 抬头去 ★ + 加 ⚠️「教学链路不使用本接口」段；末尾加「**为什么有意不加 `dedupe_key`**」口径说明 |
+| `backend/docs/05-api-reference.md` **§18** | 加 ⚠️「教学链路不使用本接口（裁定 U；★ 已撤）」段 |
+| `backend/docs/05-api-reference.md` 顶部 | 变更记录新增 **2026-10-10** 条目 |
+| `backend/src/repositories/studyRecord.repository.js` | `insert()` 注释：「API 路径暂不传」→「**有意不传** + 3 条理由 + 勿顺手补键」 |
+
+**校验**：`node --check studyRecord.repository.js` **exit 0**；★ 分布复核 = §15 保留、**§18/§20 已无**。
+
+### 3. `dedupe_key` 评估：**不补**（结论已写入 05 §20 末）
+1. **失败模式反而更坏**：`submitFeedback` 全程**单事务**，`study_records.insert` 是**最后一条**语句 ⇒ 若加键，重复调用 `ER_DUP_ENTRY` → **整事务回滚 ⇒ 级别变更被丢弃 + 返回 500**（今天是「多一条记录」，明天会变「静默丢一次升降级」）。
+2. **加键也保不了幂等**：本接口核心副作用＝**级别/连击变更**，天然**非幂等**；`dedupe_key` 只保护记录行 ⇒ 给「已幂等」的**错误安全感**。
+3. **防重已在调用面解决**：裁定后教学侧不调用本接口；残余风险（误调）由 `teach:sync` 的「无 `dedupe_key` 同类记录」告警作**探针**。
+⇒ 若将来本接口被**真实调用方**采用，正确做法是给**整个操作**加幂等闸（`review` 的 `clientEventId` 式），而非只补记录行的键。
+
+### 4. 交接
+- **skill-designer**：`SKILL.md` 第 8 步补**显式禁令**（不得调 `progress/feedback` / `study-records`）。
+- **未提交**：`backend/docs/05-api-reference.md`、`backend/src/repositories/studyRecord.repository.js`（注释级；待 git-manager 显式路径）。
+
+---
+
+## §6.23 数据修复：`mistakes.id=13` 的 `first_lesson_id` 6 → 5（2026-10-10，**负责人授权后已执行**）
+
+> 对应 `status-amy.md` ⑤/⑥（自 2026-10-09 挂起）。负责人 2026-10-10 授权：「把那个错误数据更新一下」。
+
+**背景**：`wrong-words.md:28` 该行「课号」列 = **5**，而库内 `first_lesson_id` = **6**。
+机器证据：`notes/day-01-07.md:395`（属 `## 第 5 课` 段）记「作答 `I am very busy.` … → **新入错词本**」；`:517`（第 6 课段）才是「第 1 次答对」⇒ **md 的 5 正确、库内 6 是错值**。
+
+**独立取证（不采信汇报）**
+- `lessons` 映射：`lesson_no 5 → id 5`、`lesson_no 6 → id 6` ✅（故更新值为 **5**）。
+- 修复前镜像：`id=13 | I am very busy. | first=6 | last=6 | wrong_count=1 | status=passed | error_type=word_choice`。
+
+**执行**（带守卫 `AND first_lesson_id = 6`，防重复执行 / 误改）
+```sql
+UPDATE mistakes SET first_lesson_id = 5 WHERE id = 13 AND first_lesson_id = 6;
+-- ROLLBACK: UPDATE mistakes SET first_lesson_id = 6 WHERE id = 13;
+```
+`ROW_COUNT() = 1`；回读 **`first=5` / `last=6`**。
+
+**验证（已实测）**
+
+| 检查 | 结果 |
+|---|---|
+| 每课「新引入错词数」（`first_lesson_id` 归属） | 第 5 课 1 → **2**、第 6 课 5 → **4**（**恰为 Amy 预告的 +1/−1**） |
+| 全库总量不变性 | `total=73 / passed=12 / first_lesson_id IS NULL=2`（＝有意为之的「诊断」行 8/9）**逐项不变** |
+| `db:compare` | **15 / 0 / 0** |
+| `db:summary` | INDEX.md / digest.md **UNCHANGED**（该字段不进 digest）；`--check` **stale=0** |
+
+**⚠️ 遗留（待裁定，本次未动）**：`last_lesson_id` **仍为 6**。按 §11.11「`last` = 最近一次**出错**课」＋该行 `wrong_count=1`（唯一一次错＝第 5 课）
+⇒ **`last` 亦应为 5**（现 6 与 `first` 同源，系同一次 `courseNo` 取错所致）。
+**未获授权前不改**；建议 SQL：`UPDATE mistakes SET last_lesson_id = 5 WHERE id = 13 AND last_lesson_id = 6;`
+
+---
+
 ## 附：常用验证命令（均在 `backend/` 下）
 
 ```bash
@@ -1153,8 +1474,12 @@ npm run db:apply-error-types # error_type 回填（幂等，--dry-run）
 npm run teach:sync           # records/*.study-record.json → study_records + progress（幂等，--dry-run / --lesson NN）
 npm run db:migrate-dedupe-key # study_records.dedupe_key 迁移（幂等，--dry-run / --rollback）
 npm run db:summary           # 生成 INDEX.md / digest.md（--check / --dry-run）
-npm run test:api             # 49 项
-npm run test:write           # 138 项（STEP 2a 的 LW1—LW33 + Step 2b 的 MW1—MW16 + §11.11 的 MW17—MW20 + A19 的 MW21—MW24b + A20 的 MW25—MW27）
+npm run db:test:clone        # 生产 → english_platform_test（只读生产；供隔离测试）
+npm run start:test           # 以测试库(4100)启动 API 实例
+npm run test:api:isolated    # 49 项（打 4100 / english_platform_test）
+npm run test:write:isolated  # 143 项（打 4100 / english_platform_test）⚠️ 勿再用裸 test:write 打生产
+npm run test:api             # 49 项（默认打 localhost:4000 = 生产）
+npm run test:write           # 143 项（默认打 localhost:4000 = 生产；STEP 2a LW1—LW33 + Step 2b MW1—MW16 + §11.11 MW17—MW20 + A19 MW21—MW24b + A20 MW25—MW27 + A26 MW14b/MW14c/MW24c/MW28/MW29）
 ```
 
 > `test:*` 与 `integration-check` / `verify-frontend-*` 需要后端服务在线；
