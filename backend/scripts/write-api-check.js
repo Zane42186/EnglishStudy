@@ -22,10 +22,40 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const db = require('../src/config/db');
+const { env } = require('../src/config/env');
 
 const BASE = process.argv[2] || `http://localhost:${process.env.PORT || 4000}`;
 const TEST_STUDENT_NAME = '__write_check__';
 const TEST_LESSON_NO = 90;
+
+// ---------------------------------------------------------------------------
+// 🔴 写入安全闸（D1 方案二 / 2026-10-03）
+// 本脚本会**真正写库**（临时学生 / 课程 / 错词 / 阅读三表）。它此前默认打生产
+// （4000 + english_platform），每跑一次就把生产 `lessons.AUTO_INCREMENT` 推高
+// —— 这是 id 跳号 47/79/92 的根因，且删行**不回退**计数器。
+// 故这里默认**拒绝**打生产；确需对生产做写入验证时，显式追加 `--allow-prod`。
+// ---------------------------------------------------------------------------
+(function writeSafetyGuard() {
+  const allowProd = process.argv.includes('--allow-prod');
+  let port = '';
+  try { port = new URL(BASE).port; } catch { /* BASE 非合法 URL 时忽略端口判据 */ }
+
+  const reasons = [];
+  if (!/_test$/.test(env.db.database)) reasons.push(`直连库是 ${env.db.database}（非 *_test）`);
+  if (port === '4000') reasons.push('目标 API 端口是 4000（生产约定）');
+
+  if (reasons.length && !allowProd) {
+    console.error('');
+    console.error(`[write-api-check] 拒绝运行：${reasons.join('；')}。`);
+    console.error('  本脚本会真写库，直打生产会污染生产数据（自增只增不回退）。');
+    console.error('  隔离跑法：npm run db:test:clone  →  npm run start:test  后，');
+    console.error('            npm run test:write:isolated');
+    console.error('  确需对生产做写入验证：node scripts/write-api-check.js http://localhost:4000 --allow-prod');
+    process.exit(2);
+  }
+  if (allowProd) console.warn('[write-api-check] ⚠️ --allow-prod：将对生产执行写入验证。');
+})();
+
 
 let pass = 0;
 let fail = 0;
@@ -820,6 +850,23 @@ async function cleanup(studentId) {
         && r.json.data.warnings.some((w) => w.includes('999')),
       `created=${r.json.data.created} first=${row && row.first_lesson_id} warn=${JSON.stringify(r.json.data.warnings)}`);
 
+    // MW14b/MW14c A26：课号未解析的**结构化信号**（此前只有一行字符串 warning，Skill 侧漏看）
+    check('MW14b 课号不存在 → items[].lessonResolved=false 且顶层 unresolvedLessonNos 含该课号',
+      r.json.data.items[0].lessonResolved === false
+        && Array.isArray(r.json.data.unresolvedLessonNos)
+        && r.json.data.unresolvedLessonNos.includes(999),
+      `lessonResolved=${r.json.data.items[0].lessonResolved} unresolved=${JSON.stringify(r.json.data.unresolvedLessonNos)}`);
+
+    // MW14c 命中**已有行** + 课号未解析 —— 这一路此前**完全静默**（既无 warning 也无标志）
+    r = await post(`/api/mistakes?studentId=${testStudentId}`, batch([
+      { wrongText: 'MW orphan', correctText: 'MW orphan fixed', errorType: 'grammar', wrongCount: 1, courseNo: 999 },
+    ]));
+    check('MW14c 命中已有行 + 课号未解析 → 仍给 lessonResolved=false（覆盖此前静默的一路）',
+      r.status === 200 && r.json.data.updated + r.json.data.unchanged === 1
+        && r.json.data.items[0].lessonResolved === false
+        && r.json.data.unresolvedLessonNos.includes(999),
+      `action=${r.json.data.items[0].action} lessonResolved=${r.json.data.items[0].lessonResolved} unresolved=${JSON.stringify(r.json.data.unresolvedLessonNos)}`);
+
     // ---------- MW17—MW20 §11.11：`last_lesson_id` 随复发刷新、`first_lesson_id` 冻结 ----------
     // 定则：`last = max(现有课号, 本次课号)`（单调守卫）；`first` 永不改写；
     // 值为「不变」时该行仍计 `unchanged` ⇒ 重放幂等（本次课号不前进＝无变化）。
@@ -905,14 +952,17 @@ async function cleanup(studentId) {
       revRow.last_lesson_id, lessonIdOfNo(probeNoB));
 
     // MW24b 幂等：同一 clientEventId 重放 → 不重复刷
-    await post(`/api/mistakes/${revRow.id}/review?studentId=${testStudentId}`,
+    const rIdem = await post(`/api/mistakes/${revRow.id}/review?studentId=${testStudentId}`,
       { result: 'correct', lessonNo: probeNoC, clientEventId: 'mw-rev-c1' });
     revRow = await mwRev();
     eq('MW24b 同 clientEventId 重放 → 幂等，last 仍不变',
       revRow.last_lesson_id, lessonIdOfNo(probeNoB));
+    check('MW24c 幂等命中同样带 lessonResolved/warnings（与首次调用形状一致）',
+      rIdem.json.data.lessonResolved === true && Array.isArray(rIdem.json.data.warnings),
+      `lessonResolved=${rIdem.json.data && rIdem.json.data.lessonResolved} warnings=${JSON.stringify(rIdem.json.data && rIdem.json.data.warnings)}`);
 
     // ---------- MW25—MW27 A20：`review` **未传 `lessonNo`** 时回退 `progress.current_lesson_no` ----------
-    // 真实调用面：全前端**唯一**调用方 `review/wrong.html:187` 只发 `{result, clientEventId}`。
+    // 真实调用面：全前端**唯一**调用方 `frontend/src/views/WrongView.vue:145` 只发 `{result, clientEventId}`。
     // 故本组夹具**刻意不传 `lessonNo`**（与真实前端逐字一致）—— MW21—MW24b 每条都显式传了课号，
     // 所以「测试全绿」盖不住真实链路上的死代码（A20：测试绿 ≠ 链路活）。
     // 课号来源改为把 progress 指向目标课；`probeNo*`/`lessonIdOfNo` 全部来自库内现取，不写死。
@@ -959,6 +1009,17 @@ async function cleanup(studentId) {
       rStale.status === 200 && revRow.last_lesson_id === lessonIdOfNo(probeNoC)
         && !!evStale && evStale.lesson_id === null,
       `status=${rStale.status} last=${revRow.last_lesson_id} evLesson=${evStale && evStale.lesson_id}`);
+
+    // MW28/MW29 A26：`review` 侧课号未解析的**显式信号**（此前该接口**零信号**，响应既无 warnings 也无标志）
+    check('MW28 review 课号无对应课 → lessonResolved=false 且 warnings 非空（补零信号缺口）',
+      rStale.status === 200 && rStale.json.data.lessonResolved === false
+        && Array.isArray(rStale.json.data.warnings) && rStale.json.data.warnings.length === 1,
+      `lessonResolved=${rStale.json.data && rStale.json.data.lessonResolved} warnings=${JSON.stringify(rStale.json.data && rStale.json.data.warnings)}`);
+
+    check('MW29 review 课号正常解析 → lessonResolved=true 且 warnings 为空',
+      rA20.status === 200 && rA20.json.data.lessonResolved === true
+        && Array.isArray(rA20.json.data.warnings) && rA20.json.data.warnings.length === 0,
+      `lessonResolved=${rA20.json.data && rA20.json.data.lessonResolved} warnings=${JSON.stringify(rA20.json.data && rA20.json.data.warnings)}`);
 
     // MW15 学生隔离：默认学生列表不含临时学生错词
     r = await get('/api/mistakes?size=500');

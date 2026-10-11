@@ -21,8 +21,12 @@
     "teach:sync": "node db/migration/sync_study_records.js",
     "db:migrate-dedupe-key": "node db/migration/add_study_records_dedupe_key.js",
     "db:summary": "node scripts/build-summary.js",
+    "db:test:clone": "node db/migration/clone_to_test.js",
+    "start:test": "node scripts/start-test.js",
     "test:api": "node scripts/smoke-test.js",
-    "test:write": "node scripts/write-api-check.js"
+    "test:write": "node scripts/write-api-check.js",
+    "test:api:isolated": "node scripts/isolated.js smoke",
+    "test:write:isolated": "node scripts/isolated.js write"
   },
   "dependencies": {
     "cors": "^2.8.5",
