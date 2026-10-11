@@ -77,6 +77,11 @@
     },
     "levelCode": { "$ref": "common.schema.json#/$defs/LevelCode" },
     "summary": { "type": "string", "maxLength": 255 },
+    "grammarPoint": {
+      "description": "本课语法点（纯文本标题，如「规则动词过去式 -ed」），对应 lessons.grammar_point（VARCHAR(128)，可空）。取值来源＝LessonPlan.grammarPoint.title —— lesson-plan.schema.json 里该字段是 {code,title,role} 对象，而本列要的是字符串，归档时取 title。该列是前端课程列表、课程详情页与课程搜索的可见列（frontend/ 的 HomeView、LessonView），缺失则语法点显示为空（第 8、9 课即此症状：本契约原先未定义该字段，deploymentMode=backend 路径据此一直没带）。⚠️ 教学纪律要求每课必带非空值（LessonPlan 侧本就 required）；本字段在契约中为可选、允许 null，是为兼容历史行与既有调用方。加字段、不升版本（见 docs/schemas/README.md 三.2）。",
+      "type": ["string", "null"],
+      "maxLength": 128
+    },
     "studyMinutes": {
       "description": "本课学习时长，按上下课时间差估算，由 daily-lesson 归档时填入。当前无落库列（courses 表已废弃、lessons 表亦无 study_minutes 列）——G5 维持降级；是否新增 lessons.study_minutes 列属 R2 议题，未定前列空。",
       "type": ["integer", "null"],

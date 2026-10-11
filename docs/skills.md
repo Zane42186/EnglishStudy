@@ -29,7 +29,7 @@
 
 **为什么不做成 9 个独立 Skill**：9 个各自去读状态，就是 9 处重复取数、9 处格式漂移风险；而课内 6 个能力会争抢同一份数据，出现「批改用的错词版本」和「归档用的错词版本」不一致这类难查的错。
 
-**为什么不能只做 1 个**：「我只想复习」「我学得怎么样」是两个真实且高频的独立意图。把它们硬塞进 11 步上课流程里，用户想复习十分钟却被要求先做完一课，体验是错的。
+**为什么不能只做 1 个**：「我只想复习」「我学得怎么样」是两个真实且高频的独立意图。把它们硬塞进 10 步上课流程里，用户想复习十分钟却被要求先做完一课，体验是错的。
 
 三个独立 Skill 与六个内嵌能力**共用同一套契约**，因此内嵌能力随时可以无改动地升级为独立 Skill——只要它的用户意图真的存在。
 
@@ -260,7 +260,7 @@ ALTER TABLE lesson_sections
 `daily-lesson`（英语每日课）· 独立 Skill · 当前受控源为 `skills/english-daily/` v2.8.2（运行副本 `.workbuddy/skills/english-daily/`，单向同步）。
 
 #### 功能
-编排一次完整上课。把 `AgentSnapshot` 与 `LessonPlan` 变成 11 步可执行的教学动作，结束时产出可归档的 `LessonRecord` 与当日 `ReadingSet`。它是唯一在课内调用其他六个能力的编排层。
+编排一次完整上课。把 `AgentSnapshot` 与 `LessonPlan` 变成 10 步可执行的教学动作，结束时产出可归档的 `LessonRecord` 与当日 `ReadingSet`。它是唯一在课内调用其他六个能力的编排层。
 
 #### 输入
 
@@ -305,11 +305,11 @@ ALTER TABLE lesson_sections
 | 1 | 取快照与计划；课号 N = `max(courseCatalog.lessonNo) + 1`，与 `progress.currentCourseNo` 不一致时以课号为准并在回复中说明 | — | |
 | 2 | 定归档文件 `day-{起始:02d}-{结束:02d}.md`，起始 = ⌊(N-1)/7⌋×7+1 | — | |
 | 3 | 出 3—5 道复习题 | `lesson-review` | ⏸ |
-| 4 | 批改复习，回写连击与过关。**回写走 `POST /api/mistakes/:id/review`（`id` 取自 `GET /api/mistakes/pending`；`digest.md` 的待复习段没有 id），body 必须显式带 `lessonNo = N` 与确定性 `clientEventId`** —— 不得依赖服务端 `progress.current_lesson_no` 回退（那是给真实前端兜底的；上课期间该值仍是 N-1，会把复习流水挂到上一课） | `answer-grading` → `mistake-analysis` | |
+| 4 | 批改复习：**本步只判定 + 更新 `wrong-words.md`，不调任何写接口**（判定结果留在轮内，**统一挪到第 8 步写库**）。`POST /api/mistakes` 与 `POST /api/mistakes/:id/review` 解析课号**都以「第 N 课的 `lessons` 行已存在」为前置**（`mistakeLesson.js:75-77`：`idByNo.get(N)` 落空即返回 `null`，注释「课号在库内不存在 —— 调用方负责告警，此处不猜」），而该行由**第 8 步** `POST /api/lessons` 创建 ⇒ 第 4 步**结构性无法满足**。**第 10 课实测**：复习新错词 `first/last` 全空（`mistakes` 198/199/200）、复习流水 `lesson_id` 全空（`mistake_events` 210/211/212），且 `lessonNo=10` 与 `clientEventId` **都传对了仍挂空** = 传对参数救不了顺序错。后果：NULL 的 `first` 按 §11.11 被当「**诊断**」、**后续命中也不补填**（`mistakeLesson.js:57`）⇒ 课号永久丢失。**不得提前建 `lessons` 行绕过**（会把「课号 = 最大 + 1」推高、中途离开留孤儿行）。**第 8 步执行时的调用面**：逐条 `POST /api/mistakes/:id/review`（`id` 取自 `GET /api/mistakes/pending`；`digest.md` 待复习段没有 id），body 必须显式带 `lessonNo = N` 与确定性 `clientEventId` —— 不得依赖 `progress.current_lesson_no` 回退（那是给真实前端兜底的；上课期间该值仍是 N-1，会把复习流水挂到上一课） | `answer-grading` → `mistake-analysis` | |
 | 5 | 讲新课：1 个语法点 + 词表 + 3—5 例句，总量 20—30 分钟 | `grammar-teaching`、`vocabulary-teaching` | ⏸ |
-| 6 | 出作业 3 小题 + 1 开放题，带强制自查项；学生作答后逐题批改（错误类型 / 正确形式 / 一句解释），并产出 `records/lesson-NN.{grading,backfill}.json` | `exercise-generation` → `answer-grading` → `mistake-analysis` | ⏸ |
+| 6 | 出作业 3 小题 + 1 开放题，带强制自查项；学生作答后逐题批改（错误类型 / 正确形式 / 一句解释），并产出 `records/lesson-NN.{grading,backfill}.json`。🔴 **本步同样不调写接口**：判错项只落 JSON 与轮内记录，**错词上送统一在第 8 步**（那时第 N 课行才存在） | `exercise-generation` → `answer-grading` → `mistake-analysis` | ⏸ |
 | 7 | 收难度反馈（太简单 / 刚好 / 太难） | — | ⏸ |
-| 8 | 归档：追加写笔记；写 `LessonRecord` | — | |
+| 8 | 归档：追加写笔记；更新 `wrong-words.md`；写 `LessonRecord`（**必带 `grammarPoint`** —— 取 `plan.grammarPoint.title`，`LessonPlan` 里是 `{code,title,role}` 对象而 `lessons.grammar_point` 要字符串；缺它则课程卡/详情页语法点为空，见「判断规则 · 语法点归档」）。🔴 **写库顺序固定、不可颠倒（仅 `deploymentMode=backend`）**：① `POST /api/lessons` 建本课行拿 `id` → ② `POST /api/mistakes`（本课错词 ＝ 第 4 步复习判错的新错词 ＋ 第 6 步作业/补漏块判错项，`items[].courseNo = N`）→ ③ 逐条 `POST /api/mistakes/:id/review`（第 4 步复习流水，`lessonNo = N` ＋ 确定性 `clientEventId`）。**必须先有 ①**：②③ 要把「课号 N」换成 `lessons.id`，第 N 课行不存在时**不报错、静默留空**（只在 `warnings[]` 留一行字符串）。`deploymentMode=markdown` 无接口可调，整条跳过。🔴 **写库禁令**：全轮**严禁调用 `POST /api/progress/feedback` 与 `POST /api/study-records`**（两者都制造双写 / 绕开唯一写路径）；反馈与学习记录只走 `records/lesson-NN.study-record.json` → `teach:sync` | — | |
 | 9 | 生成当日阅读 1—3 篇；当天已存在则跳过 | — | |
 | 10 | 汇报课号 / 文件 / 下次复习什么 / 当前级别 | — | |
 
@@ -322,6 +322,9 @@ ALTER TABLE lesson_sections
 | 日期标注 | 同一天第一次课在标题标日期，第二次课起不标 |
 | 复习取材 | 出题顺序按**教学排序**（依据 `docs/ai-teacher.md` §11.2 / §11.9，取题细则见 3.2）：① 强制位 `wrongCount ≥3` 每课至少 1 题 → ② 结构位 N-1 / N-3 / N-7 各一题（课号 ≤0 跳过）→ ③ 边际收益位 `streak == 1` 优先 → ④ 兜底位其余按 `wrongCount` 降序、`lastReviewedAt` 最久优先 |
 | 内容量 | 1 个语法点，不许多塞；整课 20—30 分钟 |
+| 写库时机 | **判定在前、写库在后**：第 4 步（复习批改）与第 6 步（作业批改）**只判定、只更新 md，不调写接口**；三条写端点**全部在第 8 步**按 `POST /lessons` → `POST /mistakes` → `POST /mistakes/:id/review` 执行。**前置条件是第 N 课的 `lessons` 行已存在**（`mistakeLesson.js:75-77`），而该行只由第 8 步创建 ⇒ 提前写必静默留空。⚠️ **轮内暂存的代价（已知、接受）**：学生若在第 8 步前离开，本课复习流水与新错词不进库（md 有、库没有）；根治需后端允许 `courseNo` 指向未建行的课并在建行时回填（**建议不做**，见 `ai-teacher.md` §11.11 与 `status-amy.md` A26） |
+| 写路径唯一性 | 反馈与学习记录**只能**经 `records/lesson-NN.study-record.json` → `teach:sync` 落库；**严禁调 `POST /api/progress/feedback` 与 `POST /api/study-records`** —— 前者另写一条无 `dedupe_key` 的 `feedback` 记录、与 `teach:sync` **双写**（2026-10-10 第 13 课实测 `study_records.id=294`；全表 `dedupe_key IS NULL` 应恒为 0 行），后者绕开唯一写路径。**「接口存在 ≠ 教学侧该调用」**（依据 `ai-teacher.md` §7.1 / §9.2） |
+| 语法点归档 | 归档**必带 `grammarPoint`**（纯文本，≤128 字符），取值＝`plan.grammarPoint.title`，落 `lessons.grammar_point`（VARCHAR(128)、可空）。该列是前端课程列表 / 详情页的**可见列**，也是课程搜索域之一（`frontend/` 的 `HomeView` / `LessonView`）——**每一课都有语法点，没有「本课不需要」的情形**。⚠️ 本字段在 `LessonRecord` 里是**可选**（加字段不升版本，为兼容历史行与既有调用方），**必带是教学纪律、不是契约强制** ⇒ 漏带不会有 400，只会静默留 NULL |
 | 补漏块 | 从 `backlog.backfillQueue` 队首取 1 块（3 题，5—8 分钟），**不占新语法点额度** |
 | 强制自查 | 作业必带 `plan.selfChecks`；由高频复发错词（`wrongCount ≥3`）触发生成 |
 | 升降级 | 太简单连续 2 次 → 升 1 级并清零；太难 1 次 → 降 1 级并冻结 3 课；刚好 → 维持 |
@@ -1214,7 +1217,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 | `PUT /lessons/:id` | `daily-lesson` | 回填批改与反馈（Step 2a **已实现**，`05` #29；部分更新，`:id` 是主键不是课号） |
 | `POST /mistakes` | `mistake-analysis` | 发现新错词（Step 2b **已实现**，`05` #30；载荷 = **R3「只喂原始条目」**：错词本 8 列 + 顶层 `lessonNo`，**不传** `before/after` / `patternHits` / `recurrenceWarnings`） |
 | `POST /mistakes/:id/review` | `lesson-review`、`daily-lesson` | 每次判对错 |
-| `POST /progress/feedback` | `daily-lesson` | 收难度反馈 |
+| `POST /progress/feedback` | ⚠️ **教学侧不调用** | 教学侧**禁调**：它另写一条无 `dedupe_key` 的 `feedback` 学习记录，与 `teach:sync` **双写**（2026-10-10 裁定，见 `ai-teacher.md` §7.1）。反馈落库只走 `records/lesson-NN.study-record.json` → `teach:sync` |
 | `POST /study-records` | ⚠️ **当前无 Skill 调用方** | **备用路径**：接口已实现（`05` #18）但 **Skill 不调用它**。**现状唯一路径 = 产出 `records/lesson-NN.study-record.json` → `teach:sync`（后端脚本、DB 直连）**；本行降级为「已实现、未被调用」 |
 | `POST /readings` | `daily-lesson` | 生成当日阅读 |
 | `POST /skill-runs` | 全部 Skill | 每次执行 |
@@ -1262,7 +1265,7 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 
 | Skill | 可判定的验收条件 |
 |---|---|
-| `daily-lesson` | 11 步全部执行；4 个等待点均真实停住；归档只追加；`LessonRecord` 与 md 内容一致 |
+| `daily-lesson` | 10 步全部执行；4 个等待点均真实停住；归档只追加；`LessonRecord` 与 md 内容一致 |
 | `lesson-review` | 3—5 题全部带 `sourceTag`；无一道临时编造；答对答错正确更新连击 |
 | `grammar-teaching` | 只讲 1 个语法点；`familyCoverage` 三项齐全；例句只用已学词汇 |
 | `vocabulary-teaching` | 词量与 `vocabularySize` 一致；无重复词；每词有音标与中文 |
@@ -1419,6 +1422,99 @@ Skill 侧完全按契约工作，数据由 markdown 适配层合成：
 ---
 
 ## 附录 A：契约与文件清单
+
+### 第十八轮（2026-10-10：**写路径唯一性禁令 + §7.4 T-4 阈值收口**，**纯文档批、不动版本号**）
+
+> **背景（两件）**
+> - **(a) 反馈双写案**：负责人 2026-10-10 裁定 —— 难度反馈的落库**只走 `teach:sync`**（消费 `records/lesson-NN.study-record.json`）。`POST /api/progress/feedback` 会**自己另写一条 `study_records(record_type='feedback')` 且 `dedupe_key` 为空**，与 `teach:sync` 的 `lesson-<NN>:feedback` 形成**双写**（第 13 课实测多出 `study_records.id=294`；全表 `dedupe_key IS NULL` 应恒为 0 行）。权威侧 `ai-teacher.md` §7.1（执行口径）与 §9.2（两接口 ★ 已撤）**已就位**；**运行侧 `SKILL.md` 缺显式禁令**，镜像 `docs/skills.md` 的写接口表**漏改**（仍把 `POST /progress/feedback` 归给 `daily-lesson`）。
+> - **(b) §7.4 T-4 阈值不自洽**：触发表写 `D >= 7`，而档位表 L1 写 `T-4（D=3—6）` —— 三份文件（`ai-teacher.md` / `amy-teaching-plan.md` / `SKILL.md`）同款不自洽。复核 `amy-teaching-plan.md` §2.5 原始设计（`3<=D<=6` →「降 8 词 + 只讲肯定/否定 + 7 题」= L1；`D>=7` →「0 新词 + 综合复习课 + 8—10 题」= L2）**逐条对上档位表** ⇒ 判为**触发表漏写 `D=3—6` 一档**。负责人裁定：**触发表 T-4 条件 `D >= 7` → `D >= 3`**（档位表不变）。副作用：`D=3—6` 起开始轻度降载（相对此前「按触发表执行」的临时口径是行为变化）。
+
+| 文件 | 动作 | 改动 |
+|---|---|---|
+| `skills/english-daily/SKILL.md` 第 8 步 | 加 | 新增 **🔴 写库禁令（硬规则）**：全轮**严禁调用 `POST /api/progress/feedback` 与 `POST /api/study-records`**；含双写机理（`dedupe_key` 为空、第 13 课实测 `study_records.id=294`、「接口存在 ≠ 教学侧该调用」）与正确做法（只走 `study-record.json` → `teach:sync`） |
+| `SKILL.md` §九 自查清单 | 加 | 新条 **「未调用禁用接口」** |
+| `SKILL.md` 降载判定 · 触发行 | 改 | T-4 条件 `D >= 7` → **`D >= 3`**（注明 `D`=3—6 落 L1、`D`≥7 落 L2）—— 与档位表 L1/L2 自洽 |
+| `docs/ai-teacher.md` §7.4 触发表 | 改 | **权威源**：T-4 条件 `D >= 7` → **`D >= 3`**（同行注明落档区间） |
+| `docs/plans/amy-teaching-plan.md` §2.7 | 加注 | **过程稿不静默改写**：T-4 行原值保留，表下加 📌 注（权威以 §7.4 为准、已订正为 `D>=3`、与 §2.5 一致） |
+| `docs/plans/integration-plan.md` §D-18 | 加注 | 计划稿不静默改写：`T-4 断更 `D≥7`` 后就地加注「已订正为 `D≥3`，权威见 §7.4，2026-10-10」 |
+| `docs/plans/skill-plan.md`「降载判据给全」行 | 加注 | 同上（`:731`：`T-4 断更 `D>=7`` → 加注「已订正为 `D>=3`」） |
+| `docs/skills.md` §4.4 写接口表 | 改 | `POST /progress/feedback` 行由「`daily-lesson` / 收难度反馈」→ **「教学侧不调用」**（与 `:1220` 的 `/study-records` 行同一处理） |
+| `docs/skills.md` §3.1 执行流程 #8 | 改 | 行末追加 **🔴 写库禁令** |
+| `docs/skills.md` §3.1 判断规则 | 加 | 新增 **「写路径唯一性」** 行 |
+
+**验收【已实测】**：`diff -r skills/english-daily .workbuddy/skills/english-daily` 零差异；`SKILL.md` 内「写库禁令」「未调用禁用接口」「T-4 断更 `D >= 3`」各 1 处；`docs/skills.md` 内「写路径唯一性」1 处、`POST /api/progress/feedback` 的 `daily-lesson` 归属已清 0；`check_schemas.py` 未受影响（本轮未动 schema）。**全库副本**：`T-4` 共 8 处落点逐条核 —— 触发下限 5 处（`ai-teacher.md:376`、`SKILL.md:124` **改值**；`amy-teaching-plan.md:223`、`integration-plan.md:147`、`skill-plan.md:731` **加注**）；档位表 L2 3 处（`ai-teacher.md:386`、`SKILL.md:132`、`amy-teaching-plan.md:235`）本就正确、不动。（首轮 `grep` 命中 `integration-plan.md` / `skill-plan.md` 却未逐条核 ⇒ 本轮补齐。）
+
+### 第十七轮（2026-10-03：**A26 顺序缺口闭合** —— 第 4 步「写库时机」与第 8 步「写库顺序」，**纯文档批、不动版本号**）
+
+> **背景（缺口 A26）**：第 10 课第 4 步实测踩到**新的顺序缺口** —— `lessonNo = 10` 在两条写路径上**全部解析失败**：`POST /api/mistakes`（3 条复习新错词）落 `first/last_lesson_id` 空，`POST /api/mistakes/:id/review`（3 条复习流水）落 `lesson_id` 空。Amy 记为 `status-amy.md` **A26**，移交 skill-designer 改「写库时机」；其裁定建议为方案 **A**（修 6 行 + 改流程），**「延后写」为正解**。
+> **我方复核（`mysql` 直查 + 读源码）—— 全部属实**
+> | 断言 | 复核结果 |
+> |---|---|
+> | `mistakes` 198/199/200（`shcool` / `Do you see him yesterday?` / `visitted`）`first/last` = NULL | ✅ 三条准 |
+> | `mistake_events` 210/211/212 `lesson_id` = NULL | ✅ 三条准（全库 `lesson_id IS NULL` 计数 = **3**，就这三条） |
+> | `mistakeLesson.js:76-77`「课号在库内不存在 ⇒ 返回 `null`，调用方负责告警」 | ✅ 源码原话一致（实际在 `:75-77`） |
+> | `mistakeLesson.js:57` `firstLessonNo == null → return false` | ✅ `:56-58` 一致 |
+> | 根因＝`lessons` 行由第 8 步创建、复习写库在第 4 步 | ✅ 复核时 **`lessons` 最大课号仍为 9**（第 10 课尚未归档）⇒ 第 4 步时第 10 课行确定不存在 |
+>
+> **加强证据（我方另查出）**：① 三条流水的 `client_event_id` 是 `rev-10-6` / `rev-10-4` / `rev-10-193` ⇒ **v2.8.1 刚要求的 `lessonNo=N` 与确定性 `clientEventId` 都已照做**，仍然挂空 ⇒ **「传对参数」救不了「顺序错」**，这是本次修复真正的增量；② `mistakes` **id 8/9 也是 `first/last` NULL** —— 那两条正是 D3 裁定的「**诊断**」来源口径 ⇒ **反证 NULL 会被当成「诊断」**，A26 方案 C 所说「永久丢失课号」成立；③ 全库 `first/last` 为空的错词＝ **5 条**（8/9 诊断 + 198/199/200 本次），范围清晰。
+
+| 文件 | 动作 | 说明 |
+|---|---|---|
+| `skills/english-daily/SKILL.md` 第 4 步 | 改写 | 删「**新课的课前复习由写接口直接落库**」（正是这句诱导在第 4 步就写），改为 **🔴 写库时机（顺序硬约束）：本步只做「判定 + 更新 `wrong-words.md`」，不调任何写接口**；判定结果留在轮内、**统一挪到第 8 步**。并写明：**为什么必须推迟**（两条端点的课号解析以「第 N 课 `lessons` 行存在」为前置）／**第 10 课实测**／**接口不报错、只在 `warnings[]` 留一行**／**后果＝`first` 为 NULL 被当「诊断」、后续命中也不补填、课号永久丢失**／**不得提前建 `lessons` 行绕过**（推高「课号 = 最大 + 1」＋ 中途离开留孤儿行）。**原「调用面」两条（必带 `lessonNo=N`、必带确定性 `clientEventId`）原样保留**，仅把执行时点显式锚到「第 8 步执行时」 |
+| `SKILL.md` 第 6 步 | 加 | 新条「🔴 本步同样不调写接口」——作业/补漏块判错项只落 JSON 与轮内记录，**错词上送统一在第 8 步**（补上缺口的另一半：不只 `review`，`POST /api/mistakes` 同样受限） |
+| `SKILL.md` 第 8 步 | 加 | 新增 **🔴 写库顺序（三步不可颠倒）**：① `POST /api/lessons` 建行拿 `id` → ② `POST /api/mistakes`（第 4 步复习判错的新错词 ＋ 第 6 步作业/补漏块判错项，`items[].courseNo = N`）→ ③ 逐条 `POST /api/mistakes/:id/review`（第 4 步流水，`lessonNo = N` ＋ 确定性 `clientEventId`）；含「必须先有 ①」「顺序错＝数据**永久**错」「⚠️ 轮内暂存的代价（已知、接受）」「`markdown` 模式整条跳过」 |
+| `SKILL.md` 第七章「更新时机」 | 加注 | 开篇点明**本节时机说的是 md**；**对应数据库写入一律在第 8 步**、顺序固定，指向第 4/8 步 |
+| `SKILL.md` 第七章 #6 | 加 | 「两条端点都在**第 8 步**执行（`POST /lessons` 之后）」 |
+| `SKILL.md` §九 质量自查清单 | 加 | 新条 **「写库顺序正确」**：三端点顺序 ＋ 课号显式带 `N` ＋ **第 4/6 步未提前调用任何写接口** |
+| `docs/skills.md` §3.1 执行流程 #4 / #6 / #8 | 改 | 三行同步镜像（含源码行号、第 10 课实测 id、`warnings` 静默、永久丢失、「不得提前建行」） |
+| `docs/skills.md` §3.1 判断规则 | 加 | 新增 **「写库时机」** 行：判定在前、写库在后；前置条件；⚠️ 轮内暂存代价；根治建议（**建议不做**） |
+| `docs/skills.md` **3 处** | 改 | 连带修正 **「11 步」→「10 步」**（`:32` / `:263` 功能 / `:1267` 验收条件）—— 附录 A **第七轮**早已记「执行流程 11 步 → 10 步」为**已完成**，但这 3 处**当时漏改**（又一次「关键词查全 ≠ 逐节查全」）。历史变更记录 `:1717` 的「11 步 → 10 步」**保留不改** |
+| 运行副本 | 同步 | 受控源 → `.workbuddy/skills/english-daily/`（**单向**） |
+
+**版本**：**不升版本**（无契约字段变更、无能力边界变更；`SKILL.md` 改动并入**尚未提交**的 `2.8.2`）。
+
+**验收【已实测】**：`diff -r skills/english-daily .workbuddy/skills/english-daily` **零差异**、两侧 `2.8.2`；`SKILL.md` 代码围栏 **4 个**（成对）；残留扫描 `grep -n "11 步" docs/skills.md` → **仅剩历史记录 1 处**（应保留）；`check_schemas.py` 未受影响（本轮未动 schema）。
+
+**未做（须授权 / 须前置）**
+- **6 行定向 SQL 修复**（`mistakes` 198/199/200 的 `first/last` + `mistake_events` 210/211/212 的 `lesson_id` → 全部指向第 10 课 id）：**① 改真实数据须显式授权；② 现在想修也修不了 —— 第 10 课尚未归档，`lessons` 最大课号仍为 9，`lesson10.id` 还不存在。** 故正确顺序是：**先按新流程跑完第 10 课第 8 步**（`POST /api/lessons` 拿到 id），**再**做 6 行定向 UPDATE。归属 Amy / be-dev，我方不执行。
+- **be-dev 侧（Amy A26 已另行移交）**：① 把「课号无法解析」从 `warnings[]` 一行字符串升级为更强信号（本次就是这样漏看的）；② 裁定是否允许 `courseNo` 指向尚未建行的课（若允许需在建行时回填，**属更大改动，建议不做**）；③ 顺带：`status-amy.md` 记的另一项 `error_count` 回写口径（`:459`，**`backend/**`**）亦非我域。
+
+### 第十六轮（2026-10-02/03：**D2 契约缺口闭合** —— `LessonRecord.grammarPoint`，**加字段不升版本**）
+
+> **背景（缺陷 D2：`lessons.grammar_point` 第 8 课起为空）**：负责人给出证据链并指派修法归属 **skill-designer + Amy（be-dev 零改动）**。**我方逐环独立复核，全部属实**，并另查出 3 项加强证据与 1 项**会踩自己规则的改法**（见下）。
+> **根因**：**契约缺口**，不是「Amy 没写」。`lesson-record.schema.json` 的 `properties` 里**根本没有 `grammarPoint`**（`required` 自然也没有），而 `lesson-plan.schema.json:7` 把它列为 `required` ⇒ **备课侧有值、归档侧没这个字段**，`deploymentMode=backend` 的归档路径据此一直没带它。第 1—7 课有值，是因为那批走 **md 导入**路径（`export_md_to_json.py:599` 本来就产出 `grammarPoint`）；**第 8 课起切换点改走 API** → 缺。
+
+**证据链复核【已实测】**（`mysql` 直查 + 读源码）
+
+| 环 | 结论 |
+|---|---|
+| `lesson-record.schema.json` | `properties` **无 `grammarPoint`**（不只是 required 缺）—— 全仓 `grep grammarPoint docs/schemas/` 仅命中 `lesson-plan`（对象形态）与 `agent-snapshot:52`（`string\|null`） |
+| `lesson-plan.schema.json:7` | `required` 含 `grammarPoint` ⇒ 备课侧必有值 |
+| `lesson.service.js:254-259` | 自陈「**grammarPoint 是契约之外的新增请求**（LessonRecord 未定义该字段）… 契约侧是否补写由 Skill 设计师定（**已登记为待确认项**）」—— be-dev 已在 `05` 与代码里留了钩子 |
+| 写路径 | `lesson.service.js:498`（建）与 `:541`（改）均已接收；`lesson.repository.js:169/191` 列白名单与 INSERT 均含 `grammar_point` ⇒ **后端零改动成立** |
+| 库内现状 | `lessons`：1—7 有值，**8（id 79）/ 9（id 92）为 NULL** |
+| 决策依据 | 前端 **4 处**消费：`HomeView.vue:84`（**搜索域**）/`:211`（左目录）/`:226`（正文）、`LessonView.vue:94` ⇒ 第 8/9 课课程卡语法点**整片空白** |
+
+**加强证据（我方另查出）**：① `agent-snapshot.schema.json:52` **早已**有 `grammarPoint: string\|null` ⇒ **契约内部本就不自洽**（快照有、归档没有）；② `frontend/src/api.js:119` 注释写「优先 `/lessons/all`（**含 grammarPoint**）」⇒ 前端**按「有该字段」设计**；③ `records/lesson-08.record.json` / `lesson-09.record.json` **5 个归档产物 `grammarPoint` 命中数全为 0** ⇒ 漏在产物层，与契合同源。
+
+**⚠️ 避坑：本字段不能进 `required`**
+`docs/schemas/README.md` §三 规则 **4**（改必填项＝破坏性变更、须升 `v2`）与规则 **5**（**`required` 只允许减少、不允许新增**）—— 把 `grammarPoint` 加进 `required` 会**违反本目录自己的演进规则**。故取**可选字段**（规则 2「向后兼容的加字段不升版本」），与负责人「加字段不升版本」一致。**代价**：漏带**不会有 400、只会静默留 NULL** ⇒ **防复发必须靠 ② 的产出清单，不能靠契约强制**（已在两层写明）。
+
+| 文件 | 动作 | 说明 |
+|---|---|---|
+| `docs/schemas/lesson-record.schema.json` | 加字段 | `properties` 增 `grammarPoint`：`type: ["string","null"]`（对应 `lessons.grammar_point VARCHAR(128)` **可空**，循 `studyMinutes` 的 NULL-able 写法）、`maxLength: 128`；`description` 写明取值＝`LessonPlan.grammarPoint.title`、**plan 里是对象而本列要字符串**、前端可见列、以及「教学纪律必带 ≠ 契约强制」 |
+| `skills/english-daily/SKILL.md` 第 8 步 | 改 | 字段清单补 `grammarPoint`；新增两条子项：**「必带」**（取 `plan.grammarPoint.title`；**别把 `{code,title,role}` 对象整个塞进去**，后端非字符串直接 400）＋**「为什么必须带」**（前端可见列、第 8/9 课实证、**每一课都有语法点**） |
+| `SKILL.md` §九 质量自查清单 | 改 | `LessonRecord` 那条补「**且已带 `grammarPoint`**」—— 契约不强制，**自查清单是唯一拦截点** |
+| `docs/skills.md` §3.1 执行流程 #8 | 改 | 归档动作写明**必带 `grammarPoint`** 及取值与后果 |
+| `docs/skills.md` §3.1 判断规则 | 加 | 新增 **「语法点归档」** 一行：口径 / 取值 / 可见性 / 并**显式点明「可选是契约、必带是纪律」** |
+
+**版本**：**不升版本**（加字段不升版本）。改动的 `SKILL.md` 并入**尚未提交**的 `2.8.2`。
+
+**验收【已实测】**：`json.load` 通过、`required` 仍为 `["lessonNo","levelCode","summary","sections"]`（**未被改**）；`check_schemas.py` → `files=12 refs=85 objects=71 **nodes=536**`（旧 535，+1＝新属性节点）+ `SCHEMA_OK`、`exit=0`；`diff -r skills/english-daily .workbuddy/skills/english-daily` **零差异**、两侧 `2.8.2`。
+
+**待办（未做，见下条与 §3.1#8）**
+- **(子) 历史补值 —— ✅ 裁定已出（2026-10-03），交 Amy 执行**：第 8 课（id **79**）/ 第 9 课（id **92**）走 `PUT /api/lessons/:id`。**口径＝`progress.md` 解析值**（`export_md_to_json.py:471-479` 取已学完清单行**括号前正文**；第 7 课实证逐字相同）⇒ 应补 **`常用不规则过去式`** / **`过去时的否定与疑问 did`**。**不采用**「不规则动词过去式 go / eat / see / have」一类手写措辞——那会让 `db:export` **产出与库内不同的值**。可执行载荷 / 校验 / 回滚（`{"grammarPoint": null}`）/ 端口纪律已登记进 **`docs/Work Alignment/status-amy.md`**（「D2 · 第 8/9 课 `grammar_point` 补值」块）。
+- **(丑) `05-api-reference.md:765` 将变陈旧**：该处现写「`LessonRecord` **没有定义该字段**…可选接收…**已登记为待确认项**」—— 本轮已定，**归 be-dev 改**（`backend/**` 非我域，未擅动；另 `lesson.service.js:254-256` 代码注释同）。
 
 ### 第十五轮（2026-10-02：Vue 迁移善后 · `SKILL.md` **逐节**通读审计，**纯文档批、不动版本号**）
 

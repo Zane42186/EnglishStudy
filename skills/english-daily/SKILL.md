@@ -63,8 +63,13 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 1. 读取状态：只读 `digest.md`（含当前级别、已上课数、最近三课摘要、全部课号一览、错词未过关项、阅读清单）和 `progress.md`（级别、连击计数、待补清单）。**不要读 notes 全文**，只在需要核对某课原文时，按 `digest.md` 里给出的文件名单独读那一个文件。课号以 notes 中的实际最大课号为准，两者不一致时在回复里说明已按笔记修正。
 2. 定课号：本课号 N = 实际最大课号 + 1。目标文件为 `notes\day-{起始:02d}-{结束:02d}.md`，其中起始 = ((N-1)//7)*7+1，结束 = 起始 + 6。
 3. 出复习题（等待作答）：从四处取 3—5 题——第 N-1 课一题、第 N-3 课一题、第 N-7 课一题，其余取错词本未过关项（`digest.md` 已列好，可直接取用）。课号小于等于 0 的项跳过。题目只出现在对话里，不写进笔记。
-4. 批改复习：逐题判定。答错项在 `wrong-words.md` 中 `累计犯错` 累加、`连续答对` 清零；答对则 `连续答对` +1，达到 2 次标记「已过关」，不再进入每日复习队列。判重与列口径见第七章。**新课的课前复习由写接口直接落库，不产出 `records/lesson-NN.review.json`**——该文件只用于旧课回填。
-   - **调用面（必须写清，否则数据会挂错课）**：逐条调 `POST /api/mistakes/:id/review`；`id` 取自 `GET /api/mistakes/pending`（`digest.md` 的「待复习」段**只有课号与文本、没有 id**，不能凭它拼端点）。body = `{ result, lessonNo: N, clientEventId }`：
+4. 批改复习：逐题判定。答错项在 `wrong-words.md` 中 `累计犯错` 累加、`连续答对` 清零；答对则 `连续答对` +1，达到 2 次标记「已过关」，不再进入每日复习队列。判重与列口径见第七章。**课前复习不产出 `records/lesson-NN.review.json`**——该文件只用于旧课回填。
+   - 🔴 **写库时机（顺序硬约束）：本步只做「判定 + 更新 `wrong-words.md`」，不调任何写接口。** 每题的判定结果（对错、错词 `id`、是否新错词）先留在本轮对话/内存里，**统一挪到第 8 步写库**（顺序见第 8 步「写库顺序」）。
+     - **为什么必须推迟**：`POST /api/mistakes` 与 `POST /api/mistakes/:id/review` 解析课号**都以「第 N 课的 `lessons` 行已存在」为前置条件**——`mistakeLesson.js:75-77` 把「课号 N」换成 `lessons.id`，`idByNo.get(N)` 落空即返回 `null`，源码注释原话「本次课号不可知 / **课号在库内不存在** —— 调用方负责告警，此处不猜」。而该行由**第 8 步** `POST /api/lessons` 创建 ⇒ **第 4 步时这个前置结构性无法满足**。
+     - **第 10 课实测（已发生）**：3 条复习新错词 `first/last_lesson_id` 全空（`mistakes` id 198/199/200）、3 条复习流水 `lesson_id` 全空（`mistake_events` id 210/211/212）。⚠️ **接口不报错**，只在响应的 `warnings[]` 留一行字符串 —— 极易漏看。⚠️ 且这次 `lessonNo: 10` 与确定性 `clientEventId`（`rev-10-6` 等）**都已按要求传对**，仍然挂空 ⇒ **传对参数救不了顺序错**。
+     - **后果不是「少个字段」**：`first_lesson_id` 为 NULL 的行，按 `docs/ai-teacher.md` §11.11 会被当作「**诊断**」来源，**后续命中也不再补填**（`mistakeLesson.js:57`：`firstLessonNo == null → return false`）⇒ 该错词的课号**永久丢失**。
+     - **不得用「提前建 `lessons` 行」绕过**：`POST /api/lessons` 要求 `sections` 至少 1 条、且建行后立刻进入课程目录 ⇒ 会把「课号 = 实际最大课号 + 1」（第 2 步）**推高一格**；学生中途离开时还会留下一条永远没上过的孤儿行。
+   - **调用面（在第 8 步执行时按此写清，否则数据会挂错课）**：逐条调 `POST /api/mistakes/:id/review`；`id` 取自 `GET /api/mistakes/pending`（`digest.md` 的「待复习」段**只有课号与文本、没有 id**，不能凭它拼端点）。body = `{ result, lessonNo: N, clientEventId }`：
      - **`lessonNo` 必须显式传 `N`**（第 2 步已定课号）。服务端未传时回退 `progress.current_lesson_no`（A20）——那是给**真实前端**兜底用的（Vue 版错词本页 `/wrong` 只知道「在复习」、不知道课号）；**Skill 明知 N，不得依赖回退**：上课期间 `teach:sync` 还没跑（它在第 8 步归档之后），`progress.current_lesson_no` **仍是 N-1**，回退会把复习流水挂到**上一课**（第 9 课实测已发生：`mistake_events.lesson_id` 写成上一课的 id）。
      - **`clientEventId` 必须传**，取**确定性可重放**的值（如 `rev-<课号>-<错词id>`）：同 id 重复提交返回首次结果、**不再累加**；不传则重试会多计 `streak` / `wrong_count`，污染过关判定。
 5. 讲新课（等待作答）：**先按下方「降载判定」算出本课档位**（定生词数、是否讲新点、复习题量），再按 `references/level-map.md` 取当前级别的下一个知识点。固定内容量——1 个语法点 + 生词数量按当前级别与档位取：Level 1 常规 5—8 个；Level 2 常规 10 个（区间 8—12），触发降载时 6—8 个（**触发条件与档位以 `docs/ai-teacher.md` §7.4 为准**）（含音标和中文）+ 3—5 个例句 + 3 道小题 + 1 道开放题（造句或写 5 句左右的小段）。总量控制在 20—30 分钟，不允许一课塞进两个语法点。
@@ -74,14 +79,28 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
    - **作业与补漏块必须分成两个文件**：两套题号各自从 1 开始，错误计数口径也不同（补漏块错误单列 `summary.backfillErrorCount`，不计入作业 `errorCount`）。
    - 字段与写法以 `records/README.md` 为准（`verdict` → `is_correct` 的映射、`mistakeCandidates[]` 的形态见该文件第二节）。
    - **不得只写 `### 批改` 散文而不产出 JSON**：后端禁止解析散文，而「两处错误。用词：…；语法：…」这类写法无法可靠映射到题号与错误类型，文本匹配必然产出假数据。
+   - 🔴 **本步同样不调写接口**：作业与补漏块的判错项只落进 `records/lesson-NN.{grading,backfill}.json` 与轮内记录，**错词上送统一在第 8 步**（那时第 N 课的 `lessons` 行才存在）—— 理由同第 4 步「写库时机」。
 7. 收反馈（等待作答）：问「这课太简单 / 刚好 / 太难？」，等用户回答后更新 `progress.md` 的级别与反馈记录。
 8. 归档（**四件产出，缺一不可**）：
    - **追加写 md**：把第 5—7 步的内容**追加**到目标 `notes/` 文件末尾，只追加，不重写、不删除已有内容。
    - **更新 `wrong-words.md`**：按第七章口径（新错词追加整行，含人工判定的 `类型` / `累计犯错`）。
-   - **产出 `LessonRecord`（机器契约）**：按 `docs/schemas/lesson-record.schema.json` 组装本课归档对象（`lessonNo` / `levelCode` / `summary` / `sections` / `vocabulary` / `exercises` / `feedback` / `gradeSummary` / `nextRecommendation`）。**对象由本步已在手的教学内容直接组装 —— 不解析 md、不拼 HTML**。
+   - **产出 `LessonRecord`（机器契约）**：按 `docs/schemas/lesson-record.schema.json` 组装本课归档对象（`lessonNo` / `levelCode` / `summary` / `grammarPoint` / `sections` / `vocabulary` / `exercises` / `feedback` / `gradeSummary` / `nextRecommendation`）。**对象由本步已在手的教学内容直接组装 —— 不解析 md、不拼 HTML**。
+     - **`grammarPoint` 必带**：取本课 `LessonPlan.grammarPoint.title`（纯文本，≤128 字符），落 `lessons.grammar_point`。⚠️ **`LessonPlan` 里该字段是 `{code, title, role}` 对象，本列要的是字符串 —— 归档时取 `title`，不要把对象整个塞进去**（后端对此字段只收字符串，非字符串直接 400）。
+     - **为什么必须带**：该列是**前端课程列表、课程详情页与课程搜索的可见列**（`frontend/` 的 `HomeView.vue` / `LessonView.vue`）。契约原先**没有定义这个字段**，于是 `deploymentMode=backend` 的归档路径一直没带它 —— 第 8、9 课的 `lessons.grammar_point` 因此为空、课程卡语法点整片空白（第 1—7 课有值，是因为那批走的是 md 导入路径）。**每一课都有语法点，没有「本课不需要」的情形**。
      - **`exercises[].selfCheck` 必带**：给 **1—2 道题**填**规则**（不是答案），如「句尾标点」「可数名词复数」；一题最多 1 条、≤128 字符。这是强制自查项的**唯一载体**（依据 `docs/ai-teacher.md` §11.6 终稿）；缺它则库内 `lesson_exercises.self_check` 恒空（历史 41 行即此症状）。
      - `deploymentMode = backend`（**当前实况**，`GET /api/agent/snapshot` 实测）→ 经 `POST /lessons` 提交；批改与反馈回填走 `PUT /lessons/:id`。
      - `deploymentMode = markdown`（**历史阶段**，仅在快照实测为该值时才走）→ 落盘 `records/lesson-NN.record.json`，待后端就绪后提交。
+   - 🔴 **写库顺序（`deploymentMode = backend` 时；三步不可颠倒）**：
+     1. **`POST /api/lessons` 建本课行**，拿到返回的 `id`（＝第 N 课的 `lessons.id`）。
+     2. **`POST /api/mistakes`**：本课错词——**第 4 步复习判错的新错词** ＋ **第 6 步作业/补漏块判错项**；`items[].courseNo = N`，`items` 1—200 条。
+     3. **逐条 `POST /api/mistakes/:id/review`**：**第 4 步的复习流水**；`lessonNo = N` ＋ 确定性 `clientEventId`。
+     - **必须先有 1**：2 与 3 都要把「课号 N」换成 `lessons.id`；**第 N 课行不存在时接口不报错、静默留空**（只在 `warnings[]` 留一行字符串，极易漏看）。**第 10 课即此症状**：复习流水 `lesson_id` 与复习新错词 `first/last_lesson_id` 全为 NULL。
+     - **顺序错＝数据永久错**：把 2/3 提到第 4 步或第 6 步（第 N 课行尚未创建）就是上述静默留空；而 `first_lesson_id` 为 NULL 的行按 `docs/ai-teacher.md` §11.11 会被当成「**诊断**」来源、**后续命中也不补填** ⇒ 该错词的课号再也回不来。
+     - ⚠️ **轮内暂存的代价（已知、接受）**：判定结果在第 4/6 步只存在于本轮对话与 `wrong-words.md`，**学生若在第 8 步前离开**，这一课的复习流水与新错词不进库（md 里有、库里没有）。这是「不加后端改动」下唯一可行的顺序；若要根治需后端允许 `courseNo` 指向尚未建行的课并在建行时回填（**建议不做**，见 `docs/ai-teacher.md` §11.11 与 Amy `status-amy.md` A26）。
+     - `deploymentMode = markdown`（历史阶段）无接口可调，本子项整条跳过。
+   - 🔴 **写库禁令（硬规则）**：**全轮严禁调用 `POST /api/progress/feedback` 与 `POST /api/study-records`**。
+     - **为什么**：这两个接口在教学链路上**冗余**且造成**双写**。`POST /api/progress/feedback` 会**自己另写一条 `study_records(record_type='feedback')`、且 `dedupe_key` 为空**，与 `teach:sync` 消费 `study-record.json` 写下的 `lesson-<NN>:feedback` **重复**（2026-10-10 第 13 课实测多出 `study_records.id=294`；全表 `dedupe_key IS NULL` 应**恒为 0 行**）。`POST /api/study-records` 同理绕开唯一写路径。
+     - **正确做法**：难度反馈与学习记录**只**经本步第 4 件产出 `records/lesson-NN.study-record.json`、由 `teach:sync` 落库 —— 它已实现升降级与 `upgrade_frozen_until = 课号 + 3`。**「接口存在 ≠ 教学侧该调用」**（依据 `docs/ai-teacher.md` §7.1 执行口径与 §9.2）。
    - **md 与 `LessonRecord` 的关系**：md 是 `LessonRecord` 的**人类可读落地形式**（两者内容须一致）；**真相源是 `LessonRecord`**（口径见 `docs/skills.md` §7.2）。**md 不再作为任何导入管线的输入**。
    - **产出 `records/lesson-NN.study-record.json`**：本课的 **`attend` / `grade` / `feedback` 三条学习记录**（`study_records.payload` 的落库依据；`feedback` 还决定 `progress.lastClassDate`）。**它是 `progress` 7 列与 `study_records` 的唯一写作路径** —— 由 `teach:sync` 消费后写库，**缺它则这两处全不更新**（第 1—2 步读的 `progress.md` 也不会刷新）。字段与写法以 `records/README.md` 第一节为准。
 9. 生成当日阅读：看 `read\YYYY-MM-DD-read.md`（当天日期）是否存在——
@@ -102,7 +121,7 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 | `W` | 错词本未过关项的 `wrongCount`（`digest.md` 已列，可直接取） |
 | 拟排生词数 | 本课计划排入的生词个数 |
 
-**触发**（任一命中即降载，取最高档）：T-1 单课超阈 `E >= 5`；T-2 连续超阈（最近 2 课均 `E >= 5`）；T-3 反馈过难 `F = too_hard`；T-4 断更 `D >= 7`；T-5 复发阻断（存在 `W >= 4` 且 `error_type ∈ {grammar, word_choice}` 的未过关错词）；T-6 超载上限（拟排生词 > 12）。
+**触发**（任一命中即降载，取最高档）：T-1 单课超阈 `E >= 5`；T-2 连续超阈（最近 2 课均 `E >= 5`）；T-3 反馈过难 `F = too_hard`；T-4 断更 `D >= 3`（`D`=3—6 落 L1、`D`≥7 落 L2）；T-5 复发阻断（存在 `W >= 4` 且 `error_type ∈ {grammar, word_choice}` 的未过关错词）；T-6 超载上限（拟排生词 > 12）。
 
 **档位**（生词数 / 练习量 / 是否讲新点 / 阅读篇数**以 `docs/ai-teacher.md` §7.4 档位表为准**，下表仅摘要）：
 
@@ -164,7 +183,7 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 3. 判重键：剥全角括号批注「（…）」→ 折叠空白 → 转小写后的 wrongText（实现＝backend/src/utils/mistakeKey.js 的 normKey）；命中只累加，不新建条目。标点参与判重——「Do you like coffee.」与「Do you like coffee?」是两条，不得合并。
 4. errorType 由 Amy 人工判定（三步判定见 §11.5）；判不出归 other 并标「待人工复核」。
 5. 批改完成必须同时产出 records/lesson-NN.grading.json（作业）与 lesson-NN.backfill.json（补漏块）。
-6. 上送错词时「本次课号」＝本次上课的课号。两条写端点**都必须显式带**：`POST /mistakes` 的 items[].courseNo（省略则由顶层 lessonNo 兜底）、`POST /mistakes/:id/review` 的 lessonNo（见第 4 步）。绝不能填错词本「课号」列的值——那是首次课号、已冻结，填了会让 last_lesson_id 永远不前进；review 不传则回退 progress.current_lesson_no、上课期间该值仍是 N-1，会把复习流水与 last 挂到上一课。
+6. 上送错词时「本次课号」＝本次上课的课号。两条写端点**都必须显式带**：`POST /mistakes` 的 items[].courseNo（省略则由顶层 lessonNo 兜底）、`POST /mistakes/:id/review` 的 lessonNo（见第 4 步）。绝不能填错词本「课号」列的值——那是首次课号、已冻结，填了会让 last_lesson_id 永远不前进；review 不传则回退 progress.current_lesson_no、上课期间该值仍是 N-1，会把复习流水与 last 挂到上一课。**两条端点都在第 8 步执行**（`POST /lessons` 之后），顺序见第 8 步「写库顺序」。
 说明：错词本「错误点」列只写错误形式本身，批注写进「错因」列。
 ```
 
@@ -207,6 +226,8 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 
 ### 更新时机
 
+> ⚠️ **本节的时机说的是 `wrong-words.md`（md）**；**对应的数据库写入一律在第 8 步**，且顺序固定为 `POST /lessons` → `POST /mistakes` → `POST /mistakes/:id/review`（第 N 课的 `lessons` 行必须先存在，否则静默留空）—— 见第 4 步「写库时机」与第 8 步「写库顺序」。
+
 - **复习批改（第 4 步）**：答错 → 对应行 `累计犯错 +1`、`连续答对 = 0`；答对 → `连续答对 +1`，达 2 标记「已过关」退出每日复习队列。
 - **作业批改（第 6 步）**：新错词按上表**追加整行**（含人工判定的 `类型`）；判重命中已有行则只累加，不新建。
 - 只追加，不重写、不批量改写历史行。
@@ -234,8 +255,10 @@ notes 目录为空（首次使用）时，先运行 init_workspace.py 再上课�
 - [ ] 复习题取自 N-1 / N-3 / N-7 或错词本，不是临时编的新内容
 - [ ] 作业已批改，错误类型、正确句、解释三项齐全
 - [ ] 已产出 `records/lesson-NN.grading.json`（本课有补漏块时另有 `lesson-NN.backfill.json`）
-- [ ] 已产出 `LessonRecord`（按 `docs/schemas/lesson-record.schema.json`）并已成功提交（`deploymentMode = backend` 走 `POST /lessons`；仅当快照实测为 `markdown` 时才落盘 `records/lesson-NN.record.json`）
+- [ ] 已产出 `LessonRecord`（按 `docs/schemas/lesson-record.schema.json`）并已成功提交（`deploymentMode = backend` 走 `POST /lessons`；仅当快照实测为 `markdown` 时才落盘 `records/lesson-NN.record.json`），且**已带 `grammarPoint`**（取 `plan.grammarPoint.title`——前端课程卡/详情页的可见列，缺则显示为空）
 - [ ] 已产出 `records/lesson-NN.study-record.json`（本课 `attend` / `grade` / `feedback` 三条学习记录）——**第 8 步「四件产出」的第 4 件**，缺它则 `progress` 7 列与 `study_records` 全不更新
+- [ ] **写库顺序正确**：`POST /lessons`（建本课行）→ `POST /mistakes`（本课错词，含第 4 步复习判错项）→ `POST /mistakes/:id/review`（复习流水）；三者课号均显式带 `N`；**第 4/6 步未提前调用任何写接口**（提前＝静默留空、错词课号永久丢失）
+- [ ] **未调用禁用接口**：全轮未调 `POST /api/progress/feedback` 与 `POST /api/study-records`（两者都会制造双写 / 绕开唯一写路径）；反馈与学习记录只走 `records/lesson-NN.study-record.json` → `teach:sync`
 - [ ] `LessonRecord.exercises[]` 里已给 **1—2 道题**填 `selfCheck`（**规则**、≤128 字符、一题≤1 条）
 - [ ] `wrong-words.md` 的 `错误点` 只写错误形式、无括号批注，`类型` / `累计犯错` 已填且为人工判定值
 - [ ] 笔记小节齐全、课号连续、只在文件末尾追加
