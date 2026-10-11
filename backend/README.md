@@ -3,6 +3,8 @@
 > **当前状态：第一阶段已完成并实测 · 2026-09-29**
 > Node + Express + MySQL 的**数据层与 API 层已可运行**：8 张表 + 2 视图，16 个只读接口，
 > 冒烟测试 27 项全部通过。**尚不含写接口与 AI 功能**（按计划留待第二阶段）。
+>
+> ⚠️ **2026-10-03 加注**：本页顶部状态是**第一阶段（2026-09-29）快照**（彼时 8 表 / 16 接口 / 冒烟 27 项；现状见下方 §文档索引 与 `docs/05-api-reference.md`）。**前端已迁移**：原 `review/*.html` 已于 **2026-10-02 退役删除**（`2e91345`），现为 **Vue 3 `frontend/`**。
 
 角色定位（见 `../AGENTS.md`）：本目录是项目的 **学习记忆层** —— 让 Amy 每天知道学生
 **学过什么 / 错过什么 / 掌握什么**。
@@ -110,17 +112,17 @@ backend/
 - **Base URL**：`http://localhost:4000`　前缀 `/api`
 - **统一响应**：成功 `{code:200, message:'success', data}`；失败 `{code, message, data:null}`
 - **分页**：`data = { list, total, page, size }`
-- **页面对照**（现阶段均为只读）：
+- **页面对照**（前端已迁至 Vue 3 `frontend/`；下表「页面」列为**前端路由**，均为只读）：
 
-| 页面 | 可用接口 |
-|---|---|
-| 看板 `review/index.html` | `GET /api/lessons`、`GET /api/progress` |
-| 阅读 `review/reading.html` | ⏳ 阅读表尚未建（第二阶段） |
-| 词汇 `review/words.html` | `GET /api/vocabulary/stats`、`GET /api/vocabulary?letter=` |
-| 错词 `review/wrong.html` | `GET /api/mistakes`、`GET /api/mistakes/stats` |
-| 课程详情 `lessons/lesson-N.html` | `GET /api/lessons/:id` |
+| 页面（路由） | 对应视图 | 可用接口 |
+|---|---|---|
+| 首页 `/` | `frontend/src/views/HomeView.vue` | `GET /api/lessons`、`GET /api/progress` |
+| 阅读 `/reading/:date?` | `frontend/src/views/ReadingView.vue` | `GET /api/readings`、`GET /api/readings/:date` |
+| 词汇 `/words` | `frontend/src/views/WordsView.vue` | `GET /api/vocabulary/stats`、`GET /api/vocabulary?letter=` |
+| 错词 `/wrong` | `frontend/src/views/WrongView.vue` | `GET /api/mistakes`、`GET /api/mistakes/stats` |
+| 单课 `/lesson/:no?` | `frontend/src/views/LessonView.vue` | `GET /api/lessons/:id` |
 
-- ⚠️ **本阶段不要求前端改动**，`review/*.html` 保持不动；确认切换后再对接。
+- ⚠️ **前端已迁移**：原 `review/*.html`（原生静态站）已于 **2026-10-02 退役删除**，现为 **Vue 3 `frontend/`**（上表「页面」列即其路由）；接口与响应包络均不变。
 - ⚠️ 响应格式已从设计稿的 `{success,data,meta}` 改为 **`{code,message,data}`**，以 `docs/05-api-reference.md` 为准。
 
 ### → Amy / Skill 设计师
@@ -134,7 +136,7 @@ backend/
 ### → Git / 版本管理工程师
 - 本次新增：`backend/` 全目录（可运行代码 + schema + 种子 + 文档）与 `backend/docs/05-api-reference.md`；
   更新：`docs/api.md`、`docs/database.md`、`backend/README.md`。
-- **未修改**：`review/`、`notes/`、`read/`、`progress.md`、`wrong-words.md`、`INDEX.md`、`digest.md`、`PROJECT.md`、`AGENTS.md`、`.workbuddy/skills/`。
+- **未修改**（**首批快照**；其中 `review/` 已于 **2026-10-02 退役删除**）：`review/`、`notes/`、`read/`、`progress.md`、`wrong-words.md`、`INDEX.md`、`digest.md`、`PROJECT.md`、`AGENTS.md`、`.workbuddy/skills/`。
 - `.gitignore` 已覆盖 `node_modules/`、`.env`、`db/_snapshot.json`，无需改动。
 
 ---

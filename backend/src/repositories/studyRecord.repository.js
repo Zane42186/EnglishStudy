@@ -59,7 +59,15 @@ async function statsByType(studentId) {
  * `dedupeKey`（可选，2026-10-01 起）对应 `uk_study_records_dedupe (student_id, dedupe_key)`：
  *   - **不传 → 写入 NULL → 行为与改动前完全一致**（唯一键不约束 NULL）；
  *   - 传入 → 该 (student_id, dedupeKey) 只能存在一行，重复插入会**抛 ER_DUP_ENTRY 而不是静默翻倍**。
- * 只有 `teach:sync` 这类「批量归档」写手会传它；API 路径暂不传（避免改变既有写入语义）。
+ * 只有 `teach:sync` 这类「批量归档」写手会传它；API 路径**有意不传**。
+ *
+ * ⚠️ **API 路径为何有意不传**（评估 2026-10-10，结论=不补，勿"顺手"补键）：
+ *   1) `progress.service.submitFeedback` 全程单事务、本 insert 是**最后一条**语句 ⇒ 若加键，重复调用会
+ *      `ER_DUP_ENTRY` → **整事务回滚 ⇒ 级别变更被丢弃 + 500**（比"多一条记录"更坏）；
+ *   2) 该端点的核心副作用（级别/连击）**天然非幂等**，`dedupe_key` 只保记录行、保不了级别 ⇒ 错误安全感；
+ *   3) 教学侧已改走 `teach:sync`（05 §20 裁定），双写风险在调用面消除，残余误调由 `teach:sync` 的
+ *      「无 dedupe_key 同类记录」告警作探针。
+ *   若将来该接口被真实调用方采用，应给**整个操作**加幂等闸（如 `review` 的 clientEventId），而非只补本键。
  */
 async function insert(exec, { studentId, lessonId, recordType, summary, payload, dedupeKey = null }) {
   const result = await executeOn(exec,

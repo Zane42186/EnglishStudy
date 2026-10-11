@@ -564,12 +564,32 @@ async function main() {
     if (wwRow.n !== (snapshot.mistakes || []).length) {
       warn(`mistakes 库内 ${wwRow.n} 条 vs 快照 ${(snapshot.mistakes || []).length} 条，不一致；按「以错词本为准」口径不自动写库`);
     }
-    const [vRow] = await db.queryOn(conn, 'SELECT COUNT(*) AS n FROM vocabulary WHERE student_id = ?', [student.id]);
-    // 库内按 word 全局去重；快照 vocabulary 是按课列出的，故先跨课求并集再比
+    // 口径修正（2026-10-03，A26 ③）：快照 `lessons` 已被上方 `filter(lessonNo < 8)` 限定，
+    // 故「快照并集」只覆盖 1—7 课；而 `vocabulary` 是**全局**词表 ⇒ 与全局计数直接相比必然
+    // 差出「第 8 课起（API 写路径期）的词」（实测 90 = 61 + 29），属**结构性假阳性**。
+    // 现改为**同域比对**：库内也限定 `first_lesson_id` 落在 1—7 课；API 期词数单独报出（属设计内）。
+    const [vRow] = await db.queryOn(conn,
+      `SELECT
+         SUM(CASE WHEN l.lesson_no <  ? THEN 1 ELSE 0 END) AS n_snapshot_domain,
+         SUM(CASE WHEN l.lesson_no >= ? THEN 1 ELSE 0 END) AS n_api_era,
+         SUM(CASE WHEN v.first_lesson_id IS NULL THEN 1 ELSE 0 END) AS n_orphan,
+         COUNT(*) AS n_total
+       FROM vocabulary v
+       LEFT JOIN lessons l ON l.id = v.first_lesson_id
+       WHERE v.student_id = ?`,
+      [WRITE_API_FROM_LESSON_NO, WRITE_API_FROM_LESSON_NO, student.id]);
+    // 快照 vocabulary 是按课列出的，故先跨课求并集再比（此处域＝1—7 课，与库内同域）
     const wordsGlobal = new Set();
     for (const l of lessons) for (const v of l.vocabulary || []) if (v && v.word) wordsGlobal.add(v.word);
-    if (vRow.n !== wordsGlobal.size) {
-      warn(`vocabulary 库内 ${vRow.n} 个去重词 vs 快照 ${wordsGlobal.size} 个，不一致（仅提示，不自动写库）`);
+    const snapDomain = Number(vRow.n_snapshot_domain || 0);
+    const apiEra = Number(vRow.n_api_era || 0);
+    const orphan = Number(vRow.n_orphan || 0);
+    if (snapDomain !== wordsGlobal.size) {
+      warn(`vocabulary(1—${WRITE_API_FROM_LESSON_NO - 1} 课域) 库内 ${snapDomain} 个去重词 vs 快照 ${wordsGlobal.size} 个，不一致（仅提示，不自动写库）`);
+    } else {
+      console.log(`vocabulary 对账 ✅：1—${WRITE_API_FROM_LESSON_NO - 1} 课域 ${snapDomain} = 快照并集 ${wordsGlobal.size}`
+        + `；第 ≥${WRITE_API_FROM_LESSON_NO} 课（API 写路径期）词 ${apiEra} 个，库内合计 ${Number(vRow.n_total || 0)}`
+        + `（快照按设计不含该域${orphan ? `；⚠️ 另有 ${orphan} 个 first_lesson_id 为空` : ''}）`);
     }
 
     if (args.dryRun) {

@@ -304,7 +304,7 @@ CREATE TABLE IF NOT EXISTS reading_questions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='阅读理解题';
 
 -- -----------------------------------------------------------------------------
--- 视图：看板统计（等价 review/index.html 顶部统计卡）
+-- 视图：看板统计（等价前端首页 frontend/src/views/HomeView.vue 顶部统计卡）
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE VIEW v_dashboard_stats AS
 SELECT

@@ -107,7 +107,7 @@ async function getPendingByType(studentId) {
 /**
  * 本次课的课号（A20）：**显式入参优先，未传时回退 `progress.current_lesson_no`**。
  *
- * 为什么必须回退：全前端**唯一**调用方 `review/wrong.html:187` 只发
+ * 为什么必须回退：全前端**唯一**调用方 `frontend/src/views/WrongView.vue:145` 只发
  * `{result, clientEventId}`、**不传 `lessonNo`**。若这里直接返回 null，
  * A19「判错刷 `last`」在真实链路上永不触发（＝死代码），`mistake_events.lesson_id`
  * 也永远是 NULL —— 即「测试绿 ≠ 链路活」（MW21—MW24b 每条都显式传了 `lessonNo`）。
@@ -125,6 +125,19 @@ async function resolveLessonNo(studentId, lessonNo) {
   return Number.isInteger(no) ? no : null;
 }
 
+/**
+ * A26：`review` 侧「课号未解析」的**显式信号**（此前本接口**零信号** —— 响应既无 `warnings`
+ * 也无标志，调用方无从察觉「流水已写、但没挂上课」）。两种情形区分文案：
+ *   ① 课号不可知：未传 `lessonNo` 且 `progress.current_lesson_no` 无可回退值；
+ *   ② 课号已解析但 `lessons` 无对应行（＝「课还没建行」的 A26 主场景）。
+ * 二者都会让 `mistake_events.lesson_id` 落 `NULL`，故都给出同强度的告警。
+ */
+function reviewUnresolvedWarning(effectiveLessonNo) {
+  return effectiveLessonNo == null
+    ? '复习流水未关联课号：课号不可知（未传 lessonNo 且 progress 无有效 current_lesson_no），mistake_events.lesson_id 为空'
+    : `复习流水未关联课号：找不到第 ${effectiveLessonNo} 课（lessons 无对应行），mistake_events.lesson_id 为空`;
+}
+
 async function reviewMistake(studentId, mistakeId, { result, lessonNo, answeredAt, clientEventId }) {
   const reviewedAt = normalizeDateTime(answeredAt);
 
@@ -137,6 +150,11 @@ async function reviewMistake(studentId, mistakeId, { result, lessonNo, answeredA
     const lesson = await lessonRepository.findByNo(studentId, effectiveLessonNo);
     lessonId = lesson ? lesson.id : null;
   }
+
+  // A26：解析结果**必须显式对外**。`lessonResolved=false` ⇒ 本次流水的 `lesson_id` 为空、
+  // 未计入任何课；`warnings` 同时给一句人读文案（补本接口原先的零信号缺口）。
+  const lessonResolved = lessonId != null;
+  const warnings = lessonResolved ? [] : [reviewUnresolvedWarning(effectiveLessonNo)];
 
   return withTransaction(async (conn) => {
     const lockedId = await mistakeRepository.lockRow(conn, mistakeId, studentId);
@@ -156,6 +174,8 @@ async function reviewMistake(studentId, mistakeId, { result, lessonNo, answeredA
           status: row.status,
           priority: derivePriority(row),
           lastReviewedAt: row.last_reviewed_at,
+          lessonResolved,
+          warnings,
         };
       }
     }
@@ -201,6 +221,8 @@ async function reviewMistake(studentId, mistakeId, { result, lessonNo, answeredA
       status: next.status,
       priority: derivePriority({ wrong_count: next.wrongCount, streak: next.streak }),
       lastReviewedAt: reviewedAt,
+      lessonResolved,
+      warnings,
     };
   });
 }
@@ -367,11 +389,15 @@ function validateMistakeBatch(body = {}) {
  *
  * 幂等：同一 payload 重复提交，第二次起 `created=0` / `unchanged=N`。
  *       （课号刷新同样幂等：本次课号不大于现有值时定则返回「不改」→ 该行仍计 `unchanged`。）
+ * A26：响应显式暴露「课号未解析」——顶层 `unresolvedLessonNos[]`（可机判，**非空即应停**）
+ *       + `items[].lessonResolved`（`false` ＝ 该课号在库内无 `lessons` 行；`null` ＝ 未提供课号）。
  * 单事务：任一条失败整体回滚。
  */
 async function createMistakesBatch(studentId, body) {
   const { items } = validateMistakeBatch(body);
   const warnings = [];
+  // A26：聚合「课号未在库内解析到 lessons 行」的课号（去重、升序）——给调用方一个**可机判**的顶层信号。
+  const unresolvedLessonNos = new Set();
 
   // 课号两向映射（lessons 在一批之内不会变，故在事务外读；分层上仍只走 repository）
   const lessonRows = await lessonRepository.listAll(studentId, {});
@@ -392,6 +418,12 @@ async function createMistakesBatch(studentId, body) {
     let unchanged = 0;
 
     for (const it of items) {
+      // A26：本项课号是否解析到 `lessons` 行（`null` ＝ 未提供课号，无从解析）。
+      // 与 `warnings` 的分工：`warnings` 保留原有「新建行」文案；本字段覆盖**全部**项，
+      // 含「行已存在、课号未解析」那一路（此前完全静默，连一句 warning 都没有）。
+      const lessonResolved = it.courseNo == null ? null : idByNo.has(it.courseNo);
+      if (lessonResolved === false) unresolvedLessonNos.add(it.courseNo);
+
       const target = {
         wrong_text: it.wrongText,
         correct_text: it.correctText,
@@ -429,7 +461,7 @@ async function createMistakesBatch(studentId, body) {
         byKey.set(it.normKey, { id, ...target });
         results.push({
           id, action: 'created', wrongText: it.wrongText,
-          status: it.status, wrongCount: it.wrongCount,
+          status: it.status, wrongCount: it.wrongCount, lessonResolved,
         });
         continue;
       }
@@ -452,7 +484,7 @@ async function createMistakesBatch(studentId, body) {
         unchanged += 1;
         results.push({
           id: existing.id, action: 'unchanged', wrongText: it.wrongText,
-          status: it.status, wrongCount: it.wrongCount,
+          status: it.status, wrongCount: it.wrongCount, lessonResolved,
         });
         continue;
       }
@@ -482,11 +514,14 @@ async function createMistakesBatch(studentId, body) {
       });
       results.push({
         id: existing.id, action: 'updated', wrongText: it.wrongText,
-        status: it.status, wrongCount: it.wrongCount, changed,
+        status: it.status, wrongCount: it.wrongCount, changed, lessonResolved,
       });
     }
 
-    return { created, updated, unchanged, total: items.length, items: results, warnings };
+    return {
+      created, updated, unchanged, total: items.length, items: results, warnings,
+      unresolvedLessonNos: [...unresolvedLessonNos].sort((a, b) => a - b),
+    };
   });
 }
 

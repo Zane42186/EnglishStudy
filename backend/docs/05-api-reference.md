@@ -5,6 +5,17 @@
 > 冒烟测试：`npm run test:api`（**49 项全部通过**）；写接口正向验证：`npm run test:write`（**138 项全部通过**）
 >
 > 变更记录：
+> - 2026-10-10 · **教学链路不使用 `POST /api/progress/feedback`（§20）与 `POST /api/study-records`（§18）**（负责人裁定；★ 已撤）——
+>   教学侧的难度反馈与学习记录**统一由 `teach:sync`** 落库（`records/*.study-record.json` → 直连写 `study_records` + `progress` 7 列）。
+>   动因：`progress/feedback` 会**另写一条无 `dedupe_key` 的 `feedback` 学习记录**，与 `teach:sync` 的 `lesson-<NN>:feedback`
+>   **双写**（第 13 课实测 `study_records.id=294`，负责人授权后已删除、40→39 行、`dedupe_key IS NULL` 1→0）。
+>   **零代码 / 零 DDL**——仅文档标注 + 口径固化。§20 是否补 `dedupe_key`：**结论 = 不补**（理由见 §20 末「口径说明」）。
+> - 2026-10-03 · **A26：课号未解析改为显式信号（并补 `review` 侧「零信号」缺口）**——
+>   `POST /api/mistakes` 响应新增顶层 `unresolvedLessonNos:[]` + `items[].lessonResolved`；
+>   `POST /api/mistakes/:id/review` 响应新增 `lessonResolved` + `warnings[]`（该接口此前**既无 `warnings` 也无任何标志**）。
+>   **不改 HTTP 状态码**（写已成功，按包络语义不该返非 2xx）。**零 DDL、零库改动**。
+>   动因：Skill 侧漏看 `warnings[]` 一行字符串 ⇒ 课号静默丢失（A26 实测 6 行待修）。
+> - ⚠️ **2026-10-03 加注**：下列变更记录为**各批次时点快照**；其中 `review/*.html` 指**原生静态站**（已于 **2026-10-02 退役删除**，`2e91345`；现为 Vue 3 `frontend/`）——**历史条目保留原样，不逐行改写**。
 > - 2026-09-29 · 第一批写接口与聚合快照落地：`GET /api/lessons/all`、`POST /api/mistakes/:id/review`、
 >   `POST /api/study-records`、`POST /api/progress/feedback`、`GET /api/agent/snapshot`；分页 `size` 上限 100 → **500**。
 > - 2026-09-29 · 第二批 DDL 落地：建 `lesson_exercises`、`mistake_events`；`section_type` 增
@@ -138,9 +149,9 @@
 | 15 | POST | `/api/mistakes/:id/review` | 复习结果回写（`clientEventId` 幂等） |
 | 16 | GET | `/api/study-records` | 学习记录 |
 | 17 | GET | `/api/study-records/stats` | 学习记录统计 |
-| 18 | POST | `/api/study-records` | 写入学习记录 |
+| 18 | POST | `/api/study-records` | 写入学习记录（⚠️ **教学链路不使用**，见 §18） |
 | 19 | GET | `/api/progress` | 学习进度 |
-| 20 | POST | `/api/progress/feedback` | 难度反馈（触发升降级） |
+| 20 | POST | `/api/progress/feedback` | 难度反馈（触发升降级）（⚠️ **教学链路不使用**，见 §20） |
 | 21 | GET | `/api/agent/snapshot` | 教学快照（9 次请求 → 1 次） |
 | 22 | GET | `/api/mistakes/:id/events` | 某错词的复习流水（N2） |
 | 23 | GET | `/api/lessons/:id/exercises` | 某课的练习与批改结论（N4） |
@@ -321,7 +332,7 @@
 > ——**字段级 = 选填**，**调用方级 = 应带**，二者不矛盾：
 > - **本接口字段**：选填，不传**不报错**（见下方 Body 参数表）。
 > - **Skill 侧调用方**：**一律必带**（`docs/skills.md` §4.4 / `SKILL.md` v2.8.1 第 4 步）。
-> - **前端调用方**：**已带**（`review/wrong.html:191` 生成 `cid` → `:194` 随载荷提交）。
+> - **前端调用方**：**已带**（`frontend/src/views/WrongView.vue:143` 生成 `cid` → `:145` 随载荷提交）。
 > - **不传的代价**：无幂等保护 ⇒ 同一动作重复提交会**重复累加** `wrong_count` / `streak`
 >   （后端 `if (clientEventId)` 分支不进，`mistake_events.client_event_id` 落 `NULL`）。
 
@@ -332,7 +343,7 @@
 - `result`（必填）：`correct` / `wrong`
 - `lessonNo`（**选填，可不传**）：本次复习发生的课。**未传时服务端回退 `progress.current_lesson_no`**
   （A20；与 `GET /api/progress` 的 `currentLessonNo` 同源）。**故前端只传 `result` 即可**，
-  真实调用方（`review/wrong.html:187`）就是这么打的。该课不存在时不报错，仅不建关联。
+  真实调用方（`frontend/src/views/WrongView.vue:145`）就是这么打的。该课不存在时不报错，仅不建关联。
 - `answeredAt`（选填）：ISO 或 `YYYY-MM-DD HH:MM:SS`；缺省 = 服务端当前时间
 - `clientEventId`（**选填**，但**调用方应带**）：客户端事件唯一 id；**同一 id 重复提交返回首次结果，不再累加**。
   不传 ⇒ **无幂等**（重复提交会重复累加）；Skill 侧必带、前端已带，详见本节开头口径说明。
@@ -352,12 +363,20 @@
   ⚠️ **`correct` 不刷**（答对不是复发）。
   幂等命中（同 `clientEventId`）时**整条跳过**，故不会重复刷。
   定则与 `POST /api/mistakes` 共用 `src/utils/mistakeLesson.js`。
+- **课号未解析 = 显式信号（A26，2026-10-03）**：`lessonResolved=false` ⇒ 本次流水的
+  `mistake_events.lesson_id` 为空、未计入任何课；响应同时给 `warnings[]` 一句人读文案。
+  两种情形：① **课号不可知**（未传 `lessonNo` 且 `progress` 无可回退值）；
+  ② **课号已解析但 `lessons` 无对应行**（＝第 N 课尚未建行 —— 该行由第 8 步 `POST /api/lessons`
+  创建，而复习写库在第 4 步，故**必然命中**；见 `status-amy.md` A26）。
+  幂等命中（同 `clientEventId`）**返回同一形状**，同样带这两个字段。
+  ⚠️ 调用方纪律：**写库后应检查 `lessonResolved`**，为 `false` 即停止并上报（勿只看 HTTP 200）。
 
 **实测响应**
 ```json
 { "code": 200, "message": "success", "data": {
   "id": 1, "streak": 0, "wrongCount": 2, "status": "pending",
-  "priority": "high", "lastReviewedAt": "2026-09-30 10:20:00" } }
+  "priority": "high", "lastReviewedAt": "2026-09-30 10:20:00",
+  "lessonResolved": true, "warnings": [] } }
 ```
 - `priority` 与错词列表同源推导（`wrongCount>=2` high / `streak===1` medium / 其余 low）
 - **Error**：404 `错词不存在：id=<id>`；400（`result` 非法等）
@@ -383,7 +402,13 @@
 ```
 
 ### 18. POST `/api/study-records`
-写入学习记录（`ATTEND` / 批改 / 反馈等）。**两条写入约定**：
+写入学习记录（`ATTEND` / 批改 / 反馈等）。
+
+> ⚠️ **教学链路不使用本接口**（负责人 2026-10-10 裁定 U；★ 已撤）。教学侧学习记录**统一由 `teach:sync` 直连库写入**
+> （消费 `records/lesson-NN.study-record.json`；见 `skills/english-daily/SKILL.md` 第 8 步）。本端点为
+> **未被 Skill 调用**的备用路径——**接口存在 ≠ 教学侧该调用**。
+
+**两条写入约定**：
 - `grade` 记录带 `payload.byType` → 供 `/api/lessons/error-trend` 与快照 `errorTrend.byLesson[].byType` 读取
 - `feedback` 记录带 `payload.nextRecommendation` → 快照 `lastRecommendation` 的**唯一数据来源**
 
@@ -428,10 +453,18 @@
     「`lessonNoAligned: false`」—— 二者并不矛盾：前者是**已替你修正后的展示值**，
     后者报告的是**进度表原值落后**。判断「课号是否可用」请以 `currentLessonNo` 为准。
   - 自 `4c29813`（backend foundation）引入以来**从未改动**（非写接口改动引入）。
-  - 前端**未消费**该字段（`review/` 全量 grep 零命中）；当前仅教学侧文档引用。
+  - 前端**未消费**该字段（`frontend/src/` 全量 grep 零命中）；当前仅教学侧文档引用。
 
-### 20. POST `/api/progress/feedback` ★
+### 20. POST `/api/progress/feedback`
 难度反馈，触发级别升降。
+
+> ⚠️ **教学链路不使用本接口**（负责人 2026-10-10 裁定；★ 已撤）。教学侧的难度反馈**统一由 `teach:sync` 落库**
+> （消费 `records/lesson-NN.study-record.json` → 直连写 `study_records` + `progress` 7 列），本接口在教学链路上**冗余**
+> ——`teach:sync` 已实现 `current_level` **回退**（降级）与「降级置 `upgrade_frozen_until = 课号 + 3`」。
+> **保留本接口仅供 API / 前端 / 调试**使用；**若被误调**，它会额外写一条 `record_type='feedback'` 且
+> `dedupe_key IS NULL` 的学习记录（与 `teach:sync` 的 `lesson-<NN>:feedback` **双写**），`teach:sync` 随后会打印
+> 「库内已有 N 条无 `dedupe_key` 的同类记录」告警（第 13 课实测 `study_records.id=294`，已按授权删除）。
+> **是否给该记录补 `dedupe_key`：结论 = 不补**，理由见本节末「口径说明」。
 
 **Body**
 ```json
@@ -453,6 +486,18 @@
 ```
 - 同时写回 `lessons.feedback`（该课不存在时跳过，不影响反馈生效），并留一条 `feedback` 学习记录
 - **Error**：400（`feedback` 非法 / 缺 `lessonNo`）
+
+> **口径说明：本接口写的 `feedback` 学习记录，为什么有意不加 `dedupe_key`？**（评估 2026-10-10）
+> - **结论：不补**。`teach:sync` 会传 `lesson-<NN>:feedback`，本接口**不传**（落 NULL）；二者命名空间**故意分离**。
+> - **理由 1 · 失败模式反而更坏**：`submitFeedback` 全程在**单事务**内，且 `study_records.insert` 是**最后一条**语句。
+>   若给它加键，重复调用会 `ER_DUP_ENTRY` → **整事务回滚 ⇒ 级别变更被丢弃 + 返回 500**；今天「重复调用只是多一条记录」，
+>   加了键会变成「重复调用静默丢一次升降级」。**净变差**。
+> - **理由 2 · 加键也保不了幂等**：本接口的核心副作用是**级别 / 连击变更**，天然**非幂等**；`dedupe_key` 只保护记录行、
+>   保不了级别 ⇒ 给了「已幂等」的**错误安全感**。
+> - **理由 3 · 跨写手防重已在流程层解决**：裁定后教学侧不调用本接口，双写风险在**调用面**消除；残余风险（误调）
+>   由 `teach:sync` 的「无 `dedupe_key` 同类记录」告警作**探针**，已足够。
+> - **故本接口保持现状**；若将来本接口被**真实调用方**采用，正确做法是给**整个操作**加幂等闸（如 `review` 的 `clientEventId` 式），
+>   而非只给记录行补键。⚠️ **后人勿「顺手」补键**。
 
 ### 21. GET `/api/agent/snapshot` ★
 教学快照：把 Skill 上课所需的 9 次请求降为 1 次。`data` 形状对齐 `docs/schemas/agent-snapshot.schema.json`。
@@ -768,8 +813,8 @@
 
 **写路径边界（两条必须知道）**
 - 本接口只写**课程域四表**。`feedback` / `gradeSummary` / `nextRecommendation` 中与学习记录相关的部分
-  **不由本接口写 `study_records`** —— 那是 `npm run teach:sync`（消费 `records/*.study-record.json`）
-  与 `POST /api/study-records` 的职责，避免再造一条并行写路径。
+  **不由本接口写 `study_records`** —— 那是 `npm run teach:sync`（消费 `records/*.study-record.json`）的职责
+  （教学侧**唯一**写作路径）；`POST /api/study-records` 虽能写，但**教学侧不使用**（见 §18），避免再造一条并行写路径。
 - 第 8 课起 `db:import` **跳过 `lesson_no >= 8`**（零 DDL 守卫，见 `04-migration-and-roadmap`），
   两条路径不再写同一批表。
 
@@ -890,6 +935,14 @@
      ⚠️ 各路径的「本次课号」**来源不同**：本接口取 `items[].courseNo` → 顶层 `lessonNo`；
      `review` 取 `lessonNo` → **未传时回退 `progress.current_lesson_no`**（A20，见 §15）；
      `db:sync-mistakes` 侧无此信息 ⇒ 恒为 no-op（以 `firstLessonNo` 作下界）。
+10. **「课号未解析」= 显式信号（A26，2026-10-03）**：本次课号在 `lessons` 中**无对应行**（或未提供）时，
+    该词的 `first/last_lesson_id` 落空 —— 但**词照收**（R3 口径：宁可课号置空也不丢词）。
+    响应**结构化暴露**：顶层 `unresolvedLessonNos[]`（课号**去重升序**，**非空即应停止并上报**）
+    + `items[].lessonResolved`（`false` ＝ 该课号未解析到行；`null` ＝ 未提供课号；`true` ＝ 已解析）。
+    ⚠️ **覆盖率差异**：`warnings[]` 只含**新建行**的既有文案；结构化字段覆盖**全部**项，
+    含「行已存在但课号未解析」那一路（此前**完全静默**）。
+    典型成因＝**顺序缺口**：第 N 课的 `lessons` 行由 `POST /api/lessons` 创建（第 8 步），
+    若在此之前就写错词/复习，必然解析不到（`status-amy.md` A26）。
 
 **响应 200**
 
@@ -897,12 +950,15 @@
 { "code": 200, "message": "success", "data": {
   "created": 1, "updated": 1, "unchanged": 0, "total": 2,
   "items": [ { "id": 151, "action": "updated",   "wrongText": "MW recieve",
-               "status": "pending", "wrongCount": 2, "changed": ["wrong_count"] },
+               "status": "pending", "wrongCount": 2, "changed": ["wrong_count"],
+               "lessonResolved": true },
              { "id": 152, "action": "created",   "wrongText": "MW a new one",
-               "status": "pending", "wrongCount": 1 } ],
-  "warnings": [ "「MW recieve」wrong_count：库内自动累计值 1 ≠ 人工判定值 2（可能含未留档的复发）→ 已按人工值覆盖" ] } }
+               "status": "pending", "wrongCount": 1, "lessonResolved": true } ],
+  "warnings": [ "「MW recieve」wrong_count：库内自动累计值 1 ≠ 人工判定值 2（可能含未留档的复发）→ 已按人工值覆盖" ],
+  "unresolvedLessonNos": [] } }
 ```
-（上例为 **2026-10-01 实测原样**，`test:write` MW 系列产出。）
+（字段结构基于 **2026-10-01 实测原样**；`items[].lessonResolved` 与顶层 `unresolvedLessonNos`
+为 **2026-10-03（A26）新增**，上例已按新形状补齐。）
 
 **Error**
 - 400 `批量错词校验失败` + 字段级 `data: [{field, message}]`，`field` 形如 `items[0].wrongText`
