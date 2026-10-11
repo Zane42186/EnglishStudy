@@ -2,10 +2,10 @@
 
 > 由 backend/scripts/build-summary.js 从库内数据生成，手工修改会在下次重建时被覆盖。
 
-- 课程总数：9
-- 当前级别：Level 2
-- 阅读文件：6 天，共 17 篇
-- 最近一课：第 9 课（2026-10-02） 学会过去时的否定与疑问 did，能写出 didn't go ／ Did you go…? 这类句子
+- 课程总数：13
+- 当前级别：Level 1
+- 阅读文件：10 天，共 29 篇
+- 最近一课：第 13 课（2026-10-10） 学会形容词最高级，能说出 Tom is the tallest in his class ／ This book is the most interesting of the three 这类「三者里最……」的句子
 
 ## 第 1-8 课（day-01-07.md）
 
@@ -19,17 +19,25 @@
 第 6 课 · 2026-09-29：学会过去时 was / were，能说清「昨天怎么样」
 第 7 课 · 2026-10-01：学会规则动词过去式 -ed，能写出 5 句「上周做了什么」
 
-## 第 8-10 课（day-08-14.md）
+## 第 8-14 课（day-08-14.md）
 
 ————————————
 
 第 8 课 · 2026-10-01：学会 go / eat / see / have 等高频动词的不规则过去式，能写出 5 句「昨天做了什么」
 第 9 课 · 2026-10-02：学会过去时的否定与疑问 did，能写出 didn't go ／ Did you go…? 这类句子
+第 10 课 · 2026-10-03：学会将来时 will 与 be going to，能写出 I will go ／ She is going to visit 这类句子
+第 11 课 · 2026-10-04：学会频度副词 always / usually / often / sometimes / never，能说清一件事「多久发生一次」
+第 12 课 · 2026-10-09：学会形容词比较级，能写出 Tom is taller than Jack ／ This book is more interesting 这类句子
+第 13 课 · 2026-10-10：学会形容词最高级，能说出 Tom is the tallest in his class ／ This book is the most interesting of the three 这类「三者里最……」的句子
 
 ## 阅读文件
 
 ————————————
 
+2026-10-10：3 篇（Three Friends、The Best Restaurant、The Best Day of the Week） → read\2026-10-10-read.md
+2026-10-09：3 篇（Two Brothers、Two Phones、A Busy Week） → read\2026-10-09-read.md
+2026-10-04：3 篇（My Daily Routine、Tom's Week、Amy's Healthy Habit） → read\2026-10-04-read.md
+2026-10-03：3 篇（My Weekend Plan、Amy's Holiday、The New Job） → read\2026-10-03-read.md
 2026-10-02：3 篇（A Busy Weekend、Why Was Amy Late?、The Monday Question） → read\2026-10-02-read.md
 2026-10-01：3 篇（My Last Weekend、Amy Worked Late、Tom's Busy Day） → read\2026-10-01-read.md
 2026-09-29：3 篇（Yesterday、Tom's Bad Day、Where Were You?） → read\2026-09-29-read.md
