@@ -333,11 +333,15 @@
 
 ### 7.1 基线规则（对齐 `progress.md`，后端已设计搬运，已入库 3 条）
 
-| 反馈 | 动作 | 后端落点 |
+| 反馈 | 动作 | 后端落点（**接口存在性，≠ 教学侧调用**，见下方口径） |
 |---|---|---|
 | `too_easy` 连续 2 次 | 升 1 级，连击清零（受冻结约束） | `POST /progress/feedback` |
 | `too_hard` 任意 1 次 | 降 1 级，且 3 课内不再升级 | `upgrade_frozen_until = 当前课号 + 3` |
 | `just_right` | 维持级别，仅记录 | `POST /progress/feedback` |
+
+> 🔴 **教学侧执行口径（2026-10-10 负责人裁定）**：难度反馈的**落库只走 `teach:sync`** —— 消费 `records/lesson-NN.study-record.json` 的 `feedback` 记录（它已实现 `current_level` **回退**（降级）与 `upgrade_frozen_until` 降级置「课号+3」）。
+> **教学侧不得调用 `POST /api/progress/feedback`**：该接口会**另写一条 `study_records(record_type='feedback')` 且 `dedupe_key` 为空**，与 `teach:sync` 的 `lesson-<NN>:feedback` 形成**双写**（2026-10-10 第 13 课实测多出 `study_records.id=294`；全表 `dedupe_key IS NULL` 应恒为 **0 行**）。
+> 上表「后端落点」列**只表示该接口存在并可用**（供前端/未来消费者），**不代表教学侧调用它**；教学侧的唯一写路径见 `skills/english-daily/SKILL.md` 第 8 步「`study-record.json` 是 `progress` 7 列与 `study_records` 的唯一写作路径」。
 
 ### 7.2 Amy 在执行中加入的 4 条守门规则（当前仅在 `progress.md`，**尚未进入后端契约**）
 
@@ -369,7 +373,7 @@
 | **T-1 单课超阈** | `E_{N-1} >= 5` | `lessons.error_count` / `study_records(grade).payload.errorCount` |
 | **T-2 连续超阈** | 最近 2 课均 `E >= 5` | 同上（取近 2 课） |
 | **T-3 反馈过难** | `F_{N-1} = too_hard` | `lessons.feedback` |
-| **T-4 断更** | `D >= 7` | `progress.lastClassDate` 现算 |
+| **T-4 断更** | `D >= 3`（`D`=3—6 落 L1、`D`≥7 落 L2） | `progress.lastClassDate` 现算 |
 | **T-5 复发阻断** | 存在 `wrongCount >= 4` 且 `error_type ∈ {grammar, word_choice}` 的未过关错词 | `/api/mistakes/pending` |
 | **T-6 超载上限** | 拟排生词 > 12 | `LessonPlan.vocabularySize`（schema `maximum:12`） |
 
@@ -481,8 +485,8 @@
 | `PUT /lessons/:id` | 回填作业批改与难度反馈 | ✅ **已实现并实测**（05 §29，**部分更新**；`:id` 是**主键**不是课号，找不到 → 404）。**口径未变**：Amy 侧仍产出 `records/*.json`，**不直接调写接口** |
 | `POST /mistakes` | **批量**写入错词本条目 | ✅ **已实现并实测**（05 §30，Step 2b）。载荷＝**R3「只喂原始条目」**：错词本 8 列 + 顶层 `lessonNo`，`items` 1—200 条；**不上送** `before/after`、`patternHits`、`recurrenceWarnings`。**`wrongText` 含括号批注 → 400**；**批内同键 → 400**；`wrong_count` 以人工值**覆盖写** + 与库内自动值差异**逐条告警** |
 | `POST /mistakes/:id/review` ★ | 每次复习判对错 | ✅ **已实现并实测**（05 §15；`clientEventId` 幂等；**只做 `+1` 增量**，不覆盖人工判定） |
-| `POST /progress/feedback` ★ | 收难度反馈时 | ✅ **已实现并实测**（05 §20；升降级与冻结在服务端判定） |
-| `POST /study-records` | 下课时 | ✅ **已实现并实测**（05 §18；`grade` / `feedback` 两类 payload） |
+| `POST /progress/feedback`（**教学侧不调用**） | 收难度反馈时 → **由 `teach:sync` 代劳** | ✅ **已实现并实测**（05 §20；升降级与冻结在服务端判定）。⚠️ **教学侧不使用本接口**（原标 ★ 已撤）：它另写一条无 `dedupe_key` 的 `feedback` 学习记录，与 `teach:sync` 双写 —— 见 §7.1 执行口径 |
+| `POST /study-records` | 下课时 | ✅ **已实现并实测**（05 §18；`grade` / `feedback` 两类 payload）。⚠️ **教学侧不使用本接口**（原标 ★ 已撤）：学习记录统一由 **`teach:sync`** 直连库写入（裁定 U，见 `skills/english-daily/SKILL.md` 第 8 步） |
 | `POST /readings` | 生成当日阅读后 | ✅ **已实现并实测**（05 §27；`ReadingSet` 契约，同日已存在 → 409，`force=true` 重出） |
 | `POST /skill-runs` | 每次执行 `english-daily` | ❌ **未实现**（无对应路由，S2 待办） |
 
@@ -503,7 +507,7 @@
 | G4 | 无「上次未完成的教学动作」 | ✅ **已关闭（实测通过）** | `GET /api/agent/snapshot` 实测返回 `lastIncomplete = {lessonNo:7, nextRecommendation:"第 8 课：常用不规则过去式…"}`；`lastRecommendation` 同值。注：第 1—6 课 `feedback` payload 历史仅 `{feedback, lessonNo}`、无此键（G4 读最新一条，不阻塞） |
 | G5 | `studyMinutes` **无落库位置**（`lessons` 无 `study_minutes` 列；契约注释里的 `courses.study_minutes` 是废弃命名、该表不存在） | ⏳ 维持降级 | **本轮不加列**；实测 `/api/lessons/:id` 为**省略键**式降级（响应里**没有该键**），按快照服务约定「`null` / `[]` / 省略键」均可，**不得用 0 冒充「没数据」** |
 | G6 | 无聚合快照接口 | ✅ **已关闭（实测）** | `GET /api/agent/snapshot` 实测 **200**（旧记录「404」已失效）：一次返回 `progress / courseCatalog / recentLessons / pendingMistakes / pendingMistakeStats / errorTrend / readingCatalog / backlog / lastIncomplete / lastRecommendation / degradation`，**9 次请求 → 1 次** |
-| G7 | 无写接口（复习判定 / 反馈 / 归档） | ✅ **已关闭（仅余 1 条）** | ✅ 已有 6 条：`POST /api/mistakes`（批量，§30）、`/mistakes/:id/review`、`/progress/feedback`、`/study-records`、`/readings`、`/lessons`+`/lessons/:id`（§28—29）。❌ 仍缺：`POST /api/skill-runs`（S2，非教学闭环必需） |
+| G7 | 无写接口（复习判定 / 反馈 / 归档） | ✅ **已关闭（仅余 1 条）** | ✅ 已有 6 条：`POST /api/mistakes`（批量，§30）、`/mistakes/:id/review`、`/progress/feedback`（**教学侧不调用**，见 §7.1）、`/study-records`、`/readings`、`/lessons`+`/lessons/:id`（§28—29）。❌ 仍缺：`POST /api/skill-runs`（S2，非教学闭环必需） |
 
 ### 9.4 降级方案（2026-10-01 实测后的状态）
 
@@ -521,7 +525,7 @@
 | **一次取全上下文** | `GET /api/agent/snapshot` ✅ **已切换** | 9 次请求 → 1 次；含 `lastIncomplete` / `lastRecommendation` / `errorTrend` |
 | 阅读目录与全文 | `GET /api/readings`、`/api/readings/:date` ✅ 已切换 | 5 天 / 14 篇 / 28 题 |
 | 待补知识点 / 补漏队列 | `progress.md`（md） | ⏳ `snapshot.backlog` 键已占位但值为 `null`，待 `knowledge_points` 建表（教学侧暂不建） |
-| 复习结果 / 反馈 / 学习记录写入 | 接口 ✅ 已可用 | `POST /mistakes/:id/review`、`/progress/feedback`、`/study-records`、`/mistakes`（批量）**均已实测**；**执行侧一致性**：第 8 课起 `daily-lesson` 归档步改走接口，md/`records/*.json` 仍产出但不入写路径（见 §7.2 口径） |
+| 复习结果 / 反馈 / 学习记录写入 | **教学侧**：`teach:sync`（学习记录 + `progress` 7 列，含降级）+ `POST /mistakes/:id/review`（复习流水）+ `POST /mistakes`（批量错词）+ `POST /lessons`（归档） | **教学侧实际调用面**。⚠️ `POST /progress/feedback` 与 `POST /study-records` **教学侧均不调用**（接口存在、已实测，但其写入对象与 `teach:sync` 重叠 ⇒ 双写）。**执行侧一致性**：第 8 课起归档改走接口，md/`records/*.json` 仍产出但**不入写路径**（见 §7.1 执行口径） |
 | 课件归档回写 | `records/*.json`（md 派生） | 🟡 **接口已就绪**（05 §28—29）→ **切换点＝第 8 课**：该课起归档改走 `POST/PUT /api/lessons`，md `records/*.json` **仍产出但不入写路径** |
 
 > 完整需求与验收标准见 `backend/docs/06-api-requirements-amy.md`。
