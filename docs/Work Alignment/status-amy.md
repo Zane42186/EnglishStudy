@@ -683,19 +683,25 @@ UPDATE mistake_events SET lesson_id=NULL WHERE id IN (210,211,212);
   ⚠️ **留给 skill-designer 的议题**：是否需要给「同一规则的多条错词」一个**聚合视图**（如按 `errorType` + 关键词分组），否则错词本会随同类复发持续膨胀（现 62 条中 grammar 30 条）。
 - ⚠️ **补漏块 6 首次执行未达标**（3 题 3 处错），立项依据成立但**需第二轮**；第 13 课拟做**同主题变式**。
 
-**⑤ 🔴 查实一条既有数据错值 —— 待负责人授权后修（我未动手）**
+**⑤ ✅ 查实的既有数据错值 —— 已修复（2026-10-11，负责人授权）**
 
 - **现象**：`mistakes.id = 13`（`I am very busy.`）库内 `first_lesson_id` 指向 **第 6 课**，而 `wrong-words.md`「课号」列记 **5**。
 - **取证（机器证据）**：`notes/day-01-07.md:395` 位于 `## 第 5 课 · 2026-09-28` 段内，原文「第 2 课 be 动词（翻译：我们很忙）：作答 I am very busy. … → **新入错词本**」；`:517`（第 6 课段）才是「第 1 次答对」。⇒ **md 的 5 正确，库内 6 是错值**（该行很可能是在第 6 课处理时才 INSERT，`courseNo` 取了 6）。
 - **影响面**：快照 `recentLessons[].mistakeCount`（＝本课**新引入**错词数）在第 5 课少计 1、第 6 课多计 1 —— 正是 §11.11 给 `first` 定「冻结」所依据的同一指标。
 - **为何不与该裁定冲突**：§11.11 的「冻结」针对**命中时改写**；此处是**首次值本身写错**，属数据纠正。
-- **修法 / 回滚**（需授权）：
+- **修复记录（已执行 · 2026-10-11）**：
   ```sql
-  -- 修：第 5 课的 lessons.id = 5
-  UPDATE mistakes SET first_lesson_id = 5 WHERE id = 13;
-  -- 回滚
+  -- ① first：6 → 5（be-dev 于 2026-10-10 执行，ROW_COUNT()=1）
+  UPDATE mistakes SET first_lesson_id = 5 WHERE id = 13 AND first_lesson_id = 6;
+  -- ② last：6 → 5（Amy 于 2026-10-11 执行，ROW_COUNT()=1）
+  UPDATE mistakes SET last_lesson_id  = 5 WHERE id = 13 AND last_lesson_id  = 6;
+  -- 回滚（逐条）
   UPDATE mistakes SET first_lesson_id = 6 WHERE id = 13;
+  UPDATE mistakes SET last_lesson_id  = 6 WHERE id = 13;
   ```
+  - **`last` 为何一并改**：§11.11 定义 `last` = **最近一次出错课**。该行 `wrong_count=1`（唯一一次错在第 5 课），第 6 课是「**答对**」——判对**不刷新** `last`（§11.11 待定项倾向「仅判错刷新」）⇒ `last=6` 与 `first` 同源，是同一处 `courseNo` 取错留下的，应一并纠正。
+  - **独立复核（不采信汇报）**：全库扫描「`wrong_count=1` 且 `first_lesson_id <> last_lesson_id`」——修复前**仅 id=13 一条**，修复后**归零**，无第二处同型缺陷。
+  - **验证**：`id=13 | I am very busy. | first=5 | last=5`；全库 `total=73 / passed=12 / first NULL=2 / last NULL=2` 逐项不变；`db:compare` **15 / 0 / 0**；`db:summary --check` **stale=0**。
 
 **⑥ 环境备注**：本次执行时 **4000 端口已被占用**（非我启动的进程）⇒ 按「**不抢不杀**」纪律**直接复用、未启未停**；另 `node` 版本由 `22.22.2-3` 变为 **`22.22.2-6`**（`22.22.2-3` 已不存在，踩过一次启动失败）—— 命令与文档里的硬编码路径需同步。
 
@@ -754,6 +760,30 @@ UPDATE mistake_events SET lesson_id=NULL WHERE id IN (210,211,212);
 
 **⑤ A26 回归（第 3 次执行，继续通过）**：本课为「第 4 步只判定、写库统一挪到第 8 步」流程的第 3 次执行。实测：全库 `mistake_events.lesson_id IS NULL` = **0**；11 条新错词 `first/last_lesson_id` 全 = **96**；`intrusting` / `go to travel` 的 `last_lesson_id` 推进到 **96**；2 条复习流水 `lesson_id` 全 = 96。
 
-**⑥ 仍未授权的既有数据错值（自 2026-10-09 起挂起，未变）**：`mistakes.id = 13`（`I am very busy.`）`first_lesson_id` 现为 6，应为 **5**；修法与回滚 SQL 见本文件上一节 ⑤。
+**⑥ 既有数据错值（自 2026-10-09 起挂起）—— ✅ 已闭合（2026-10-11）**：`mistakes.id = 13`（`I am very busy.`）`first_lesson_id` 6→**5**（be-dev 于 10-10 执行）、`last_lesson_id` 6→**5**（Amy 于 10-11 执行）；两条均按带守卫 SQL 落地并复核（详见本文件 ⑤ 节「修复记录」）。**该项不再挂起。**
 
 **⑦ 环境备注**：本次执行时 **4000 端口空闲**（`curl` exit 7）⇒ 由我**启动、归档完成后停掉**（谁跑谁起、跑完即停），与上一课的「复用他人进程」情形不同。`node` / `python` 由 shell 直接解析到受管版本（`22.22.2-6` / `3.13.12`），`export_md_to_json.py --out` 的相对路径按 `--root` 解析（写成 `backend/db/migration/_snapshot.json`）。
+
+---
+
+## 复审轮 · `last_lesson_id` 修复 + 「MEMORY.md 单一写者」协议（Amy，2026-10-11）
+
+**① 上游裁定（§15 / §18 编号缺口）—— 已确认**
+- 交办原文写「05 §20 与 **§15 抬头**」，与取证冲突：`05 §15` = `POST /api/mistakes/:id/review`（**教学链路在用**，第 13 课第 8 步实测调 2 次；`ai-teacher.md:487` ★ **保留**）、`§18` = `study-records`（不用）、`§20` = `progress/feedback`（不用）。
+- **裁定：「§15」系 §18 的笔误 ⇒ 05 正解 = §20 + §18。** be-dev 按安全版处理（**未动 §15**、改 §18）并上报缺口 —— **正确**。
+- **笔误源在我自己的文档** ⇒ 本文件「📋 交办」段已**直接订正**（§20 **与 §18**）+ ⚠️ 订正注记（活动文档＝直接订正）。
+
+**② 数据修复 —— `mistakes.id=13` 的 `last_lesson_id` 6→5（本轮）**
+- **独立取证**（不采信转述）：`wrong-words.md:28` 课号列 = **5**；`notes/day-01-07.md:395`（**第 5 课**段）「→ 新入错词本」、`:517`（第 6 课段）「第 1 次答对」；`lessons` 映射 `lesson_no 5 → id 5`。
+- **判断**：§11.11 `last` = **最近一次出错课**；该行 `wrong_count=1`（只错在第 5 课）、第 6 课系**答对**（判对**不刷新** `last`）⇒ `last` 应为 **5**。`last=6` 与 `first` 同源（同一处 `courseNo` 取错）⇒ **一并纠正**（be-dev 未动此列、理由为「不扩范围」；负责人已授权我自行判断，无需再核对）。
+- **执行**（带守卫）：`UPDATE mistakes SET last_lesson_id = 5 WHERE id = 13 AND last_lesson_id = 6;` → `ROW_COUNT()=1`。回滚：`UPDATE mistakes SET last_lesson_id = 6 WHERE id = 13;`。
+- **复核**：全库「`wrong_count=1` 且 `first_lesson_id <> last_lesson_id`」扫描 ⇒ 修复前**仅 id=13 一条**、修复后**归零**（无第二处同型缺陷）；全库 `total=73 / passed=12 / first NULL=2 / last NULL=2` 逐项不变；`db:compare` **15/0/0**；`db:summary --check` **stale=0**。
+- 同步更新：`wrong-words.md:107`（「修复待授权」→ ✅ 已修复）、本文件 ⑤ / ⑥ 节（挂起 → 已闭合）。
+
+**③ ⛔ 「MEMORY.md 单一写者」协议 —— 已取消（负责人 2026-10-11 同日）**
+- 起因：`MEMORY.md` **3 分钟内被 skill-designer 并发写 3 次**（19,775 → 17,222 → 17,108 字节），我的整文 `Write` 被「modified since read」拦下/冲掉。
+- 协议：**同一时刻仅一人可写，指定写者 = Amy**；其他角色如需改，**只在自己 `*-status.md` 登记一行「建议 MEMORY.md：…」**，由写者拍板合并。写者纪律 = 写前先 `Read`、**一律 surgical `Edit`、禁止整文 `Write` 覆盖**、遇「modified since read」重读再改**不得强写**。
+- **体积裁决：不再做覆盖式压缩** —— 余量靠措辞挤不出（实测 ≈120B）；被注入截断的是**可恢复的尾部**（§八 待办在角色状态文档、§九 git 规则在用户级记忆均有副本）。
+- **留给其他角色的动作**：be-dev / fe-dev / skill-designer / git-manager 若需改 `MEMORY.md`，请改为在本文件或各自 `*-status.md` **登记一行**。
+
+**④ 环境**：本轮全程**未启动后端**（纯 DB 直连 + 离线脚本），4000 端口未占用。

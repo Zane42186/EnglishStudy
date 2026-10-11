@@ -1457,9 +1457,27 @@ UPDATE mistakes SET first_lesson_id = 5 WHERE id = 13 AND first_lesson_id = 6;
 | `db:compare` | **15 / 0 / 0** |
 | `db:summary` | INDEX.md / digest.md **UNCHANGED**（该字段不进 digest）；`--check` **stale=0** |
 
-**⚠️ 遗留（待裁定，本次未动）**：`last_lesson_id` **仍为 6**。按 §11.11「`last` = 最近一次**出错**课」＋该行 `wrong_count=1`（唯一一次错＝第 5 课）
-⇒ **`last` 亦应为 5**（现 6 与 `first` 同源，系同一次 `courseNo` 取错所致）。
-**未获授权前不改**；建议 SQL：`UPDATE mistakes SET last_lesson_id = 5 WHERE id = 13 AND last_lesson_id = 6;`
+**✅ 遗留已闭合（2026-10-11）**：`last_lesson_id` **6 → 5 已由 Amy 侧执行**（负责人授权「自行更新，无需再核对」）：
+`UPDATE mistakes SET last_lesson_id = 5 WHERE id = 13 AND last_lesson_id = 6;` → `ROW_COUNT()=1`；回滚 `SET last_lesson_id = 6`。
+（be-dev 原按「不擅自扩范围」留作遗留未动 —— 与铁律一致；由 Amy 侧授权执行。）
+
+**be-dev 独立复核（不采信汇报，2026-10-11 09:50）**：`id=13` → **`first=5 / last=5`** ✅；
+同型缺陷扫描 `wrong_count=1 AND first_lesson_id <> last_lesson_id` = **0**（无第二处）；`last < first` 异常 = **0**；
+全库 `total=73 / passed=12 / first NULL=2 / last NULL=2` **逐项不变**；`db:compare` **15/0/0**、`db:summary --check` **stale=0**。
+⇒ §11.11「`last` = 最近一次**出错**课」在该行**闭环**；本次为**首次值本身的错值纠正**，不涉 `first` 冻结语义。
+
+---
+
+## §6.24 协作协议登记：`MEMORY.md` 单一写者（2026-10-11 负责人批准）
+
+> ⚠️ **已作废（负责人 2026-10-11 同日取消）**：该规则**不再生效** —— `MEMORY.md` **恢复常规协作**（跨角色改动仍应改前先 `Read`、用 surgical `Edit`、遇「modified since read」重读再改）。本节仅作历史留痕，不作约束。见本文件「附录 A」末注。
+
+> 起因：`MEMORY.md` 曾 3 分钟内被并发写 3 次（整文 `Write` 互冲）。
+
+- **指定写者 = Amy**（同一时刻仅一人可写）。**be-dev 不再写 `MEMORY.md`**（无论 surgical `Edit` 还是整文 `Write`）。
+- be-dev 如需变更：**只在本文件登记一行**「**建议 MEMORY.md：…**」，由写者拍板合并。**本轮无建议。**
+- 写者纪律（供参考）：① 写前先 `Read` 最新版；② 一律 surgical `Edit`、禁整文 `Write` 覆盖；③ 遇「modified since read」重读再改、**不得强写**。
+- 体积口径：自动注入上限 = 客户端**硬编码 `Tb = 1e4` = 10,000 字符**（`substring` 按字符计，**非配置项、不可调**）；超出部分不注入，但**磁盘文件始终完整** ⇒ 无数据丢失，需要时按需 `Read` 全文。**裁决：保持现状**。
 
 ---
 
@@ -1484,3 +1502,18 @@ npm run test:write           # 143 项（默认打 localhost:4000 = 生产；STE
 
 > `test:*` 与 `integration-check` / `verify-frontend-*` 需要后端服务在线；
 > 依赖装在 `C:\Users\lenovo\.workbuddy\binaries\node\workspace`，**必须带 `NODE_PATH`**。
+
+---
+
+## 附录 A：验证与联调口径（自 `MEMORY.md` §七 下沉 · Amy 2026-10-11 执行 · 负责人授权）
+
+> **为什么在这里**：`MEMORY.md` 的**自动注入上限 = 客户端硬编码 `Tb = 1e4` = 10,000 字符**（`app.asar` 内 `substring(0,Tb)`，非配置项、不可调）；超出即截尾。为让 `MEMORY.md` **开局全量可见**，把**非教学域**的 §七 下沉到本角色文档。**内容零删改、仅换位置**；`MEMORY.md` §七 处留 1 行指针。
+
+- 链路 frontend/（Vue）5173 dev / 8080 dist → API 4000 → MySQL；报告 `docs/integration-report-01.md`。
+- 🔴 **测试隔离（2026-10-03 起）**：写库测试一律 `db:test:clone`→`start:test`(4100)→`test:write:isolated`/`test:api:isolated`（打 `english_platform_test`）；`write-api-check.js` **安全闸**：库非 `*_test` 或端口 4000 → **拒绝**（exit 2）；`clone_to_test.js` **只读生产**。分工：后端/`db:*`=be-dev、前端验证=fe-dev、**Amy 不跑测试**。
+- 三级：① `integration-check.js`；② `playwright-core`（`channel:'msedge'`、依赖在 `…\node\workspace`、**须带 `NODE_PATH`**）；③ 路由拦截喂包络（离线可跑、**不替代真机**）。
+- 基线（会漂，实测前现跑）：`test:api` / `test:write` / `integration-check` / `verify-frontend-*`；`db:summary --check` stale=0。
+- 踩坑：Edge CLI 无头在 Windows 不可用（须 playwright-core）；CSS 带 `display` 的类须补 `.<cls>.hide{display:none}`；`curl` 必加 `--noproxy '*'`；**`taskkill /PID` 在 Git Bash 被 MSYS 当路径 → 前缀 `MSYS_NO_PATHCONV=1`**。
+- ⚠️ 两个「G3」同名不同物：git-plan 的 G3=`.gitignore` 补 `dist/`（**已闭合** `1aca69c`）；教学侧的 G3=`backlog`/`knowledge_points`（**未实现**）。
+
+> ⚠️ **同时作废**：本文件上文 `## §6.24 协作协议登记：MEMORY.md 单一写者` —— 负责人 **2026-10-11 同日取消**该规则（`MEMORY.md` **恢复常规协作**，不再由单一写者独占）。§6.24 保留作历史留痕，**不再生效**。
